@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=M.G Linux Toolbox
+GenericName=Linux system toolbox
+Comment=Understand and manage supported Linux system features
+Exec=mg-linux-toolbox
+Icon=mg-linux-toolbox
+Terminal=false
+StartupNotify=true
+Categories=System;Settings;GTK;
+Keywords=system;kernel;settings;linux;

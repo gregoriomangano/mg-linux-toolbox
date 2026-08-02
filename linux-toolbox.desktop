@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Linux Toolbox
+GenericName=System Toolbox
+Comment=GTK4 system utility application for Linux
+Exec=linux-toolbox
+Icon=linux-toolbox
+Terminal=false
+StartupNotify=true
+Categories=System;Settings;GTK;
+Keywords=system;tools;utilities;settings;linux;

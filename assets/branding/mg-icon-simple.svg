@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="bgS" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#151310"/>
+      <stop offset="1" stop-color="#060605"/>
+    </linearGradient>
+    <linearGradient id="goldS" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f4dc9c"/>
+      <stop offset="0.5" stop-color="#d2a248"/>
+      <stop offset="1" stop-color="#96691f"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="64" height="64" rx="14" fill="url(#bgS)"/>
+
+  <!-- Simplified monogram, legible at 32x32 -->
+  <g transform="translate(32 34)" fill="url(#goldS)">
+    <path d="M -19 12
+             L -19 -10
+             L -13.5 -10
+             L -6.5 -0.5
+             L 0.5 -10
+             L 5.5 -10
+             L 5.5 12
+             L 0.5 12
+             L 0.5 -2
+             L -6.5 7.5
+             L -13.5 -2
+             L -13.5 12 Z"/>
+    <path d="M 24 -7
+             A 12 12 0 1 0 24 9.5
+             L 24 4.3
+             L 17.2 4.3
+             L 17.2 0.5
+             L 28.2 0.5
+             L 28.2 12
+             A 16.5 16.5 0 1 1 28.2 -13
+             L 22.5 -8.2
+             A 12 12 0 0 0 24 -7 Z"/>
+  </g>
+
+  <rect x="1" y="1" width="62" height="62" rx="13.5" fill="none"
+        stroke="#4a3b1c" stroke-opacity="0.6" stroke-width="1"/>
+</svg>

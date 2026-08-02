@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#15140f"/>
+      <stop offset="1" stop-color="#050505"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f6dfa0"/>
+      <stop offset="0.45" stop-color="#d8a94a"/>
+      <stop offset="1" stop-color="#9c6f22"/>
+    </linearGradient>
+    <linearGradient id="goldEdge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff2cf" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#fff2cf" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="vignette" cx="0.5" cy="0.32" r="0.75">
+      <stop offset="0" stop-color="#2a2620" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect x="0" y="0" width="512" height="512" rx="108" fill="url(#bg)"/>
+  <rect x="0" y="0" width="512" height="512" rx="108" fill="url(#vignette)"/>
+  <rect x="14" y="14" width="484" height="484" rx="96" fill="none"
+        stroke="#5b4a26" stroke-opacity="0.5" stroke-width="2"/>
+
+  <!-- Monogram: interlocking M · G -->
+  <g transform="translate(256 268)">
+    <path d="M -152 96
+             L -152 -78
+             L -108 -78
+             L -54 -6
+             L 0 -78
+             L 44 -78
+             L 44 96
+             L 4 96
+             L 4 -14
+             L -50 58
+             L -104 -14
+             L -104 96 Z"
+          fill="url(#gold)" stroke="#5c451a" stroke-width="3" stroke-linejoin="round"/>
+
+    <path d="M 190 -20
+             A 96 96 0 1 0 190 78
+             L 190 34
+             L 138 34
+             L 138 4
+             L 226 4
+             L 226 96
+             A 132 132 0 1 1 226 -104
+             L 226 -104
+             L 190 -66
+             A 96 96 0 0 0 190 -20 Z"
+          fill="url(#gold)" stroke="#5c451a" stroke-width="3" stroke-linejoin="round"/>
+
+    <path d="M -152 -78 L -108 -78 L -54 -6 L 0 -78 L 44 -78 L 44 -60 L 4 -60 L 4 -14 L -50 58 L -104 -14 L -104 -60 L -152 -60 Z"
+          fill="url(#goldEdge)" opacity="0.7"/>
+  </g>
+
+  <rect x="0" y="0" width="512" height="512" rx="108" fill="none"
+        stroke="#000000" stroke-opacity="0.35" stroke-width="1"/>
+</svg>

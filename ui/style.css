@@ -1,0 +1,1845 @@
+/* ================================================================
+   Linux Toolbox — Soft Slate Theme
+   Muted, low-contrast-fatigue palette. Every interactive surface
+   (including popovers/dropdown lists) is explicitly themed so the
+   desktop's system accent color (which may be a jarring violet)
+   never leaks through.
+   ================================================================ */
+
+/* ── Global color tokens ────────────────────────────────────── */
+@define-color lt_accent        #6FA3C0;   /* soft steel-blue, used for text/icons  */
+@define-color lt_accent_bg     #4F7F9C;   /* soft steel-blue, used for filled surfaces */
+@define-color lt_accent_fg     #F3F6F8;   /* text/icons drawn on top of accent_bg_color */
+
+@define-color lt_bg          #0C0D10;
+@define-color lt_card       #212429;
+@define-color lt_card_hover    #2A2E35;
+@define-color lt_border        #33373E;
+
+@define-color lt_text        #F2F3F5;
+@define-color lt_text_secondary      #ABB2BC;
+@define-color lt_text_tertiary       #868D97;
+
+@define-color lt_success       #7FB88F;
+@define-color lt_warning       #D9AD66;
+@define-color lt_danger        #D98A8A;
+
+/* ── Window ─────────────────────────────────────────────────── */
+/* Blunt catch-all: force every widget inside the window onto our
+   dark background/text colors first; specific rules below (row,
+   headerbar, cards, badges...) then override with their own look.
+   This guarantees no light "view" background can ever show through,
+   regardless of the system's light/dark preference. */
+/* Note: no background-color here on purpose — setting it on every
+   widget also paints an opaque rectangle behind labels nested inside
+   colored buttons/badges/chips (e.g. the text inside a blue button),
+   which looks like a broken black box. Background is instead set
+   explicitly below, only on the container widgets that need it. */
+window * {
+  background-image: none;
+  color: @lt_text;
+  box-shadow: none;
+  text-shadow: none;
+  border-image: none;
+}
+
+window,
+.background,
+.view,
+scrolledwindow,
+scrolledwindow > viewport,
+list,
+textview,
+textview text {
+  background-color: @lt_bg;
+  color: @lt_text;
+}
+
+/* ── Header bar ─────────────────────────────────────────────── */
+headerbar {
+  background: #191C22;
+  border-bottom: 3px solid;
+  border-image: linear-gradient(to right, #008C45, #F4F5F0, #CD212A) 1;
+  color: @lt_text;
+}
+
+headerbar .title {
+  font-weight: 600;
+  font-size: 15px;
+  color: @lt_text;
+}
+
+.app-brand-label {
+  font-weight: 600;
+  font-size: 14px;
+  color: @lt_text;
+}
+
+button.app-brand-btn {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 4px 6px;
+  border-radius: 8px;
+}
+
+button.app-brand-btn:hover {
+  background: alpha(#FFFFFF, 0.08);
+}
+
+headerbar .subtitle {
+  font-size: 12px;
+  color: alpha(@lt_text, 0.50);
+}
+
+/* ── View switcher (top tabs) ───────────────────────────────── */
+viewswitcher button {
+  color: alpha(@lt_text, 0.60);
+  border-radius: 8px;
+  padding: 4px 12px;
+  margin: 2px;
+}
+
+viewswitcher button:hover {
+  color: @lt_text;
+  background: alpha(#FFFFFF, 0.06);
+}
+
+viewswitcher button:checked {
+  background: alpha(#FFFFFF, 0.10);
+  color: @lt_text;
+  font-weight: 700;
+}
+
+/* ── View switcher bar (bottom, narrow screens) ─────────────── */
+viewswitcherbar {
+  background: #191C22;
+  border-top: 3px solid;
+  border-image: linear-gradient(to right, #008C45, #F4F5F0, #CD212A) 1;
+}
+
+viewswitcherbar button {
+  color: alpha(@lt_text, 0.50);
+  font-size: 12px;
+}
+
+viewswitcherbar button:hover {
+  color: @lt_text;
+}
+
+viewswitcherbar button:checked,
+viewswitcherbar button.active {
+  color: @lt_text;
+  font-weight: 700;
+}
+
+/* ── Preferences Group title ────────────────────────────────── */
+preferencesgroup > box > box > label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: @lt_text_tertiary;
+  margin-bottom: 6px;
+}
+
+/* ── Rows (ExpanderRow, ActionRow) ───────────────────────────── */
+row {
+  background: @lt_card;
+  border: 1px solid @lt_border;
+  border-radius: 12px;
+  margin-bottom: 3px;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+row:hover {
+  background: @lt_card_hover;
+  border-color: alpha(#FFFFFF, 0.16);
+}
+
+row.activatable:hover {
+  background: @lt_card_hover;
+}
+
+row .title {
+  font-weight: 600;
+  font-size: 14.5px;
+  color: @lt_text;
+}
+
+row .subtitle {
+  font-size: 13px;
+  color: alpha(@lt_text_secondary, 0.90);
+}
+
+/* ── Expander arrow — make it clearer ───────────────────────── */
+row.expander image.expander-row-arrow {
+  color: alpha(@lt_text_secondary, 0.75);
+  min-width: 16px;
+  min-height: 16px;
+}
+
+/* ── Expander row expanded content ──────────────────────────── */
+row list {
+  background: transparent;
+}
+
+row list > row {
+  background: transparent;
+  border: none;
+  border-top: 1px solid @lt_border;
+  border-radius: 0;
+  margin-bottom: 0;
+}
+
+/* ── Switches ───────────────────────────────────────────────── */
+switch {
+  background: alpha(#FFFFFF, 0.08);
+  border: 1px solid alpha(#FFFFFF, 0.10);
+  border-radius: 14px;
+  min-width: 42px;
+  min-height: 22px;
+}
+
+switch:checked {
+  background: @lt_accent_bg;
+  border-color: @lt_accent_bg;
+}
+
+switch slider {
+  background: #F3F6F8;
+  border-radius: 11px;
+  min-width: 18px;
+  min-height: 18px;
+  margin: 2px;
+  box-shadow: none;
+}
+
+/* ── Buttons ────────────────────────────────────────────────── */
+button {
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 5px 14px;
+  border: none;
+}
+
+/* Buttons are never dimmed when disabled — we style the disabled
+   ("Installed") state explicitly via .installed-chip instead, so
+   text always stays fully readable. */
+button:disabled {
+  opacity: 1;
+}
+
+button.lt-action-btn {
+  background: @lt_accent_bg;
+  color: @lt_accent_fg;
+  border: none;
+  box-shadow: none;
+}
+
+button.lt-action-btn:hover {
+  background: shade(@lt_accent_bg, 1.12);
+}
+
+button.destructive-action {
+  background: @lt_danger;
+  color: #201414;
+}
+
+/* "Installed" state — neutral/success looking, never blue, always
+   readable even though the button is disabled. */
+button.installed-chip {
+  background: alpha(@lt_success, 0.16);
+  color: @lt_success;
+  border: 1px solid alpha(@lt_success, 0.35);
+}
+
+button.flat {
+  background: transparent;
+  color: @lt_accent;
+}
+
+button.flat:hover {
+  background: alpha(@lt_accent_bg, 0.12);
+}
+
+/* ── Dropdowns — make it obvious they open a menu ────────────── */
+dropdown button {
+  background: @lt_card;
+  border: 1px solid @lt_border;
+  border-radius: 8px;
+  color: @lt_text;
+  padding: 5px 12px;
+  font-size: 13px;
+}
+
+dropdown button:hover {
+  background: @lt_card_hover;
+  border-color: alpha(#FFFFFF, 0.22);
+}
+
+dropdown button:checked,
+dropdown button:active {
+  background: @lt_card_hover;
+  border-color: alpha(#FFFFFF, 0.35);
+}
+
+/* The little caret/arrow icon inside the dropdown button — kept
+   neutral (not accent-colored) so it doesn't read as a stray tint,
+   but still clearly visible against the dark background. */
+dropdown button image,
+dropdown button arrow {
+  color: @lt_text_secondary;
+  opacity: 1;
+}
+
+/* ── Popovers / dropdown menus — override system accent ──────── */
+popover.background,
+popover contents {
+  background: @lt_card;
+  border: 1px solid @lt_border;
+  border-radius: 10px;
+  color: @lt_text;
+  box-shadow: 0 6px 20px alpha(#000000, 0.35);
+}
+
+popover list,
+popover listview {
+  background: transparent;
+}
+
+/* Options inside an open dropdown list */
+popover list row,
+popover listview row,
+menu menuitem {
+  color: @lt_text;
+  font-size: 13px;
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+
+popover list row:hover,
+popover listview row:hover,
+menu menuitem:hover {
+  background: alpha(#FFFFFF, 0.08);
+  color: @lt_text;
+}
+
+popover list row:selected,
+popover listview row:selected,
+popover list row check:checked,
+popover listview row:selected label {
+  background: alpha(#FFFFFF, 0.14);
+  color: @lt_text;
+  font-weight: 700;
+}
+
+/* ── Generic text/list selection — never let system violet show ── */
+*:selected,
+selection {
+  background: alpha(#FFFFFF, 0.16);
+  color: @lt_text;
+}
+
+checkbutton check:checked,
+radiobutton radio:checked {
+  background: @lt_accent_bg;
+  border-color: @lt_accent_bg;
+  color: @lt_accent_fg;
+}
+
+/* No focus ring: GTK draws it as a hard-edged rectangle even around
+   rounded buttons/chips, which looks like a broken 3D halo. Hover and
+   pressed states already make interactive elements clear enough. */
+*:focus,
+*:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* ── Risk badge chips ───────────────────────────────────────── */
+.badge-low {
+  background: alpha(@lt_success, 0.14);
+  color: @lt_success;
+  border: 1px solid alpha(@lt_success, 0.30);
+  border-radius: 6px;
+  padding: 1px 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.badge-medium {
+  background: alpha(@lt_warning, 0.14);
+  color: @lt_warning;
+  border: 1px solid alpha(@lt_warning, 0.30);
+  border-radius: 6px;
+  padding: 1px 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.badge-high {
+  background: alpha(@lt_danger, 0.14);
+  color: @lt_danger;
+  border: 1px solid alpha(@lt_danger, 0.30);
+  border-radius: 6px;
+  padding: 1px 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.badge-reboot {
+  background: alpha(@lt_warning, 0.12);
+  color: @lt_warning;
+  border: 1px solid alpha(@lt_warning, 0.25);
+  border-radius: 6px;
+  padding: 1px 8px;
+  font-size: 10.5px;
+}
+
+/* ── Description body ───────────────────────────────────────── */
+.desc-what {
+  color: @lt_text_secondary;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.desc-pro {
+  color: @lt_success;
+  font-size: 12.5px;
+}
+
+.desc-con {
+  color: @lt_danger;
+  font-size: 12.5px;
+}
+
+/* ── Install banner ─────────────────────────────────────────── */
+.install-banner {
+  background: alpha(@lt_warning, 0.10);
+  border: 1px solid alpha(@lt_warning, 0.25);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+/* Direct child only — must NOT match the "Installa ora" button's own
+   internal label, which sits nested one level deeper inside it. */
+.install-banner > label {
+  color: @lt_warning;
+  font-size: 12.5px;
+}
+
+/* ── Status labels ──────────────────────────────────────────── */
+.status-active {
+  color: @lt_success;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.status-inactive {
+  color: alpha(@lt_text_secondary, 0.75);
+  font-size: 12px;
+}
+
+/* ── System info / homepage dashboard ────────────────────────── */
+.sysinfo-hero {
+  background: @lt_card;
+  border: 1px solid @lt_border;
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+
+.sysinfo-hero-title {
+  color: @lt_text;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.sysinfo-hero-subtitle {
+  color: @lt_text_secondary;
+  font-size: 12.5px;
+}
+
+.sysinfo-tile {
+  background: @lt_card;
+  border: 1px solid @lt_border;
+  border-radius: 14px;
+  padding: 14px 16px;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.sysinfo-tile:hover {
+  background: @lt_card_hover;
+  border-color: alpha(#FFFFFF, 0.16);
+}
+
+.sysinfo-tile-icon {
+  font-size: 20px;
+}
+
+.sysinfo-card {
+  background: @lt_card;
+  border: 1px solid @lt_border;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.sysinfo-label {
+  color: @lt_text_tertiary;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sysinfo-value {
+  color: @lt_text;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.sysinfo-value-large {
+  color: @lt_text;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.sysinfo-value-sub {
+  color: @lt_text_secondary;
+  font-size: 12.5px;
+}
+
+.sysinfo-bar trough {
+  background: alpha(#FFFFFF, 0.07);
+  border-radius: 4px;
+  min-height: 7px;
+}
+
+.sysinfo-bar-cpu progress {
+  background: @lt_accent_bg;
+  border-radius: 4px;
+}
+
+.sysinfo-bar-ram progress {
+  background: @lt_success;
+  border-radius: 4px;
+}
+
+.sysinfo-bar-disk progress {
+  background: @lt_warning;
+  border-radius: 4px;
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+scrollbar slider {
+  background: alpha(#FFFFFF, 0.12);
+  border-radius: 4px;
+  min-width: 4px;
+}
+
+scrollbar slider:hover {
+  background: alpha(#FFFFFF, 0.22);
+}
+
+/* ── Separator ──────────────────────────────────────────────── */
+separator {
+  background: alpha(#FFFFFF, 0.05);
+}
+
+/* ================================================================
+   SIDEBAR, TOP BAR AND DASHBOARD CARDS
+   ================================================================ */
+
+@define-color mg_bg          #0A0B0D;
+@define-color mg_sidebar_bg  #101216;
+@define-color mg_surface_1   #16181D;   /* cards */
+@define-color mg_surface_2   #1C1F26;   /* elevated cards / hero */
+@define-color mg_surface_hover #22252C;
+@define-color mg_border      #2A2E36;
+@define-color mg_border_soft alpha(#FFFFFF, 0.06);
+@define-color mg_gold        #D8A94A;
+@define-color mg_gold_soft   alpha(#D8A94A, 0.16);
+
+/* ── Shell layout ─────────────────────────────────────────────── */
+.mg-shell {
+  background: @mg_bg;
+}
+
+.mg-topbar {
+  background: #12141a;
+  border-bottom: 1px solid @mg_border_soft;
+  box-shadow: none;
+}
+
+.mg-topbar .app-brand-label {
+  color: @lt_text;
+}
+
+button.mg-topbar-nav-btn {
+  background: transparent;
+  color: alpha(@lt_text, 0.72);
+  border-radius: 8px;
+  padding: 5px 12px;
+}
+
+button.mg-topbar-nav-btn:hover {
+  background: alpha(#FFFFFF, 0.06);
+  color: @lt_text;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────── */
+.mg-sidebar {
+  background: @mg_sidebar_bg;
+  border-right: 1px solid @mg_border_soft;
+}
+
+.mg-sidebar-header {
+  padding: 18px 16px 14px 16px;
+}
+
+.mg-sidebar-brand-row {
+  margin-bottom: 2px;
+}
+
+.mg-sidebar-title {
+  color: @lt_text;
+  font-size: 15.5px;
+  font-weight: 700;
+}
+
+.mg-sidebar-subtitle {
+  color: @lt_text_tertiary;
+  font-size: 11.5px;
+}
+
+.mg-sidebar-scroll {
+  background: transparent;
+}
+
+.mg-sidebar-group {
+  margin: 6px 10px;
+}
+
+.mg-sidebar-group-title {
+  color: @lt_text_tertiary;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 14px 10px 6px 10px;
+}
+
+button.mg-nav-tile {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 7px 10px;
+  margin: 1px 4px;
+  font-weight: 500;
+  font-size: 13.5px;
+  color: alpha(@lt_text, 0.78);
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+button.mg-nav-tile:hover {
+  background: @mg_surface_hover;
+  border-color: @mg_border_soft;
+  color: @lt_text;
+}
+
+button.mg-nav-tile.active {
+  background: @mg_gold_soft;
+  border-color: alpha(@mg_gold, 0.35);
+  color: @lt_text;
+  font-weight: 700;
+}
+
+button.mg-nav-tile.active .mg-nav-tile-icon {
+  color: @mg_gold;
+}
+
+.mg-nav-tile-icon {
+  color: alpha(@lt_text, 0.55);
+  min-width: 18px;
+}
+
+.mg-sidebar-footer {
+  padding: 12px 18px 16px 18px;
+  border-top: 1px solid @mg_border_soft;
+}
+
+.mg-sidebar-footer-label {
+  color: @lt_text_tertiary;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+}
+
+/* ── Dashboard cards (Panoramica) ────────────────────────────── */
+.mg-content-clamp {
+  padding: 20px 24px 32px 24px;
+}
+
+.mg-card {
+  background: @mg_surface_1;
+  border: 1px solid @mg_border;
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+
+.mg-card-elevated {
+  background: @mg_surface_2;
+  border: 1px solid @mg_border;
+  border-radius: 16px;
+  padding: 20px 22px;
+  box-shadow: 0 8px 24px alpha(#000000, 0.28);
+}
+
+.mg-section-title {
+  color: @lt_text;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.mg-section-sub {
+  color: @lt_text_tertiary;
+  font-size: 12px;
+}
+
+.mg-hero-title {
+  color: @lt_text;
+  font-size: 21px;
+  font-weight: 800;
+}
+
+.mg-hero-sub {
+  color: @lt_text_secondary;
+  font-size: 13px;
+}
+
+.mg-hero-badge {
+  background: alpha(@lt_success, 0.14);
+  color: @lt_success;
+  border: 1px solid alpha(@lt_success, 0.30);
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.mg-hero-badge.moderate {
+  background: alpha(@lt_warning, 0.14);
+  color: @lt_warning;
+  border-color: alpha(@lt_warning, 0.30);
+}
+
+.mg-hero-badge.high {
+  background: alpha(@lt_danger, 0.14);
+  color: @lt_danger;
+  border-color: alpha(@lt_danger, 0.30);
+}
+
+.mg-stat-card {
+  background: @mg_surface_1;
+  border: 1px solid @mg_border;
+  border-radius: 14px;
+  padding: 15px 16px;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.mg-stat-card:hover {
+  background: @mg_surface_hover;
+  border-color: alpha(#FFFFFF, 0.14);
+}
+
+.mg-stat-icon {
+  font-size: 19px;
+}
+
+.mg-stat-label {
+  color: @lt_text_tertiary;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mg-stat-value {
+  color: @lt_text;
+  font-size: 25px;
+  font-weight: 800;
+}
+
+.mg-stat-sub {
+  color: @lt_text_secondary;
+  font-size: 12px;
+}
+
+.mg-psi-row {
+  background: @mg_surface_1;
+  border: 1px solid @mg_border;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.mg-psi-label {
+  color: @lt_text;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.mg-psi-explain {
+  color: @lt_text_tertiary;
+  font-size: 11.5px;
+}
+
+.mg-chip-low {
+  background: alpha(@lt_success, 0.14);
+  color: @lt_success;
+  border: 1px solid alpha(@lt_success, 0.30);
+  border-radius: 6px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mg-chip-moderate {
+  background: alpha(@lt_warning, 0.14);
+  color: @lt_warning;
+  border: 1px solid alpha(@lt_warning, 0.30);
+  border-radius: 6px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mg-chip-high {
+  background: alpha(@lt_danger, 0.14);
+  color: @lt_danger;
+  border: 1px solid alpha(@lt_danger, 0.30);
+  border-radius: 6px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mg-chip-unknown {
+  background: alpha(#FFFFFF, 0.06);
+  color: @lt_text_tertiary;
+  border: 1px solid @mg_border;
+  border-radius: 6px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mg-feature-count {
+  font-size: 22px;
+  font-weight: 800;
+  color: @lt_text;
+}
+
+.mg-feature-count-label {
+  color: @lt_text_tertiary;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mg-disk-row {
+  background: @mg_surface_1;
+  border: 1px solid @mg_border;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+button.mg-quick-action {
+  background: @mg_surface_1;
+  border: 1px solid @mg_border;
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: @lt_text;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+button.mg-quick-action:hover {
+  background: @mg_surface_hover;
+  border-color: alpha(@mg_gold, 0.30);
+}
+
+button.mg-quick-action image {
+  color: @mg_gold;
+}
+
+/* ================================================================
+   DASHBOARD CARDS AND GAUGES
+
+   Depth levels used throughout this block:
+     level 0 — window background (unchanged, see mg_bg above)
+     level 1 — sidebar / dashboard scroll area
+     level 2 — main cards (hero, resource, PSI, kernel, disks, quick actions)
+     level 3 — sub-cards nested inside a level-2 card
+   ================================================================ */
+
+@define-color mgv2_level1        #101216;
+@define-color mgv2_level2        #17191F;
+@define-color mgv2_level2_border #262A33;
+@define-color mgv2_level3        #1D2027;
+@define-color mgv2_level3_border #2C303A;
+@define-color mgv2_gold          #D8A94A;
+
+/* ── Shell / topbar refinement ───────────────────────────────── */
+.mgv2-shell {
+  background: @mg_bg;
+}
+
+.mgv2-topbar {
+  box-shadow: 0 6px 18px alpha(#000000, 0.35);
+}
+
+button.mgv2-topbar-nav-btn {
+  padding: 6px 14px;
+  border-radius: 10px;
+  margin: 0 1px;
+}
+
+button.mgv2-topbar-nav-btn:hover {
+  background: alpha(#FFFFFF, 0.08);
+}
+
+button.mgv2-topbar-nav-btn:active {
+  background: alpha(#FFFFFF, 0.14);
+}
+
+/* ── Sidebar v2 — real blocks, not flat text rows ────────────── */
+.mgv2-sidebar {
+  background: @mgv2_level1;
+  border-right: 1px solid alpha(#FFFFFF, 0.06);
+}
+
+.mgv2-sidebar-scroll {
+  background: transparent;
+}
+
+.mgv2-sidebar-header {
+  padding: 20px 18px 16px 18px;
+}
+
+/* v3: the sidebar header is the single in-app identity block and is
+   itself a button (opens the real project page) — reset it so it
+   never looks like a generic GTK button, just a subtle hover. */
+button.mgv2-sidebar-brand-btn {
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  padding: 4px;
+}
+
+button.mgv2-sidebar-brand-btn:hover {
+  background: alpha(#FFFFFF, 0.05);
+}
+
+button.mgv2-sidebar-brand-btn:active {
+  background: alpha(#FFFFFF, 0.09);
+}
+
+.mgv2-sidebar-brand-icon-wrap {
+  background: linear-gradient(160deg, alpha(@mgv2_gold, 0.22), alpha(@mgv2_gold, 0.05));
+  border: 1px solid alpha(@mgv2_gold, 0.35);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 2px 8px alpha(#000000, 0.35);
+}
+
+.mgv2-sidebar-title {
+  color: @lt_text;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.mgv2-sidebar-subtitle {
+  color: @lt_text_tertiary;
+  font-size: 11.5px;
+}
+
+.mgv2-sidebar-group {
+  margin: 6px 12px;
+}
+
+.mgv2-sidebar-group-title {
+  color: @lt_text_tertiary;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 14px 8px 6px 8px;
+}
+
+button.mgv2-sidebar-tile {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 9px 10px;
+  margin: 2px 2px;
+  min-height: 44px;
+  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+button.mgv2-sidebar-tile:hover {
+  background: alpha(#FFFFFF, 0.06);
+  border-color: alpha(#FFFFFF, 0.08);
+}
+
+button.mgv2-sidebar-tile:active {
+  background: alpha(#FFFFFF, 0.10);
+}
+
+button.mgv2-sidebar-tile.active {
+  background: linear-gradient(135deg, alpha(@mgv2_gold, 0.20), alpha(@mgv2_gold, 0.07));
+  border-color: alpha(@mgv2_gold, 0.40);
+  box-shadow: inset 0 1px 0 alpha(#FFFFFF, 0.06), 0 3px 10px alpha(#000000, 0.28);
+}
+
+button.mgv2-sidebar-tile.active .mgv2-sidebar-tile-label {
+  color: @lt_text;
+  font-weight: 700;
+}
+
+button.mgv2-sidebar-tile.active .mgv2-sidebar-tile-icon {
+  color: @mgv2_gold;
+}
+
+.mgv2-sidebar-tile-icon-wrap {
+  background: alpha(#FFFFFF, 0.05);
+  border-radius: 9px;
+  padding: 6px;
+  min-width: 18px;
+  min-height: 18px;
+}
+
+.mgv2-sidebar-tile-icon {
+  color: alpha(@lt_text, 0.70);
+}
+
+.mgv2-sidebar-tile-label {
+  color: alpha(@lt_text, 0.85);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.mgv2-sidebar-footer {
+  padding: 12px 18px 16px 18px;
+  border-top: 1px solid alpha(#FFFFFF, 0.06);
+}
+
+.mgv2-sidebar-footer-label {
+  color: @lt_text_tertiary;
+  font-size: 10.5px;
+}
+
+/* ── Section titles ───────────────────────────────────────────── */
+.mgv2-section-title {
+  color: @lt_text;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/* ── Depth-tiered dashboard cards ────────────────────────────── */
+.mgv2-card-hero {
+  background: linear-gradient(160deg, #1D1F26, #16181D);
+  border: 1px solid alpha(#FFFFFF, 0.09);
+  border-radius: 18px;
+  padding: 22px 24px;
+  box-shadow: inset 0 1px 0 alpha(#FFFFFF, 0.05), 0 14px 32px alpha(#000000, 0.35);
+}
+
+.mgv2-card {
+  background: @mgv2_level2;
+  border: 1px solid @mgv2_level2_border;
+  border-radius: 16px;
+  padding: 18px 20px;
+  box-shadow: inset 0 1px 0 alpha(#FFFFFF, 0.04), 0 6px 16px alpha(#000000, 0.22);
+  transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.mgv2-card:hover {
+  background: shade(@mgv2_level2, 1.08);
+  border-color: alpha(#FFFFFF, 0.14);
+  box-shadow: inset 0 1px 0 alpha(#FFFFFF, 0.06), 0 10px 22px alpha(#000000, 0.32);
+}
+
+.mgv2-card-sub {
+  background: @mgv2_level3;
+  border: 1px solid @mgv2_level3_border;
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: inset 0 1px 0 alpha(#FFFFFF, 0.03);
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.mgv2-card-sub:hover {
+  background: shade(@mgv2_level3, 1.08);
+  border-color: alpha(#FFFFFF, 0.16);
+}
+
+.mgv2-card-title {
+  color: @lt_text;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.mgv2-card-title-icon {
+  color: @mgv2_gold;
+}
+
+.mgv2-card-note {
+  color: @lt_text_secondary;
+  font-size: 12.5px;
+}
+
+button.mgv2-card-action-btn {
+  background: @lt_accent_bg;
+  color: @lt_accent_fg;
+  border-radius: 9px;
+  padding: 7px 16px;
+  font-weight: 700;
+  font-size: 12.5px;
+  margin-top: 4px;
+}
+
+button.mgv2-card-action-btn:hover {
+  background: shade(@lt_accent_bg, 1.12);
+}
+
+button.mgv2-card-action-btn-flat {
+  background: transparent;
+  color: @mgv2_gold;
+  border: 1px solid alpha(@mgv2_gold, 0.30);
+  border-radius: 8px;
+  padding: 4px 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+button.mgv2-card-action-btn-flat:hover {
+  background: alpha(@mgv2_gold, 0.10);
+}
+
+/* ── Hero (welcome) block ─────────────────────────────────────── */
+.mgv2-hero-icon-wrap {
+  background: linear-gradient(160deg, alpha(@mgv2_gold, 0.24), alpha(@mgv2_gold, 0.05));
+  border: 1px solid alpha(@mgv2_gold, 0.35);
+  border-radius: 14px;
+  padding: 8px;
+}
+
+.mgv2-hero-title {
+  color: @lt_text;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.mgv2-hero-tagline {
+  color: @lt_text_secondary;
+  font-size: 12.5px;
+}
+
+.mgv2-hero-badge {
+  background: alpha(@lt_success, 0.16);
+  color: @lt_success;
+  border: 1px solid alpha(@lt_success, 0.35);
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.mgv2-hero-badge.moderate {
+  background: alpha(@lt_warning, 0.16);
+  color: @lt_warning;
+  border-color: alpha(@lt_warning, 0.35);
+}
+
+.mgv2-hero-badge.high {
+  background: alpha(@lt_danger, 0.16);
+  color: @lt_danger;
+  border-color: alpha(@lt_danger, 0.35);
+}
+
+.mgv2-hero-fact {
+  background: alpha(#FFFFFF, 0.04);
+  border: 1px solid alpha(#FFFFFF, 0.06);
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
+.mgv2-hero-fact-key {
+  color: @lt_text_tertiary;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.mgv2-hero-fact-value {
+  color: @lt_text;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ── Radial gauge cards ───────────────────────────────────────── */
+.mgv2-gauge-emoji {
+  font-size: 16px;
+}
+
+.mgv2-gauge-name {
+  color: @lt_text_secondary;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mgv2-gauge-value {
+  color: @lt_text;
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.mgv2-gauge-caption {
+  color: @lt_text_tertiary;
+  font-size: 10px;
+}
+
+.mgv2-gauge-detail {
+  color: @lt_text_secondary;
+  font-size: 12px;
+}
+
+.mgv2-gauge-icon {
+  color: @lt_text_secondary;
+}
+
+/* ── PSI chips + sub-cards ─────────────────────────────────────── */
+.mgv2-chip-low {
+  background: alpha(@lt_success, 0.16);
+  color: @lt_success;
+  border: 1px solid alpha(@lt_success, 0.32);
+  border-radius: 6px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mgv2-chip-moderate {
+  background: alpha(@lt_warning, 0.16);
+  color: @lt_warning;
+  border: 1px solid alpha(@lt_warning, 0.32);
+  border-radius: 6px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mgv2-chip-high {
+  background: alpha(@lt_danger, 0.16);
+  color: @lt_danger;
+  border: 1px solid alpha(@lt_danger, 0.32);
+  border-radius: 6px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mgv2-psi-sub-name {
+  color: @lt_text;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.mgv2-psi-sub-phrase {
+  color: @lt_text_secondary;
+  font-size: 12px;
+}
+
+.mgv2-psi-indicator trough {
+  background: alpha(#FFFFFF, 0.07);
+  border-radius: 4px;
+  min-height: 6px;
+}
+
+.mgv2-psi-indicator-low progress {
+  background: @lt_success;
+  border-radius: 4px;
+}
+
+.mgv2-psi-indicator-moderate progress {
+  background: @lt_warning;
+  border-radius: 4px;
+}
+
+.mgv2-psi-indicator-high progress {
+  background: @lt_danger;
+  border-radius: 4px;
+}
+
+/* ── Kernel Functions metric tiles ───────────────────────────── */
+.mgv2-metric-value {
+  color: @lt_text;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.mgv2-metric-label {
+  color: @lt_text_tertiary;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Disks cards ──────────────────────────────────────────────── */
+.mgv2-disk-title {
+  color: @lt_text;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.mgv2-disk-tech {
+  color: @lt_text_tertiary;
+  font-size: 11px;
+}
+
+.mgv2-disk-cap {
+  color: @lt_text_secondary;
+  font-size: 12px;
+}
+
+.mgv2-disk-kind-chip {
+  background: alpha(#FFFFFF, 0.08);
+  color: @lt_text_secondary;
+  border-radius: 6px;
+  padding: 1px 8px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.mgv2-disk-used {
+  color: @lt_text_tertiary;
+  font-size: 11.5px;
+}
+
+/* ── Quick action blocks ─────────────────────────────────────── */
+button.mgv2-quick-action {
+  background: @mgv2_level2;
+  border: 1px solid @mgv2_level2_border;
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: inset 0 1px 0 alpha(#FFFFFF, 0.04), 0 4px 12px alpha(#000000, 0.20);
+  transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+button.mgv2-quick-action:hover {
+  background: shade(@mgv2_level2, 1.08);
+  border-color: alpha(@mgv2_gold, 0.30);
+  box-shadow: inset 0 1px 0 alpha(#FFFFFF, 0.06), 0 8px 18px alpha(#000000, 0.28);
+}
+
+.mgv2-quick-action-icon-wrap {
+  background: alpha(@mgv2_gold, 0.14);
+  border-radius: 10px;
+  padding: 8px;
+}
+
+.mgv2-quick-action-icon {
+  color: @mgv2_gold;
+}
+
+.mgv2-quick-action-title {
+  color: @lt_text;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.mgv2-quick-action-desc {
+  color: @lt_text_secondary;
+  font-size: 11.5px;
+}
+
+.mgv2-quick-action-arrow {
+  color: alpha(@lt_text_secondary, 0.60);
+}
+
+/* ================================================================
+   SHARED DESIGN SYSTEM FOR INNER PAGES
+   This section gives Funzioni Kernel / Energia e batteria / Rete e Sicurezza (and,
+   for free, every other page still using plain Adw.ExpanderRow/
+   ActionRow) the same depth language as the Home, WITHOUT any
+   Python change to FeatureRow / KernelFeatureRow — every class below
+   targets CSS classes those rows already apply themselves.
+   ================================================================ */
+
+/* ── Central semantic palette (aliases onto existing tokens — one
+   source of truth, never a new color invented per page) ──────── */
+@define-color ds_primary     @lt_accent_bg;   /* blue: primary actions */
+@define-color ds_primary_fg  @lt_accent_fg;
+@define-color ds_success     @lt_success;     /* green: ok / active / low risk */
+@define-color ds_warning     @lt_warning;     /* orange: attention / medium risk */
+@define-color ds_danger      @lt_danger;      /* red: error / high risk */
+@define-color ds_neutral     @lt_text_tertiary; /* grey: info / read-only / n/a */
+@define-color ds_brand       @mgv2_gold;      /* gold: identity / nav / selection */
+
+/* Category colors for IconBadge — coordinated, never the only signal
+   (icon shape + section title always carry the meaning too). */
+@define-color ds_cat_kernel     #D8A94A; /* gold/orange */
+@define-color ds_cat_memory     #6FA0E0; /* blue */
+@define-color ds_cat_disk       #B48CE0; /* purple */
+@define-color ds_cat_network    #5FC6D9; /* cyan */
+@define-color ds_cat_energy     #E0C94A; /* yellow */
+@define-color ds_cat_audio      #C08CE0; /* violet */
+@define-color ds_cat_virt       #6FA0E0; /* blue */
+
+/* ── IconBadge ────────────────────────────────────────────────── */
+.ds-icon-badge {
+  border-radius: 10px;
+}
+
+.ds-icon-badge-sm {
+  padding: 5px;
+  min-width: 16px;
+  min-height: 16px;
+}
+
+.ds-icon-badge-lg {
+  padding: 12px;
+  min-width: 26px;
+  min-height: 26px;
+  border-radius: 14px;
+}
+
+.ds-icon-badge-kernel {
+  background: alpha(@ds_cat_kernel, 0.16);
+  border: 1px solid alpha(@ds_cat_kernel, 0.35);
+  color: @ds_cat_kernel;
+}
+
+.ds-icon-badge-memory {
+  background: alpha(@ds_cat_memory, 0.16);
+  border: 1px solid alpha(@ds_cat_memory, 0.35);
+  color: @ds_cat_memory;
+}
+
+.ds-icon-badge-disk {
+  background: alpha(@ds_cat_disk, 0.16);
+  border: 1px solid alpha(@ds_cat_disk, 0.35);
+  color: @ds_cat_disk;
+}
+
+.ds-icon-badge-network {
+  background: alpha(@ds_cat_network, 0.16);
+  border: 1px solid alpha(@ds_cat_network, 0.35);
+  color: @ds_cat_network;
+}
+
+.ds-icon-badge-energy {
+  background: alpha(@ds_cat_energy, 0.16);
+  border: 1px solid alpha(@ds_cat_energy, 0.35);
+  color: @ds_cat_energy;
+}
+
+.ds-icon-badge-security-ok {
+  background: alpha(@ds_success, 0.16);
+  border: 1px solid alpha(@ds_success, 0.35);
+  color: @ds_success;
+}
+
+.ds-icon-badge-security-risk {
+  background: alpha(@ds_danger, 0.16);
+  border: 1px solid alpha(@ds_danger, 0.35);
+  color: @ds_danger;
+}
+
+.ds-icon-badge-audio {
+  background: alpha(@ds_cat_audio, 0.16);
+  border: 1px solid alpha(@ds_cat_audio, 0.35);
+  color: @ds_cat_audio;
+}
+
+.ds-icon-badge-virt {
+  background: alpha(@ds_cat_virt, 0.16);
+  border: 1px solid alpha(@ds_cat_virt, 0.35);
+  color: @ds_cat_virt;
+}
+
+.ds-icon-badge-neutral {
+  background: alpha(#FFFFFF, 0.06);
+  border: 1px solid alpha(#FFFFFF, 0.10);
+  color: @ds_neutral;
+}
+
+.ds-icon-badge image {
+  color: inherit;
+}
+
+/* ── StatusPill ───────────────────────────────────────────────── */
+.ds-pill {
+  border-radius: 999px;
+  padding: 2px 11px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ds-pill-success {
+  background: alpha(@ds_success, 0.16);
+  color: @ds_success;
+  border: 1px solid alpha(@ds_success, 0.32);
+}
+
+.ds-pill-warning {
+  background: alpha(@ds_warning, 0.16);
+  color: @ds_warning;
+  border: 1px solid alpha(@ds_warning, 0.32);
+}
+
+.ds-pill-danger {
+  background: alpha(@ds_danger, 0.16);
+  color: @ds_danger;
+  border: 1px solid alpha(@ds_danger, 0.32);
+}
+
+.ds-pill-neutral {
+  background: alpha(#FFFFFF, 0.07);
+  color: @ds_neutral;
+  border: 1px solid alpha(#FFFFFF, 0.12);
+}
+
+.ds-pill-info {
+  background: alpha(@ds_primary, 0.16);
+  color: @lt_accent;
+  border: 1px solid alpha(@ds_primary, 0.32);
+}
+
+/* ── PageHeader ───────────────────────────────────────────────── */
+.ds-page-header {
+  padding: 4px 2px;
+}
+
+.ds-page-header-title {
+  color: @lt_text;
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.ds-page-header-desc {
+  color: @lt_text_secondary;
+  font-size: 13px;
+}
+
+/* ── InfoTile (standalone, e.g. inside a PageHeader trailing area) ── */
+.ds-info-tile {
+  border-radius: 10px;
+  padding: 10px 12px;
+  border-left: 3px solid alpha(#FFFFFF, 0.15);
+  background: alpha(#FFFFFF, 0.03);
+}
+
+.ds-info-tile-title {
+  color: @lt_text_tertiary;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ds-info-tile-body {
+  color: @lt_text_secondary;
+  font-size: 12.5px;
+}
+
+.ds-info-tile-success {
+  border-left-color: alpha(@ds_success, 0.55);
+}
+
+.ds-info-tile-warning {
+  border-left-color: alpha(@ds_warning, 0.55);
+}
+
+/* ── Modern button hierarchy (applied to EXISTING KernelFeatureRow /
+   FeatureRow buttons via ui/design_system/action_bar.py — no Python
+   logic touched, only these CSS classes added from outside) ────── */
+button.ds-btn-primary {
+  background: @ds_primary;
+  color: @ds_primary_fg;
+  border: none;
+}
+
+button.ds-btn-primary:hover {
+  background: shade(@ds_primary, 1.12);
+}
+
+button.ds-btn-secondary {
+  background: alpha(#FFFFFF, 0.06);
+  color: @lt_text;
+  border: 1px solid alpha(#FFFFFF, 0.14);
+}
+
+button.ds-btn-secondary:hover {
+  background: alpha(#FFFFFF, 0.10);
+}
+
+button.ds-btn-restore {
+  background: alpha(@ds_warning, 0.14);
+  color: @ds_warning;
+  border: 1px solid alpha(@ds_warning, 0.30);
+}
+
+button.ds-btn-restore:hover {
+  background: alpha(@ds_warning, 0.20);
+}
+
+button.ds-btn-danger {
+  background: @ds_danger;
+  color: #201414;
+  border: none;
+}
+
+button.ds-btn-danger:hover {
+  background: shade(@ds_danger, 1.12);
+}
+
+/* ── Inner pages: same card depth language as the v2 Home ───────
+   These override the plainer v1 `row {...}` rule further up the file
+   (later rule wins in the cascade) — every Adw.ExpanderRow/ActionRow
+   in the app, including pages not yet individually migrated, picks
+   up the new look automatically. */
+row {
+  background: @mgv2_level2;
+  border: 1px solid @mgv2_level2_border;
+  border-radius: 14px;
+  margin-bottom: 8px;
+  box-shadow: inset 0 1px 0 alpha(#FFFFFF, 0.04), 0 4px 14px alpha(#000000, 0.20);
+  transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+row:hover {
+  background: shade(@mgv2_level2, 1.06);
+  border-color: alpha(#FFFFFF, 0.16);
+  box-shadow: inset 0 1px 0 alpha(#FFFFFF, 0.06), 0 8px 20px alpha(#000000, 0.28);
+}
+
+row list > row {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-top: 1px solid @mgv2_level3_border;
+  border-radius: 0;
+  margin-bottom: 0;
+}
+
+/* Expanded body content sits one level deeper (mgv2_level3), giving a
+   visible "page > card > content" hierarchy instead of a flat panel. */
+row .desc-what,
+row .desc-pro,
+row .desc-con {
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-top: 2px;
+  border-left: 3px solid alpha(#FFFFFF, 0.15);
+  background: @mgv2_level3;
+}
+
+row .desc-pro {
+  border-left-color: alpha(@ds_success, 0.55);
+}
+
+row .desc-con {
+  border-left-color: alpha(@ds_warning, 0.55);
+}
+
+/* ── Section groups: give Adw.PreferencesGroup titles a touch more
+   presence, consistent with the Home's section labels. ─────────── */
+preferencesgroup > box > box > label.description {
+  color: @lt_text_secondary;
+  font-size: 12.5px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+/* ================================================================
+   CONTROL STANDARDIZATION (StatusPill states,
+   SegmentedControl, SelectControl, uniform chevrons, higher-contrast
+   "installed" chip).
+   ================================================================ */
+
+/* ── StatusPill: 5 canonical states, always legible, never opaque ── */
+.ds-pill {
+  border-radius: 999px;
+  padding: 3px 11px;
+  font-size: 11.5px;
+  font-weight: 700;
+  min-height: 20px;
+}
+
+.ds-pill-icon {
+  -gtk-icon-size: 12px;
+  margin-right: 1px;
+}
+
+.ds-pill-success {
+  background: alpha(@ds_success, 0.20);
+  color: @ds_success;
+  border: 1px solid alpha(@ds_success, 0.40);
+}
+
+.ds-pill-success .ds-pill-icon {
+  color: @ds_success;
+}
+
+.ds-pill-neutral {
+  background: alpha(#8FA3B8, 0.16);
+  color: #B9C6D4;
+  border: 1px solid alpha(#8FA3B8, 0.30);
+}
+
+.ds-pill-warning {
+  background: alpha(@ds_warning, 0.20);
+  color: @ds_warning;
+  border: 1px solid alpha(@ds_warning, 0.40);
+}
+
+/* "Absent" (Non installato / Non disponibile / Non supportato) —
+   deliberately NOT the same washed-out translucent grey as before:
+   a solid, clearly-readable mid-grey text on a visible plate, never
+   rendered through button:disabled opacity tricks. */
+.ds-pill-absent {
+  background: alpha(#FFFFFF, 0.09);
+  color: #CBD1D8;
+  border: 1px solid alpha(#FFFFFF, 0.16);
+}
+
+.ds-pill-danger {
+  background: alpha(@ds_danger, 0.20);
+  color: @ds_danger;
+  border: 1px solid alpha(@ds_danger, 0.40);
+}
+
+/* ── "Installed" chip — was reading as a faded disabled button.
+   Target :disabled explicitly with full-strength colors so no
+   theme-level insensitive blending can wash it out. ─────────────── */
+button.installed-chip,
+button.installed-chip:disabled {
+  background: alpha(@lt_success, 0.32);
+  color: #DFF7E6;
+  border: 1px solid alpha(@lt_success, 0.65);
+  font-weight: 700;
+  opacity: 1;
+}
+
+/* ── Uniform chevrons everywhere an Adw.ExpanderRow can appear ───── */
+row.expander image.expander-row-arrow {
+  color: alpha(@lt_text_secondary, 0.80);
+  min-width: 16px;
+  min-height: 16px;
+  margin-right: 2px;
+  -gtk-icon-size: 16px;
+}
+
+/* ── SegmentedControl — [ A | B | C ], one selected, linked group ── */
+.ds-segmented {
+  background: alpha(#FFFFFF, 0.05);
+  border: 1px solid alpha(#FFFFFF, 0.10);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+button.ds-segmented-btn {
+  background: transparent;
+  color: alpha(@lt_text, 0.72);
+  border: none;
+  border-radius: 8px;
+  padding: 5px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+button.ds-segmented-btn:hover {
+  background: alpha(#FFFFFF, 0.06);
+}
+
+button.ds-segmented-btn:checked {
+  background: alpha(@mgv2_gold, 0.20);
+  color: @lt_text;
+  border: 1px solid alpha(@mgv2_gold, 0.45);
+  box-shadow: inset 0 1px 0 alpha(#FFFFFF, 0.06);
+}
+
+/* ── SelectControl — one standardized dropdown chrome everywhere ── */
+.ds-select-wrap {
+  min-height: 36px;
+}
+
+dropdown.ds-select button {
+  background: @mgv2_level3;
+  border: 1px solid @mgv2_level3_border;
+  border-radius: 10px;
+  color: @lt_text;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: none;
+  min-height: 36px;
+}
+
+dropdown.ds-select button:hover {
+  background: shade(@mgv2_level3, 1.08);
+  border-color: alpha(#FFFFFF, 0.20);
+}
+
+.ds-select-technical {
+  color: @lt_text_tertiary;
+  font-size: 11px;
+}
+
+/* Popovers (dropdown lists) everywhere — lighter, card-consistent
+   shadow instead of the heavy default; same border/radius language
+   as the rest of the design system. */
+popover.background,
+popover contents {
+  background: @mgv2_level2;
+  border: 1px solid @mgv2_level2_border;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px alpha(#000000, 0.28);
+}
+
+popover list row:selected,
+popover listview row:selected {
+  background: alpha(@mgv2_gold, 0.16);
+  color: @lt_text;
+}
+
+/* ── V5: Services page row — one card per service, header (icon/name/
+   description/pill) always full width, actions reflowing below on
+   narrow windows instead of compressing the header (see page_services.py
+   ServiceRow). ─────────────────────────────────────────────────── */
+.lt-service-row {
+  padding: 12px 14px;
+}
+
+.lt-service-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: @lt_text;
+}
+
+.lt-service-switch-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: @lt_text_secondary;
+}
