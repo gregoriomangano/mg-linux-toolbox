@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>it.manganogregorio.MGLinuxToolbox</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>M.G Linux Toolbox</name>
+  <summary>Understand and manage supported Linux system features</summary>
+  <summary xml:lang="it">Comprendi e gestisci le funzioni Linux supportate</summary>
+  <description>
+    <p>M.G Linux Toolbox presents supported Linux system features in a clear GTK4 and Libadwaita interface.</p>
+    <p xml:lang="it">M.G Linux Toolbox presenta le funzioni Linux supportate in un'interfaccia chiara basata su GTK4 e Libadwaita.</p>
+  </description>
+  <launchable type="desktop-id">it.manganogregorio.MGLinuxToolbox.desktop</launchable>
+  <url type="homepage">https://www.manganogregorio.it/m-g-linux-toolbox/</url>
+  <developer id="it.manganogregorio">
+    <name>Gregorio Mangano</name>
+  </developer>
+  <releases>
+    <release version="0.9.0-beta.3" date="2026-08-03" type="development">
+      <description>
+        <p>Adds corrected live PSI status, disk activity monitoring and the read-only Gaming Pack V1 preview.</p>
+      </description>
+    </release>
+    <release version="0.9.0-beta.2" date="2026-08-02" type="development" />
+  </releases>
+  <content_rating type="oars-1.1" />
+</component>

@@ -18,7 +18,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.kernel_features.base import SupportStatus
-from core.kernel_features.monitoring import PSIFeature
+from core.kernel_features.monitoring import PSIFeature, PSIHysteresis
 from core.kernel_features.memory import SwappinessFeature
 from core.kernel_features.storage import IOSchedulerFeature, list_real_disks
 from core import priv_writer
@@ -88,6 +88,88 @@ class PSITests(FakeRootTestCase):
         r = f.read_current()
         self.assertFalse(r.ok)
         self.assertEqual(r.friendly_message, "kf_unsupported_kernel")
+
+
+# ── PSI hysteresis (2026-08-03 fix) ─────────────────────────────────────
+# Reproduces the real spike from the bug report: some avg10=77.52
+# avg60=72.65 avg300=61.16, later avg10=0.00 avg60=0.16 avg300=18.27 —
+# the Panoramica kept showing red purely because it never refreshed at
+# all, and even once it did, a naive re-read would still need to not be
+# fooled by a lingering avg300. PSIHysteresis never reads avg300, and
+# needs two consecutive samples in each direction before it flips.
+class PSIHysteresisTests(unittest.TestCase):
+    def test_all_values_low(self):
+        h = PSIHysteresis()
+        self.assertEqual(h.update(0.0, 0.0), "low")
+        self.assertFalse(h.critical)
+
+    def test_high_avg10_but_isolated_sample_does_not_turn_critical(self):
+        h = PSIHysteresis()
+        bucket = h.update(77.52, 72.65)
+        self.assertFalse(h.critical)
+        self.assertEqual(bucket, "low")  # every visible transition needs confirmation
+
+    def test_two_consecutive_high_samples_enter_critical(self):
+        h = PSIHysteresis()
+        h.update(77.52, 72.65)
+        bucket = h.update(77.52, 72.65)
+        self.assertTrue(h.critical)
+        self.assertEqual(bucket, "high")
+
+    def test_avg10_back_to_zero_alone_does_not_exit_critical(self):
+        h = PSIHysteresis()
+        h.update(77.52, 72.65)
+        h.update(77.52, 72.65)
+        self.assertTrue(h.critical)
+        # avg10 has dropped, but avg60 is still elevated — the
+        # situation "continues" per avg60, so it must stay critical.
+        bucket = h.update(0.0, 72.62)
+        self.assertTrue(h.critical)
+        self.assertEqual(bucket, "high")
+
+    def test_avg60_back_to_low_is_what_actually_exits_critical(self):
+        h = PSIHysteresis()
+        h.update(77.52, 72.65)
+        h.update(77.52, 72.65)
+        h.update(0.00, 72.62)   # avg60 still confirms — stays critical
+        h.update(0.00, 0.16)    # 1st sample with both low
+        self.assertTrue(h.critical)  # still needs a 2nd confirming sample
+        bucket = h.update(0.00, 0.16)  # 2nd consecutive low sample
+        self.assertFalse(h.critical)
+        self.assertEqual(bucket, "low")
+
+    def test_avg300_still_high_never_keeps_it_critical(self):
+        # Exact numbers from the bug report: avg300=18.27 stays well
+        # above THRESHOLD_HIGH, but PSIHysteresis.update() doesn't even
+        # accept avg300 as a parameter — it structurally cannot see it.
+        h = PSIHysteresis()
+        h.update(77.52, 72.65)
+        h.update(77.52, 72.65)
+        h.update(0.00, 0.16)
+        bucket = h.update(0.00, 0.16)
+        self.assertFalse(h.critical)
+        self.assertEqual(bucket, "low")
+
+    def test_single_low_sample_after_critical_does_not_exit_early(self):
+        h = PSIHysteresis()
+        h.update(77.52, 72.65)
+        h.update(77.52, 72.65)
+        bucket = h.update(0.0, 0.0)  # only one low sample so far
+        self.assertTrue(h.critical)
+        self.assertEqual(bucket, "high")
+
+    def test_moderate_transition_also_requires_two_samples(self):
+        h = PSIHysteresis()
+        self.assertEqual(h.update(2.0, 1.5), "low")
+        self.assertEqual(h.update(2.0, 1.5), "moderate")
+        self.assertEqual(h.update(0.5, 0.4), "moderate")
+        self.assertEqual(h.update(0.5, 0.4), "low")
+
+    def test_avg60_must_confirm_a_high_avg10_before_red(self):
+        h = PSIHysteresis()
+        self.assertEqual(h.update(77.52, 5.0), "low")
+        self.assertEqual(h.update(77.52, 5.0), "moderate")
+        self.assertFalse(h.critical)
 
 
 # ── Swappiness (read-side, via KernelFeature) ──────────────────────────

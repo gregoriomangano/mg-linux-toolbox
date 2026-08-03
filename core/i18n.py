@@ -701,9 +701,19 @@ _strings = {
     "kf_psi_memory_moderate": {"en": "moderately busy", "it": "moderatamente impegnata", "es": "moderadamente ocupada", "fr": "modérément occupée"},
     "kf_psi_memory_high":     {"en": "very busy", "it": "molto impegnata", "es": "muy ocupada", "fr": "très occupée"},
     "kf_psi_io_low":      {"en": "no slowdown", "it": "nessun rallentamento", "es": "sin ralentización", "fr": "aucun ralentissement"},
-    "kf_psi_io_moderate": {"en": "moderately busy", "it": "moderatamente impegnato", "es": "moderadamente ocupado", "fr": "modérément occupé"},
-    "kf_psi_io_high":     {"en": "very busy", "it": "molto impegnato", "es": "muy ocupado", "fr": "très occupé"},
-    "kf_psi_io_spike_note": {"en": "This might be a temporary spike. Check whether it's still like this after a few minutes.", "it": "Potrebbe essere un picco temporaneo. Controlla se la situazione continua per alcuni minuti.", "es": "Podría ser un pico temporal. Comprueba si la situación continúa después de unos minutos.", "fr": "Il pourrait s'agir d'un pic temporaire. Vérifiez si la situation persiste après quelques minutes."},
+    "kf_psi_io_moderate": {"en": "disk waits detected", "it": "attese del disco rilevate", "es": "esperas del disco detectadas", "fr": "attentes disque détectées"},
+    # 2026-08-03 PSI fix: this is now shown standalone (no "Disco: "
+    # prefix — see PSIRow._refresh_once) precisely because it already
+    # names the resource. Chosen deliberately over the old plain
+    # "molto impegnato" bucket adjective, which used to persist on
+    # screen even after avg10/avg60 had recovered (see kf_psi_io_spike_note
+    # / kf_psi_io_restored below for the surrounding explanation).
+    "kf_psi_io_high":     {"en": "High disk wait", "it": "Attesa del disco elevata", "es": "Espera elevada del disco", "fr": "Attente disque élevée"},
+    "kf_psi_io_spike_note": {"en": "Some programs are waiting on disk operations. This may be a temporary situation and doesn't necessarily mean there's a fault.", "it": "Alcuni programmi stanno aspettando operazioni del disco. Potrebbe essere una situazione temporanea e non indica necessariamente un guasto.", "es": "Algunos programas están esperando operaciones del disco. Podría ser una situación temporal y no indica necesariamente una avería.", "fr": "Certains programmes attendent des opérations sur le disque. Cela peut être temporaire et ne signifie pas nécessairement une panne."},
+    "kf_psi_io_restored": {"en": "The disk isn't slowing the system down.", "it": "Il disco non sta rallentando il sistema.", "es": "El disco no está ralentizando el sistema.", "fr": "Le disque ne ralentit pas le système."},
+    "kf_psi_avg10_current": {"en": "avg10 (current signal)", "it": "avg10 (segnale attuale)", "es": "avg10 (señal actual)", "fr": "avg10 (signal actuel)"},
+    "kf_psi_avg60_confirm": {"en": "avg60 (confirmation)", "it": "avg60 (conferma)", "es": "avg60 (confirmación)", "fr": "avg60 (confirmation)"},
+    "kf_psi_avg300_history": {"en": "avg300 (history)", "it": "avg300 (storico)", "es": "avg300 (histórico)", "fr": "avg300 (historique)"},
     "kf_psi_all_low": {"en": "System responsive", "it": "Sistema reattivo", "es": "Sistema receptivo", "fr": "Système réactif"},
     "kf_psi_elevated_summary": {"en": "Slowdown: {resources}", "it": "Rallentamento: {resources}", "es": "Ralentización: {resources}", "fr": "Ralentissement : {resources}"},
 

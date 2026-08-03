@@ -14,8 +14,16 @@ _LINE_RE = re.compile(
 # Thresholds for the "Bassa/Moderata/Alta" bucketing, kept as named
 # constants (not scattered magic numbers) so they're easy to revisit —
 # the spec explicitly warns against rigid, unreviewable thresholds.
+# Reused as-is for both avg10 and avg60 (2026-08-03 PSI fix) — avg300
+# never feeds a threshold: a five-minute average keeping a box red long
+# after a spike ended was exactly the bug that fix removes.
 THRESHOLD_MODERATE = 1.0
 THRESHOLD_HIGH = 10.0
+
+# Shared polling cadence for any UI that periodically re-reads
+# /proc/pressure/* (Panoramica badge/card, Kernel Functions PSI row) —
+# a single source of truth so the two never drift apart.
+PSI_REFRESH_SECONDS = 2
 
 
 def _bucket(avg10: float) -> str:
@@ -24,6 +32,72 @@ def _bucket(avg10: float) -> str:
     if avg10 >= THRESHOLD_MODERATE:
         return "moderate"
     return "low"
+
+
+class PSIHysteresis:
+    """Stateful per-resource PSI classifier for the visible UI state.
+
+    ``avg10`` is the primary, current signal. ``avg60`` only confirms
+    whether a high reading is sustained and whether a return to the low
+    state is established. ``avg300`` is deliberately not accepted by
+    this API: it remains historical/technical data and can never keep a
+    badge red.
+
+    Every visible transition needs two consecutive samples with the same
+    candidate state. A single spike or dip therefore cannot change the
+    UI. When avg10 has recovered but avg60 is still elevated, the state
+    may step down from high to moderate, but it cannot claim to be low.
+    """
+
+    REQUIRED_SAMPLES = 2
+
+    def __init__(self):
+        self._state = "low"
+        self._pending_state = None
+        self._pending_count = 0
+        self.critical = False
+
+    def reset_pending(self):
+        """Forget an incomplete transition after a read gap/page pause."""
+        self._pending_state = None
+        self._pending_count = 0
+
+    def _candidate(self, avg10: float, avg60: float) -> str:
+        primary = _bucket(avg10)
+
+        # avg60 confirms a high/critical candidate at the same high
+        # threshold. A sharp avg10 spike with a lower one-minute trend
+        # is acknowledged as moderate, not red.
+        if primary == "high" and avg60 < THRESHOLD_HIGH:
+            return "moderate"
+
+        # A low avg10 while the one-minute trend is still elevated is a
+        # recovery in progress. Leave red after two coherent samples, but
+        # stay amber until avg60 also confirms the low state.
+        if primary == "low" and avg60 >= THRESHOLD_MODERATE:
+            return "moderate"
+
+        return primary
+
+    def update(self, avg10: float, avg60: float) -> str:
+        candidate = self._candidate(avg10, avg60)
+
+        if candidate == self._state:
+            self.reset_pending()
+            return self._state
+
+        if candidate == self._pending_state:
+            self._pending_count += 1
+        else:
+            self._pending_state = candidate
+            self._pending_count = 1
+
+        if self._pending_count >= self.REQUIRED_SAMPLES:
+            self._state = candidate
+            self.critical = self._state == "high"
+            self.reset_pending()
+
+        return self._state
 
 
 def parse_psi_file(content: str) -> dict:
@@ -79,7 +153,14 @@ class PSIFeature(KernelFeature):
                 return OpResult(False, friendly_message="kf_unavailable")
             except OSError as e:
                 return OpResult(False, friendly_message="kf_err_generic", technical_detail=str(e))
-            out[resource] = parse_psi_file(content)
+            parsed = parse_psi_file(content)
+            if "some" not in parsed:
+                return OpResult(
+                    False,
+                    friendly_message="kf_err_generic",
+                    technical_detail=f"PSI data missing 'some' line for {resource}",
+                )
+            out[resource] = parsed
         return OpResult(True, value=out)
 
     def to_friendly(self, raw_value) -> str:

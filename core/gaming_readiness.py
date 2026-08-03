@@ -4,6 +4,7 @@ Each check either runs the real command/tool non-destructively or reads
 the real kernel/D-Bus state.
 """
 import glob
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -24,8 +25,9 @@ class ReadinessItem:
     detail: str = ""
 
 
-def _gpu_driver() -> str:
-    for uevent in glob.glob("/sys/class/drm/card*/device/uevent"):
+def _gpu_driver(sys_root: str = "/sys") -> str:
+    pattern = os.path.join(sys_root, "class", "drm", "card*", "device", "uevent")
+    for uevent in glob.glob(pattern):
         try:
             with open(uevent) as f:
                 for line in f:
@@ -36,8 +38,8 @@ def _gpu_driver() -> str:
     return ""
 
 
-def check_gpu_driver() -> ReadinessItem:
-    driver = _gpu_driver()
+def check_gpu_driver(sys_root: str = "/sys") -> ReadinessItem:
+    driver = _gpu_driver(sys_root=sys_root)
     if driver in _KNOWN_GOOD_DRIVERS:
         return ReadinessItem("gpu_driver", "gaming_check_gpu_driver", READY, driver)
     if driver:

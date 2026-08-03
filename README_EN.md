@@ -6,9 +6,9 @@ M.G Linux Toolbox brings together Linux features that would normally require the
 
 ## Project status
 
-Version **0.9.0 Beta 2** is published as a prerelease. The latest known validation includes **846 passing tests**.
+Version **0.9.0 Beta 3** is the current prerelease. The latest validation includes **932 passing tests**.
 
-The verified AppImage package and its checksum are available in [Release v0.9.0-beta.2](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.2).
+The verified AppImage package and its checksum are associated with [Release v0.9.0-beta.3](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.3).
 
 The code is distributed under the **GPL-3.0-or-later** license. The project name, logo, and identity are addressed separately in [TRADEMARKS.md](TRADEMARKS.md).
 
@@ -52,12 +52,12 @@ Availability changes with the kernel, hardware, drivers, and distribution. An un
 
 ## Program areas
 
-- **System and disks:** system information, devices, TRIM, SMART, and controlled maintenance.
+- **System and disks:** system information, devices, TRIM, SMART, controlled maintenance, and live disk activity based on `/proc` and `/sys` data.
 - **Network and security:** Wi-Fi, hotspot, Bluetooth, IPv6, firewall, DNS, and available sharing services.
 - **Power and battery:** power profiles, suspend, battery, and device power saving.
 - **Audio:** PipeWire status, devices, audio restart, and audio power-saving options.
 - **Printers:** CUPS service, basic support, and detected drivers.
-- **Gaming:** GameMode, Vulkan, libraries, and tools commonly used for gaming.
+- **Gaming:** GameMode, Vulkan, libraries, and tools commonly used for gaming; Gaming Pack V1 is analysis/preview only and does not install or remove packages.
 - **Virtualization:** KVM, IOMMU, VFIO, KSM, and container engines.
 - **Services:** status, start, stop, and automatic activation of recognized services.
 - **Security:** SSH access, updates, AppArmor, SELinux, and detected protections.
@@ -134,7 +134,7 @@ M.G Linux Toolbox does not promise:
 
 A choice that is useful on one computer may be ineffective or counterproductive on another. Always read the explanations shown and grant privileges only for an action you recognize.
 
-Environment verified during public preparation: **Pop!_OS 24.04 LTS**, Python 3.12, GTK 4.14, Libadwaita 1.5, and PyGObject 3.48. Compatibility with other modern distributions is expected but must be tested. Debian 12 is not declared as supported.
+Environment verified during public preparation: **Pop!_OS 24.04 LTS**, Python 3.12, GTK 4.14, Libadwaita 1.5, and PyGObject 3.48. The Debian-family Gaming Pack mapping was checked on this machine; Fedora, Arch-family, and openSUSE still require real-machine testing. Compatibility with other modern distributions is expected but must be tested. Debian 12 is not declared as supported.
 
 For private security reports, see [SECURITY.md](SECURITY.md). For general limitations, see [DISCLAIMER.md](DISCLAIMER.md).
 
@@ -152,7 +152,7 @@ Always verify the recipient before confirming a payment.
 - YouTube channel: <https://www.youtube.com/@GregorioMangano>
 - Contact: <https://www.manganogregorio.it/contatti-gregorio-mangano-mondovi/>
 - Public source: <https://github.com/gregoriomangano/mg-linux-toolbox>
-- Release: <https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.2>
+- Release: <https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.3>
 
 ## Author
 
@@ -185,4 +185,4 @@ Run the automated tests:
 python3 -m unittest discover -s tests
 ```
 
-Preparing an AppImage also requires `rsync`, `sha256sum`, and a verified copy of `appimagetool`. The package for Release 0.9.0 Beta 2 was built and verified before publication.
+Preparing an AppImage also requires `rsync`, `sha256sum`, and a verified copy of `appimagetool`. The package for Release 0.9.0 Beta 3 is built from a fresh AppDir and verified before publication.

@@ -11,6 +11,7 @@ from core.uri_launcher import open_external_url
 from ui.sidebar import Sidebar
 
 from ui.pages.page_overview    import OverviewPage
+from ui.pages.page_disk_activity import DiskActivityPage
 from ui.pages.page_network     import NetworkPage
 from ui.pages.page_system      import SystemPage
 from ui.pages.page_performance import PerformancePage
@@ -55,15 +56,20 @@ PAGES = [
     ("tab_guide",       GuidePage,       "guide",       "help-faq-symbolic"),
     ("tab_credits",     CreditsPage,     "credits",     "starred-symbolic"),
     ("tab_donate",      DonatePage,      "donate",      "emblem-favorite-symbolic"),
+    # 2026-08-03: reached only from the Panoramica's Disco card ("Apri
+    # Attività del disco"), never as its own sidebar entry — see
+    # HIDDEN_FROM_SWITCHER below, same pattern as author/guide/credits/donate.
+    ("da_open_title",   DiskActivityPage, "disk_activity", "drive-harddisk-symbolic"),
 ]
 
-# These four live in the same ViewStack as every operational page (so
+# These five live in the same ViewStack as every operational page (so
 # switch_to_page() keeps working for internal cross-links), but are
 # hidden from both the sidebar and the top-bar's general-purpose nav
 # buttons list — reached only from the header's compact buttons or
 # from in-page links (Chi sono -> Crediti/Guida/Supporta, Informazioni
-# -> Crediti), never as a sidebar entry among the 11 operational pages.
-HIDDEN_FROM_SWITCHER = {"author", "guide", "credits", "donate"}
+# -> Crediti; Panoramica -> Attività del disco), never as a sidebar
+# entry among the 11 operational pages.
+HIDDEN_FROM_SWITCHER = {"author", "guide", "credits", "donate", "disk_activity"}
 
 # (icon_name, i18n_title_key, target_internal_page) — Guida | Chi sono |
 # Supporta. "Contatti" is built separately below (opens the real
@@ -203,7 +209,7 @@ class LinuxToolboxWindow(Adw.ApplicationWindow):
         self._stack.set_vexpand(True)
         self._pages = {}
         for key, PageClass, internal, icon in PAGES:
-            if PageClass is OverviewPage:
+            if PageClass in (OverviewPage, DiskActivityPage):
                 page_widget = PageClass(navigate_callback=self.switch_to_page)
             else:
                 page_widget = PageClass()
@@ -325,6 +331,13 @@ class LinuxToolboxApp(Adw.Application):
             application_id="io.github.linuxtoolbox",
             flags=Gio.ApplicationFlags.FLAGS_NONE
         )
+        quit_action = Gio.SimpleAction.new("quit", None)
+        quit_action.connect("activate", self._on_quit)
+        self.add_action(quit_action)
+        self.set_accels_for_action("app.quit", ["<Control>q"])
+
+    def _on_quit(self, _action, _parameter):
+        self.quit()
 
     def do_activate(self):
         Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_DARK)

@@ -1,11 +1,12 @@
 """
 Tests for this session's header/navigation reorganization: the brand
 link, the three compact center nav buttons (Guida/Chi sono/Supporta),
-the four pages hidden from both view switchers, the license window bug
-fix (Adw.Window's transient_for needs a real Gtk.Window — "Crediti"
-used to pass itself, a plain widget, and silently do nothing), the new
-"Pagina ufficiale GNU GPL" link, and the responsive compact-label
-breakpoint.
+the pages hidden from both view switchers (author/guide/credits/donate,
+plus disk_activity added 2026-08-03 — reached only from the
+Panoramica's Disco card), the license window bug fix (Adw.Window's
+transient_for needs a real Gtk.Window — "Crediti" used to pass itself,
+a plain widget, and silently do nothing), the new "Pagina ufficiale GNU
+GPL" link, and the responsive compact-label breakpoint.
 
 Constructing the full LinuxToolboxWindow pulls in all 15 pages
 (including real system probes from the operational ones) and needs a
@@ -27,9 +28,10 @@ _SKIP_REASON = "no DISPLAY/WAYLAND_DISPLAY — constructing a real GTK widget wi
 class PureLogicTests(unittest.TestCase):
     """No GTK construction at all — safe to run anywhere."""
 
-    def test_hidden_pages_set_matches_the_four_static_pages(self):
+    def test_hidden_pages_set_matches_the_five_static_pages(self):
         import ui.window as window
-        self.assertEqual(window.HIDDEN_FROM_SWITCHER, {"author", "guide", "credits", "donate"})
+        self.assertEqual(window.HIDDEN_FROM_SWITCHER,
+                          {"author", "guide", "credits", "donate", "disk_activity"})
 
     def test_center_nav_order_is_guide_author_donate(self):
         import ui.window as window
@@ -62,6 +64,13 @@ class PureLogicTests(unittest.TestCase):
             self.assertIn(key, _strings)
             for lang in ("it", "en", "es", "fr"):
                 self.assertTrue(_strings[key].get(lang))
+
+    def test_application_exposes_standard_quit_action(self):
+        from ui.window import LinuxToolboxApp
+        app = LinuxToolboxApp()
+        action = app.lookup_action("quit")
+        self.assertIsNotNone(action)
+        self.assertTrue(action.get_enabled())
 
 
 class LicenseTextTests(unittest.TestCase):
@@ -132,7 +141,7 @@ class MainWindowTests(unittest.TestCase):
         cls.window = LinuxToolboxWindow()
 
     def test_hidden_pages_are_invisible_in_the_stack_switcher(self):
-        for internal in ("author", "guide", "credits", "donate"):
+        for internal in ("author", "guide", "credits", "donate", "disk_activity"):
             child = self.window._stack.get_child_by_name(internal)
             self.assertIsNotNone(child, f"{internal} missing from stack")
             self.assertFalse(self.window._stack.get_page(child).get_visible(),
@@ -147,7 +156,7 @@ class MainWindowTests(unittest.TestCase):
                              f"{internal} should stay visible")
 
     def test_hidden_pages_are_still_reachable_via_switch_to_page(self):
-        for internal in ("author", "guide", "credits", "donate"):
+        for internal in ("author", "guide", "credits", "donate", "disk_activity"):
             self.window.switch_to_page(internal)
             self.assertEqual(self.window._stack.get_visible_child_name(), internal)
 

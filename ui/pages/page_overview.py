@@ -15,7 +15,7 @@ import os
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gtk
+from gi.repository import Adw, Gtk, GLib
 
 from core.i18n import T, on_change
 from core import i18n as _i18n_mod
@@ -27,7 +27,7 @@ from ui.pages.page_info import (
 )
 
 from core.kernel_features.base import SupportStatus
-from core.kernel_features.monitoring import PSIFeature
+from core.kernel_features.monitoring import PSIFeature, PSIHysteresis, PSI_REFRESH_SECONDS
 from core.kernel_features.storage import list_real_disks
 from ui.kernel.inventory import count_kernel_inventory
 
@@ -40,7 +40,11 @@ _overview_strings = {
     "ov2_welcome_tagline": {"en": "Check, understand and manage your Linux system.", "it": "Controlla, comprendi e gestisci il tuo sistema Linux.", "es": "Controla, comprende y gestiona tu sistema Linux.", "fr": "Vérifiez, comprenez et gérez votre système Linux."},
     "ov2_state_low":      {"en": "Low load", "it": "Basso carico", "es": "Carga baja", "fr": "Charge faible"},
     "ov2_state_moderate": {"en": "Attention", "it": "Attenzione", "es": "Atención", "fr": "Attention"},
-    "ov2_state_high":     {"en": "Check needed", "it": "Controllo necessario", "es": "Revisión necesaria", "fr": "Vérification nécessaire"},
+    # 2026-08-03 PSI fix: this badge is driven exclusively by PSI (see
+    # _overall_pressure_bucket) — "Check needed" read as a diagnosis
+    # ("something is wrong, go look") for what is, in practice, always
+    # just a resource being under temporary I/O/CPU/memory pressure.
+    "ov2_state_high":     {"en": "A resource is under pressure", "it": "Una risorsa è temporaneamente sotto pressione", "es": "Un recurso está temporalmente bajo presión", "fr": "Une ressource est temporairement sous pression"},
     "ov2_fact_distro":    {"en": "Distribution", "it": "Distribuzione", "es": "Distribución", "fr": "Distribution"},
     "ov2_fact_kernel":    {"en": "Kernel", "it": "Kernel", "es": "Kernel", "fr": "Noyau"},
     "ov2_fact_uptime":    {"en": "Uptime", "it": "Tempo di attività", "es": "Tiempo activo", "fr": "Temps de fonctionnement"},
@@ -92,6 +96,7 @@ _overview_strings = {
     # renamed to say exactly where it goes.
     "ov2_disks_open_system": {"en": "Open System & Disk", "it": "Apri Sistema e disco", "es": "Abrir Sistema y Disco", "fr": "Ouvrir Système et Disque"},
     "ov2_open_pressure": {"en": "Open System Pressure", "it": "Apri Pressione del sistema", "es": "Abrir Presión del sistema", "fr": "Ouvrir Pression du système"},
+    "ov2_open_disk_activity": {"en": "Open Disk Activity", "it": "Apri Attività del disco", "es": "Abrir Actividad del disco", "fr": "Ouvrir Activité du disque"},
 
     "ov2_quick_title":    {"en": "Quick actions", "it": "Azioni rapide", "es": "Acciones rápidas", "fr": "Actions rapides"},
     "ov2_quick_kernel_t": {"en": "Kernel Functions", "it": "Funzioni kernel", "es": "Funciones del Kernel", "fr": "Fonctions du Noyau"},
@@ -211,6 +216,24 @@ class OverviewPage(Gtk.ScrolledWindow):
         self._navigate = navigate_callback
         self._responsive_flowboxes = []
 
+        # 2026-08-03 PSI fix: the badge and pressure card used to be
+        # computed exactly once, right here in __init__, and never
+        # again — this page lives permanently inside the window's
+        # Adw.ViewStack (see ui/window.py, pages are built once and
+        # only shown/hidden via set_visible_child_name), so a value
+        # captured during a real spike stayed on screen forever, long
+        # after the spike had passed. Same PSIHysteresis + map/unmap
+        # polling pattern as the Kernel page's PSIRow, so both places
+        # agree and neither risks a duplicate timer.
+        self._psi_feature = PSIFeature()
+        self._psi_supported = self._psi_feature.probe() == SupportStatus.SUPPORTED_READ_ONLY
+        self._psi_hysteresis = {r: PSIHysteresis() for r in ("cpu", "memory", "io")}
+        self._psi_timeout_id = None
+        self._psi_chip_labels = {}
+        self._psi_phrase_labels = {}
+        self._psi_indicators = {}
+        self._psi_lead_label = None
+
         clamp = Adw.Clamp(maximum_size=1600, tightening_threshold=900)
         clamp.set_margin_top(22)
         clamp.set_margin_bottom(32)
@@ -228,6 +251,12 @@ class OverviewPage(Gtk.ScrolledWindow):
         clamp.set_child(content)
         self.set_child(clamp)
 
+        if self._psi_supported:
+            self._refresh_psi()  # first paint uses the same live path as later refreshes
+            self.connect("map", self._on_psi_map)
+            self.connect("unmap", self._on_psi_unmap)
+            self.connect("destroy", self._on_psi_unmap)
+
     def responsive_flowboxes(self):
         """FlowBoxes whose column count a window-level Adw.Breakpoint
         should adjust for medium/narrow widths."""
@@ -236,6 +265,48 @@ class OverviewPage(Gtk.ScrolledWindow):
     def _navigate_to(self, target: str):
         if self._navigate is not None:
             self._navigate(target)
+
+    # ── PSI live refresh (badge + pressure card) ────────────────
+    def _on_psi_map(self, _w):
+        # Page became visible: (re)start polling. Guarded so switching
+        # tabs back and forth can't ever stack a second timer.
+        if self._psi_timeout_id is None:
+            self._psi_timeout_id = GLib.timeout_add_seconds(PSI_REFRESH_SECONDS, self._on_psi_timeout)
+
+    def _on_psi_unmap(self, _w):
+        # Page hidden (another tab selected): stop polling /proc
+        # entirely until it's shown again.
+        if self._psi_timeout_id is not None:
+            GLib.source_remove(self._psi_timeout_id)
+            self._psi_timeout_id = None
+        for tracker in self._psi_hysteresis.values():
+            tracker.reset_pending()
+
+    def _on_psi_timeout(self):
+        self._refresh_psi()
+        return True  # keep the timer running
+
+    def _refresh_psi(self):
+        """Single read of /proc/pressure/*, run through each resource's
+        hysteresis tracker once, then apply the result to both the
+        header badge and the pressure card — one source of truth per
+        tick, so they can never disagree."""
+        result = self._psi_feature.read_current()
+        if not result.ok:
+            for tracker in self._psi_hysteresis.values():
+                tracker.reset_pending()
+            return
+        buckets = {}
+        for resource in ("cpu", "memory", "io"):
+            data = result.value.get(resource, {})
+            some = data.get("some", {})
+            buckets[resource] = self._psi_hysteresis[resource].update(
+                some.get("avg10", 0.0), some.get("avg60", 0.0)
+            )
+        order = {"low": 0, "moderate": 1, "high": 2}
+        worst = max(buckets.values(), key=lambda b: order.get(b, 0))
+        self._apply_state_badge(worst)
+        self._apply_pressure_card(buckets)
 
     # ── Block 1: welcome / general state ────────────────────────
     def _build_welcome_block(self) -> Gtk.Widget:
@@ -294,36 +365,26 @@ class OverviewPage(Gtk.ScrolledWindow):
         return chip
 
     def _refresh_state_badge(self):
-        bucket = self._overall_pressure_bucket()
-        if bucket is None:
+        """One-off initial paint, called from __init__ while the rest
+        of the page is still being built. If PSI is supported this
+        gets immediately superseded by _refresh_psi()/_apply_state_badge()
+        once construction finishes and the live/hysteresis path takes
+        over; it only stays authoritative when PSI isn't readable at
+        all on this kernel."""
+        if not self._psi_supported:
             self._state_badge.set_text("—")
             self._state_badge.remove_css_class("moderate")
             self._state_badge.remove_css_class("high")
             return
+        self._apply_state_badge("low")
+
+    def _apply_state_badge(self, bucket: str):
         self._state_badge.set_text(T(f"ov2_state_{bucket}"))
         self._state_badge.remove_css_class("moderate")
         self._state_badge.remove_css_class("high")
         css = _BADGE_CSS.get(bucket, "")
         if css:
             self._state_badge.add_css_class(css)
-
-    def _overall_pressure_bucket(self):
-        """Worst PSI bucket across cpu/memory/io, or None if PSI isn't
-        readable on this kernel — used only for the small header badge,
-        never a fabricated health score."""
-        feature = PSIFeature()
-        if feature.probe() != SupportStatus.SUPPORTED_READ_ONLY:
-            return None
-        result = feature.read_current()
-        if not result.ok:
-            return None
-        order = {"low": 0, "moderate": 1, "high": 2}
-        worst = "low"
-        for _resource, data in result.value.items():
-            bucket = feature.to_friendly(data)
-            if order.get(bucket, 0) > order.get(worst, 0):
-                worst = bucket
-        return worst
 
     # ── Block 2: resources — radial gauges ──────────────────────
     def _build_resources_block(self) -> Gtk.Widget:
@@ -352,9 +413,17 @@ class OverviewPage(Gtk.ScrolledWindow):
                                       f"{ram_pct}%", T("ov2_ram_name"),
                                       f"{ram_used} / {ram_total} GB"), -1)
         if root_total > 0:
+            # 2026-08-03: the Disco card is now the click target that
+            # opens the new "Attività del disco" page — an explicit
+            # labeled button, not a silently-clickable whole card, per
+            # this same file's earlier v3 audit note about the PSI
+            # sub-cards ("...now pure read-only info, with one single
+            # explicit button that says exactly where it goes").
             flow.insert(self._gauge_card("💽", "ov2_disk_name", COLOR_DISK, root_pct / 100,
                                           f"{root_pct}%", T("ov2_disk_name"),
-                                          f"{root_used} / {root_total} GB"), -1)
+                                          f"{root_used} / {root_total} GB",
+                                          open_action_key="ov2_open_disk_activity",
+                                          open_action_target="disk_activity"), -1)
         if swap_total > 0:
             swap_pct = round(swap_used / swap_total * 100, 1) if swap_total else 0
             flow.insert(self._gauge_card("🔄", "ov2_swap_name", COLOR_SWAP, swap_pct / 100,
@@ -365,7 +434,8 @@ class OverviewPage(Gtk.ScrolledWindow):
         return section
 
     def _gauge_card(self, emoji: str, name_key: str, color, fraction: float,
-                     center_value: str, center_caption: str, detail_text: str) -> Gtk.Widget:
+                     center_value: str, center_caption: str, detail_text: str,
+                     open_action_key: str = None, open_action_target: str = None) -> Gtk.Widget:
         card = DashboardCard(level=2, spacing=6)
         card.set_halign(Gtk.Align.FILL)
 
@@ -389,6 +459,13 @@ class OverviewPage(Gtk.ScrolledWindow):
         detail.add_css_class("mgv2-gauge-detail")
         card.append(detail)
 
+        if open_action_key and open_action_target:
+            open_btn = Gtk.Button(label=T(open_action_key))
+            open_btn.add_css_class("mgv2-card-action-btn-flat")
+            open_btn.set_halign(Gtk.Align.CENTER)
+            open_btn.connect("clicked", lambda _b, target=open_action_target: self._navigate_to(target))
+            card.append(open_btn)
+
         return card
 
     # ── Block 3: PSI pressure ────────────────────────────────────
@@ -396,25 +473,21 @@ class OverviewPage(Gtk.ScrolledWindow):
         card = DashboardCard(level=2, spacing=12)
         card.add_header(T("ov2_pressure_title"), icon_name="emblem-system-symbolic")
 
-        feature = PSIFeature()
-        status = feature.probe()
-        if status != SupportStatus.SUPPORTED_READ_ONLY:
+        if not self._psi_supported:
             note = Gtk.Label(label=T("ov2_pressure_unsupported"), xalign=0, wrap=True)
             note.add_css_class("mgv2-card-note")
             card.append(note)
             return card
 
-        result = feature.read_current()
-        if not result.ok:
-            return card
-
-        buckets = {r: feature.to_friendly(result.value.get(r, {})) for r in ("cpu", "memory", "io")}
-        worst = max(buckets.values(), key=lambda b: {"low": 0, "moderate": 1, "high": 2}.get(b, 0))
-
-        lead_text = T("ov2_pressure_all_low") if worst == "low" else T("kf_psi_desc")
-        lead = Gtk.Label(label=lead_text, xalign=0, wrap=True)
-        lead.add_css_class("mgv2-card-note")
-        card.append(lead)
+        # Built once with placeholder ("low") content; _refresh_psi()
+        # (called right after the page finishes constructing, and then
+        # every PSI_REFRESH_SECONDS while visible) fills in the real
+        # values via _apply_pressure_card() — same
+        # build-once/update-in-place shape as the Kernel page's PSIRow,
+        # so nothing here ever gets rebuilt from scratch on a timer.
+        self._psi_lead_label = Gtk.Label(label=T("ov2_pressure_all_low"), xalign=0, wrap=True)
+        self._psi_lead_label.add_css_class("mgv2-card-note")
+        card.append(self._psi_lead_label)
 
         sub_flow = Gtk.FlowBox()
         sub_flow.set_selection_mode(Gtk.SelectionMode.NONE)
@@ -427,7 +500,7 @@ class OverviewPage(Gtk.ScrolledWindow):
 
         icons = {"cpu": "🧮", "memory": "🧠", "io": "💽"}
         for resource in ("cpu", "memory", "io"):
-            sub_flow.insert(self._psi_subcard(resource, buckets[resource], icons[resource]), -1)
+            sub_flow.insert(self._psi_subcard(resource, "low", icons[resource]), -1)
 
         card.append(sub_flow)
 
@@ -458,10 +531,12 @@ class OverviewPage(Gtk.ScrolledWindow):
         head.append(name_lbl)
         head.append(chip)
         box.append(head)
+        self._psi_chip_labels[resource] = chip
 
         phrase = Gtk.Label(label=T(f"kf_psi_{resource}_{bucket}"), xalign=0, wrap=True)
         phrase.add_css_class("mgv2-psi-sub-phrase")
         box.append(phrase)
+        self._psi_phrase_labels[resource] = phrase
 
         indicator = Gtk.ProgressBar()
         fraction = {"low": 0.18, "moderate": 0.55, "high": 0.95}.get(bucket, 0.18)
@@ -469,8 +544,37 @@ class OverviewPage(Gtk.ScrolledWindow):
         indicator.add_css_class("mgv2-psi-indicator")
         indicator.add_css_class(f"mgv2-psi-indicator-{bucket}")
         box.append(indicator)
+        self._psi_indicators[resource] = indicator
 
         return box
+
+    def _apply_pressure_card(self, buckets: dict):
+        """Update the already-built pressure card in place (labels,
+        chip/indicator CSS classes) — never rebuilds widgets, so it's
+        safe to call every PSI_REFRESH_SECONDS."""
+        order = {"low": 0, "moderate": 1, "high": 2}
+        worst = max(buckets.values(), key=lambda b: order.get(b, 0))
+        self._psi_lead_label.set_text(
+            T("ov2_pressure_all_low") if worst == "low" else T("kf_psi_desc")
+        )
+
+        for resource, bucket in buckets.items():
+            chip = self._psi_chip_labels[resource]
+            for css in _CHIP_CSS.values():
+                chip.remove_css_class(css)
+            chip.add_css_class(_CHIP_CSS.get(bucket, "mgv2-chip-low"))
+            chip.set_text(T(f"mg_psi_bucket_{bucket}"))
+
+            # kf_psi_io_high already names the resource ("Attesa del
+            # disco elevata") — standalone here is exactly right, same
+            # reasoning as PSIRow._refresh_once for the Kernel page.
+            self._psi_phrase_labels[resource].set_text(T(f"kf_psi_{resource}_{bucket}"))
+
+            indicator = self._psi_indicators[resource]
+            indicator.set_fraction({"low": 0.18, "moderate": 0.55, "high": 0.95}.get(bucket, 0.18))
+            for css in ("mgv2-psi-indicator-low", "mgv2-psi-indicator-moderate", "mgv2-psi-indicator-high"):
+                indicator.remove_css_class(css)
+            indicator.add_css_class(f"mgv2-psi-indicator-{bucket}")
 
     # ── Block 4: Kernel Functions summary ───────────────────────
     def _build_kernel_block(self) -> Gtk.Widget:

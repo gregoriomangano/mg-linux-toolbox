@@ -28,7 +28,7 @@
 set -euo pipefail
 
 # ── Centralized configuration ───────────────────────────────────
-APP_VERSION="0.9.0-beta.2"
+APP_VERSION="0.9.0-beta.3"
 APPIMAGE_RELEASE_NAME="MG-Linux-Toolbox-${APP_VERSION}-x86_64.AppImage"
 GITHUB_OWNER="gregoriomangano"
 GITHUB_REPOSITORY="mg-linux-toolbox"
@@ -680,7 +680,7 @@ Exec=$BIN_PATH
 Icon=$([ -f "$ICON_PATH" ] && echo "$ICON_PATH" || echo "mg-linux-toolbox")
 Terminal=false
 StartupNotify=true
-Categories=System;Settings;GTK;
+Categories=System;GTK;
 Keywords=system;tools;utilities;settings;linux;toolbox;
 DESKTOP
 chmod 644 "$DESKTOP_PATH"

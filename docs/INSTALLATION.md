@@ -6,9 +6,9 @@ This guide is written for people who have never used a terminal as well.
 
 ## Current status
 
-The new AppImage is available in the official 0.9.0 Beta 2 Release.
+The new AppImage is associated with the official 0.9.0 Beta 3 Release.
 
-Download it only from [Release v0.9.0-beta.2](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.2).
+Download it only from [Release v0.9.0-beta.3](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.3).
 
 Do not use AppImages from old backups as if they were the final version.
 
@@ -20,7 +20,7 @@ Use only the official link published in the README and on the project page. The 
 - its SHA-256 checksum;
 - the release notes.
 
-The file for x86_64 computers is `MG-Linux-Toolbox-0.9.0-beta.2-x86_64.AppImage`.
+The file for x86_64 computers is `MG-Linux-Toolbox-0.9.0-beta.3-x86_64.AppImage`.
 
 ## Making the file executable without a terminal
 
@@ -37,8 +37,8 @@ The exact wording may differ between Files, Dolphin, Nemo, and other file manage
 Open a terminal in the folder containing the downloaded file and run:
 
 ```bash
-chmod +x "MG-Linux-Toolbox-0.9.0-beta.2-x86_64.AppImage"
-./"MG-Linux-Toolbox-0.9.0-beta.2-x86_64.AppImage"
+chmod +x "MG-Linux-Toolbox-0.9.0-beta.3-x86_64.AppImage"
+./"MG-Linux-Toolbox-0.9.0-beta.3-x86_64.AppImage"
 ```
 
 Always compare the SHA-256 checksum with the one published in the same Release before starting the file.

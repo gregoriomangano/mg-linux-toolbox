@@ -8,5 +8,5 @@ Exec=mg-linux-toolbox
 Icon=mg-linux-toolbox
 Terminal=false
 StartupNotify=true
-Categories=System;Settings;GTK;
+Categories=System;GTK;
 Keywords=system;kernel;settings;linux;

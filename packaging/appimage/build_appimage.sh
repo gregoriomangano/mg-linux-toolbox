@@ -29,6 +29,8 @@ fail() { log_error "$*"; exit 1; }
 command -v python3 >/dev/null 2>&1 || fail "python3 non trovato. Installalo prima di continuare."
 [ -x "$APPIMAGETOOL" ] || fail "appimagetool non trovato in $APPIMAGETOOL (atteso già presente in packaging/appimage/tools/)."
 command -v sha256sum >/dev/null 2>&1 || fail "sha256sum non trovato (fa parte di coreutils)."
+command -v git >/dev/null 2>&1 || fail "git non trovato: serve per includere soltanto i file ufficiali tracciati."
+command -v rsync >/dev/null 2>&1 || fail "rsync non trovato. Installalo prima di continuare."
 
 # ── Version + architecture ────────────────────────────────────────
 APP_VERSION="$(python3 -c 'import sys; sys.path.insert(0, "'"$ROOT_DIR"'"); from core.version import APP_VERSION; print(APP_VERSION)')"
@@ -47,23 +49,25 @@ log_warn "Verrà buildata SOLO l'architettura $APPIMAGE_ARCH (quella di questa m
 log_info "Preparazione AppDir di build..."
 rm -rf "$APPDIR_BUILD"
 mkdir -p "$APPDIR_BUILD/usr/share/mg-linux-toolbox"
+mkdir -p "$APPDIR_BUILD/usr/share/metainfo"
+mkdir -p "$APPDIR_BUILD/usr/share/applications"
 
 cp "$SCRIPT_DIR/AppDir/AppRun" "$APPDIR_BUILD/AppRun"
 chmod +x "$APPDIR_BUILD/AppRun"
-cp "$SCRIPT_DIR/AppDir/mg-linux-toolbox.desktop" "$APPDIR_BUILD/mg-linux-toolbox.desktop"
+cp "$SCRIPT_DIR/AppDir/it.manganogregorio.MGLinuxToolbox.desktop" \
+    "$APPDIR_BUILD/it.manganogregorio.MGLinuxToolbox.desktop"
+cp "$SCRIPT_DIR/AppDir/it.manganogregorio.MGLinuxToolbox.desktop" \
+    "$APPDIR_BUILD/usr/share/applications/it.manganogregorio.MGLinuxToolbox.desktop"
 cp "$SCRIPT_DIR/AppDir/mg-linux-toolbox.png" "$APPDIR_BUILD/mg-linux-toolbox.png"
+cp "$SCRIPT_DIR/AppDir/usr/share/metainfo/it.manganogregorio.MGLinuxToolbox.appdata.xml" \
+    "$APPDIR_BUILD/usr/share/metainfo/it.manganogregorio.MGLinuxToolbox.appdata.xml"
 
-# Only real source — never cache/log/state/personal data.
-rsync -a \
-    --exclude='__pycache__/' --exclude='*.pyc' \
-    --exclude='tests/' \
-    --exclude='.git/' \
-    --exclude='packaging/' \
-    --exclude='dist/' \
-    --exclude='*.log' --exclude='*.tmp' --exclude='*.bak' \
-    "$ROOT_DIR/main.py" "$ROOT_DIR/core" "$ROOT_DIR/backend" "$ROOT_DIR/ui" "$ROOT_DIR/assets" \
-    "$ROOT_DIR/LICENSE" \
-    "$APPDIR_BUILD/usr/share/mg-linux-toolbox/"
+# Only official files tracked by this repository are eligible for the
+# payload. This prevents an ignored backup, report, cache or local file
+# accidentally left inside a source directory from entering the AppImage.
+git -C "$ROOT_DIR" ls-files -z -- main.py core backend ui assets LICENSE \
+    | rsync -a --from0 --files-from=- "$ROOT_DIR/" \
+        "$APPDIR_BUILD/usr/share/mg-linux-toolbox/"
 
 log_ok "AppDir pronta: $APPDIR_BUILD"
 

@@ -19,7 +19,7 @@ from ui.widgets import make_group
 from ui.kernel.feature_row import KernelFeatureRow, handle_restore_click
 from core.kernel_features.base import SupportStatus
 from core.kernel_features.registry import register
-from core.kernel_features.monitoring import PSIFeature
+from core.kernel_features.monitoring import PSIFeature, PSIHysteresis, PSI_REFRESH_SECONDS
 from core.kernel_features.memory import (
     SwappinessFeature, PRESETS, THPFeature, ZramFeature, ZswapFeature,
     MGLRUFeature, SwapReadaheadFeature,
@@ -64,13 +64,16 @@ for _k, _v in _kernel_ds_strings.items():
 SWAPPINESS_EXTREME_LOW = 5
 SWAPPINESS_EXTREME_HIGH = 150
 
-PSI_REFRESH_SECONDS = 2  # moderate, per spec ("non più di una volta al secondo" -> we go even gentler)
-
-
 class PSIRow(KernelFeatureRow):
     def __init__(self):
         self.feature = register(PSIFeature())
         super().__init__(self.feature, "kf_psi")
+
+        # 2026-08-03 PSI fix: one hysteresis tracker per resource, so a
+        # single elevated (or single recovered) sample never flips the
+        # displayed bucket on its own — see PSIHysteresis for the rules.
+        self._hysteresis = {r: PSIHysteresis() for r in ("cpu", "memory", "io")}
+        self._io_was_critical = False
 
         self._resource_labels = {}
         for resource in ("cpu", "memory", "io"):
@@ -105,6 +108,7 @@ class PSIRow(KernelFeatureRow):
         self._timeout_id = None
         self.connect("map", self._on_map)
         self.connect("unmap", self._on_unmap)
+        self.connect("destroy", self._on_unmap)
 
         self._refresh_once()
 
@@ -120,6 +124,8 @@ class PSIRow(KernelFeatureRow):
         if self._timeout_id is not None:
             GLib.source_remove(self._timeout_id)
             self._timeout_id = None
+        for tracker in self._hysteresis.values():
+            tracker.reset_pending()
 
     def _on_timeout(self):
         self._refresh_once()
@@ -138,34 +144,59 @@ class PSIRow(KernelFeatureRow):
 
         result = self.feature.read_current()
         if not result.ok:
+            for tracker in self._hysteresis.values():
+                tracker.reset_pending()
             self.show_error(result.friendly_message, result.technical_detail)
             return
         self.clear_error()
 
         per_resource = result.value
-        io_is_high = False
+        io_is_critical = False
         elevated_labels = []
         for resource in ("cpu", "memory", "io"):
             data = per_resource.get(resource, {})
             some = data.get("some", {})
-            bucket = self.feature.to_friendly(data)  # "low" | "moderate" | "high"
             avg10 = some.get("avg10", 0.0)
+            avg60 = some.get("avg60", 0.0)
+            # Hysteresis, not the raw single-sample bucket: needs >=2
+            # consecutive high avg10 readings to enter "high", and >=2
+            # consecutive readings with avg10 AND avg60 both back down
+            # to leave it — avg300 never enters this decision at all.
+            bucket = self._hysteresis[resource].update(avg10, avg60)
             label = T(f"kf_psi_{resource}")
             # Gender-correct plain-language phrase per resource — never
             # just "Bassa/Moderata/Alta" on their own. Full per-resource
             # breakdown always stays visible in the open card.
             phrase = T(f"kf_psi_{resource}_{bucket}")
-            self._resource_labels[resource].set_text(f"{label}: {phrase}")
+            if resource == "io" and bucket == "high":
+                # kf_psi_io_high already names the resource ("Attesa del
+                # disco elevata") — repeating "Disco: " in front of it
+                # would be redundant, unlike the cpu/memory adjectives.
+                self._resource_labels[resource].set_text(phrase)
+            else:
+                self._resource_labels[resource].set_text(f"{label}: {phrase}")
             self._technical_labels[resource].set_text(
-                f"{label} — avg10={avg10:.1f}, avg60={some.get('avg60', 0.0):.1f}, "
-                f"avg300={some.get('avg300', 0.0):.1f}"
+                f"{label} — {T('kf_psi_avg10_current')}={avg10:.1f}, "
+                f"{T('kf_psi_avg60_confirm')}={avg60:.1f}, "
+                f"{T('kf_psi_avg300_history')}={some.get('avg300', 0.0):.1f}"
             )
             if bucket != "low":
                 elevated_labels.append(label)
             if resource == "io" and bucket == "high":
-                io_is_high = True
+                io_is_critical = True
 
-        self._io_spike_note.set_visible(io_is_high)
+        if io_is_critical:
+            self._io_spike_note.set_text(T("kf_psi_io_spike_note"))
+            self._io_spike_note.set_visible(True)
+        elif self._io_was_critical:
+            # Just left the critical state this refresh: say so once,
+            # explicitly, instead of the note just silently vanishing.
+            self._io_spike_note.set_text(T("kf_psi_io_restored"))
+            self._io_spike_note.set_visible(True)
+        else:
+            self._io_spike_note.set_visible(False)
+        self._io_was_critical = io_is_critical
+
         # Collapsed pill: one compact phrase, never the full per-resource
         # sentence — the breakdown above already covers that when open.
         if elevated_labels:

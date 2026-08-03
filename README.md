@@ -6,9 +6,9 @@ M.G Linux Toolbox raccoglie in un'interfaccia grafica semplice funzioni Linux ch
 
 ## Stato del progetto
 
-La versione **0.9.0 Beta 2** è pubblicata come prerelease. L'ultimo collaudo conosciuto comprende **846 test superati**.
+La versione **0.9.0 Beta 3** è la prerelease corrente. L'ultimo collaudo comprende **932 test superati**.
 
-Il pacchetto AppImage verificato e il relativo checksum sono disponibili nella [Release v0.9.0-beta.2](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.2).
+Il pacchetto AppImage verificato e il relativo checksum sono associati alla [Release v0.9.0-beta.3](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.3).
 
 Il codice è distribuito con licenza **GPL-3.0-or-later**. Nome, logo e identità del progetto sono trattati separatamente in [TRADEMARKS.md](TRADEMARKS.md).
 
@@ -52,12 +52,12 @@ La disponibilità cambia in base a kernel, hardware, driver e distribuzione. Una
 
 ## Aree del programma
 
-- **Sistema e dischi:** informazioni sul sistema, dispositivi, TRIM, SMART e manutenzione controllata.
+- **Sistema e dischi:** informazioni sul sistema, dispositivi, TRIM, SMART, manutenzione controllata e attività live del disco basata su dati `/proc` e `/sys`.
 - **Rete e sicurezza:** Wi-Fi, hotspot, Bluetooth, IPv6, firewall, DNS e servizi di condivisione disponibili.
 - **Energia e batteria:** profili energetici, sospensione, batteria e risparmio dei dispositivi.
 - **Audio:** stato di PipeWire, dispositivi, riavvio audio e opzioni di risparmio energetico.
 - **Stampanti:** servizio CUPS, supporto di base e driver rilevati.
-- **Gaming:** stato di GameMode, Vulkan, librerie e strumenti comunemente usati per giocare.
+- **Gaming:** stato di GameMode, Vulkan, librerie e strumenti comunemente usati per giocare; il Gaming Pack V1 esegue soltanto analisi e anteprima, senza installare o rimuovere pacchetti.
 - **Virtualizzazione:** KVM, IOMMU, VFIO, KSM e motori per container.
 - **Servizi:** stato, avvio, arresto e attivazione automatica dei servizi riconosciuti.
 - **Sicurezza:** accesso SSH, aggiornamenti, AppArmor, SELinux e protezioni rilevate.
@@ -134,7 +134,7 @@ M.G Linux Toolbox non promette:
 
 Una scelta utile su un computer può essere inutile o controproducente su un altro. Leggi sempre le spiegazioni mostrate e concedi privilegi soltanto per un'azione riconosciuta.
 
-Ambiente verificato durante la preparazione pubblica: **Pop!_OS 24.04 LTS**, Python 3.12, GTK 4.14, Libadwaita 1.5 e PyGObject 3.48. Per altre distribuzioni moderne la compatibilità è prevista ma deve essere verificata. Debian 12 non è dichiarata supportata.
+Ambiente verificato durante la preparazione pubblica: **Pop!_OS 24.04 LTS**, Python 3.12, GTK 4.14, Libadwaita 1.5 e PyGObject 3.48. La mappatura Debian del Gaming Pack è stata controllata realmente su questa macchina; Fedora, famiglia Arch e openSUSE richiedono ancora prove su macchine reali. Per altre distribuzioni moderne la compatibilità è prevista ma deve essere verificata. Debian 12 non è dichiarata supportata.
 
 Per le segnalazioni riservate consulta [SECURITY.md](SECURITY.md). Per i limiti generali consulta [DISCLAIMER.md](DISCLAIMER.md).
 
@@ -152,7 +152,7 @@ Verifica sempre il destinatario prima di confermare un pagamento.
 - Canale YouTube: <https://www.youtube.com/@GregorioMangano>
 - Contatti: <https://www.manganogregorio.it/contatti-gregorio-mangano-mondovi/>
 - Codice pubblico: <https://github.com/gregoriomangano/mg-linux-toolbox>
-- Release: <https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.2>
+- Release: <https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.3>
 
 ## Autore
 
@@ -185,4 +185,4 @@ Test automatici:
 python3 -m unittest discover -s tests
 ```
 
-La preparazione di una AppImage richiede inoltre `rsync`, `sha256sum` e una copia verificata di `appimagetool`. Il pacchetto della Release 0.9.0 Beta 2 è stato costruito e verificato prima della pubblicazione.
+La preparazione di una AppImage richiede inoltre `rsync`, `sha256sum` e una copia verificata di `appimagetool`. Il pacchetto della Release 0.9.0 Beta 3 viene costruito da un'AppDir nuova e verificato prima della pubblicazione.

@@ -1,4 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if ! command -v python3 >/dev/null 2>&1; then
+    printf '%s\n' "M.G Linux Toolbox richiede Python 3 sul sistema host." >&2
+    exit 1
+fi
+
+if ! python3 -c 'import gi; gi.require_version("Gtk", "4.0"); gi.require_version("Adw", "1"); from gi.repository import Gtk, Adw' >/dev/null 2>&1; then
+    printf '%s\n' "M.G Linux Toolbox richiede PyGObject, GTK4 e Libadwaita sul sistema host." >&2
+    exit 1
+fi
+
+export PYTHONDONTWRITEBYTECODE=1
 exec python3 "$HERE/usr/share/mg-linux-toolbox/main.py" "$@"

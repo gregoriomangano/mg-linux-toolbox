@@ -9,7 +9,7 @@
 - Check that the file architecture matches the computer.
 - Start the file from a terminal and read the first meaningful error.
 
-The official file is `MG-Linux-Toolbox-0.9.0-beta.2-x86_64.AppImage` and is available in [Release v0.9.0-beta.2](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.2).
+The official file is `MG-Linux-Toolbox-0.9.0-beta.3-x86_64.AppImage` and is associated with [Release v0.9.0-beta.3](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.3).
 
 ## FUSE error
 
