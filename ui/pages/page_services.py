@@ -11,7 +11,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 from core.i18n import T, on_change
 from core import i18n as _i18n_mod
-from ui.widgets import make_group
+from ui.widgets import make_group, report_toggle_result
 import backend.all as B
 
 from ui.design_system.page_header import PageHeader, wrap_in_preferences_group
@@ -104,6 +104,27 @@ class ServiceRow(Gtk.Box):
         actions.insert(boot_box, -1)
         self.append(actions)
 
+        # ── Operation error (hidden until start/stop/enable fails) ────
+        # Same shape as FeatureRow.show_operation_error()/clear_operation_error()
+        # so this bespoke row (not a FeatureRow subclass) can still be
+        # passed straight to ui.widgets.report_toggle_result().
+        self._lbl_op_error = Gtk.Label(wrap=True, xalign=0, use_markup=False)
+        self._lbl_op_error.add_css_class("desc-con")
+        self._lbl_op_error.set_visible(False)
+        self.append(self._lbl_op_error)
+
+        self._op_details_btn = Gtk.Button(label=T("kf_show_details_btn"))
+        self._op_details_btn.add_css_class("flat")
+        self._op_details_btn.set_halign(Gtk.Align.START)
+        self._op_details_btn.set_visible(False)
+        self._op_details_btn.connect("clicked", self._on_toggle_op_details)
+        self.append(self._op_details_btn)
+
+        self._lbl_op_details = Gtk.Label(wrap=True, xalign=0, selectable=True, use_markup=False)
+        self._lbl_op_details.add_css_class("sysinfo-value-sub")
+        self._lbl_op_details.set_visible(False)
+        self.append(self._lbl_op_details)
+
         if not self._exists:
             self._start_btn.set_sensitive(False)
             self._boot_switch.set_sensitive(False)
@@ -141,16 +162,34 @@ class ServiceRow(Gtk.Box):
             self._status_lbl.set_text(T("svc_status_not_installed"))
             self._status_lbl.set_variant("absent")
 
+    def show_operation_error(self, friendly_key: str = "kf_err_generic", technical_detail: str = ""):
+        self._lbl_op_error.set_text(T(friendly_key) if friendly_key else T("kf_err_generic"))
+        self._lbl_op_error.set_visible(True)
+        self._op_details_btn.set_visible(bool(technical_detail))
+        self._lbl_op_details.set_text(technical_detail)
+        self._lbl_op_details.set_visible(False)
+
+    def clear_operation_error(self):
+        self._lbl_op_error.set_visible(False)
+        self._op_details_btn.set_visible(False)
+        self._lbl_op_details.set_visible(False)
+
+    def _on_toggle_op_details(self, _btn):
+        self._lbl_op_details.set_visible(not self._lbl_op_details.get_visible())
+
     def _on_start_stop(self, _btn):
         if B._service_active(self._unit):
-            B.service_stop(self._unit)
+            result = B.service_stop(self._unit)
         else:
-            B.service_start(self._unit)
+            result = B.service_start(self._unit)
         self._refresh_labels()
         self._refresh_status()
+        report_toggle_result(self, "services", f"services.{self._key}", result.ok, result.technical_detail)
 
     def _on_boot_toggle(self, sw, _):
-        B.service_set_enabled(self._unit, sw.get_active())
+        result = B.service_set_enabled(self._unit, sw.get_active())
+        sw.set_active(result.value)
+        report_toggle_result(self, "services", f"services.{self._key}.boot", result.ok, result.technical_detail)
 
 
 class ServicesPage(Adw.PreferencesPage):

@@ -577,7 +577,18 @@ class BooleanKernelFeatureRow(KernelFeatureRow):
 
         self._current_value = current.value
         self._selected_value = current.value
-        self.set_status_line(T(self.feature.to_friendly(current.value)))
+        status_text = T(self.feature.to_friendly(current.value))
+        # Runtime state and boot persistence are different facts: a
+        # feature that exposes autostart_state() (KSM) gets both shown
+        # honestly — "Attiva adesso" never silently implies "sempre
+        # attiva", and "Avvio automatico" reflects the real config file.
+        autostart_probe = getattr(self.feature, "autostart_state", None)
+        if callable(autostart_probe):
+            autostart = autostart_probe()
+            if autostart is not None:
+                status_text += (f"  ·  {T('ksm_autostart_label')}: "
+                                f"{T('ksm_autostart_configured' if autostart else 'ksm_autostart_not_configured')}")
+        self.set_status_line(status_text)
         # v4: every boolean kernel feature (Turbo Boost, ZRAM, Zswap,
         # KSM...) gets the same rule — "on" is a real, positive state
         # worth showing in green, "off" is neutral, never a fabricated

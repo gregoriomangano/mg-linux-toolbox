@@ -78,33 +78,26 @@ class KernelCmdlineTransformTests(unittest.TestCase):
 
 class ConfigureGrubIoTests(unittest.TestCase):
     def setUp(self):
+        # Beta 4: the real /etc/default/grub edit lives root-side in the
+        # helper's IommuWriter (tests/test_privileged_helper.py). Here
+        # only the identical pure transform is exercised on a temp file.
         self._tmpdir = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmpdir.cleanup)
         self.grub_file = os.path.join(self._tmpdir.name, "grub")
         with open(self.grub_file, "w") as f:
             f.write('GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"\n')
-        self.patcher = mock.patch.object(bi, "GRUB_DEFAULT_FILE", self.grub_file)
-        self.patcher.start()
-        self.addCleanup(self.patcher.stop)
 
-    def test_configure_grub_writes_backup_and_regenerates(self):
-        with mock.patch.object(bi, "run_pkexec", return_value=(True, "", "")) as mock_pkexec:
-            result = bi._configure_grub(bi._iommu_params("amd"), remove=False)
-        self.assertTrue(result["ok"])
-        self.assertTrue(result["changed"])
-        self.assertTrue(os.path.exists(f"{self.grub_file}.bak"))
+    def test_transform_applied_to_a_real_file_adds_params_once(self):
         with open(self.grub_file) as f:
-            self.assertIn("amd_iommu=on", f.read())
-        mock_pkexec.assert_called_once()
+            content = f.read()
+        new = bi._update_grub_default_content(content, bi._iommu_params("amd"), remove=False)
+        self.assertIn("amd_iommu=on", new)
+        self.assertEqual(new.count("amd_iommu=on"), 1)
 
-    def test_no_op_when_already_applied_does_not_call_pkexec(self):
-        with open(self.grub_file, "w") as f:
-            f.write('GRUB_CMDLINE_LINUX_DEFAULT="quiet amd_iommu=on iommu=pt"\n')
-        with mock.patch.object(bi, "run_pkexec") as mock_pkexec:
-            result = bi._configure_grub(bi._iommu_params("amd"), remove=False)
-        self.assertTrue(result["ok"])
-        self.assertFalse(result["changed"])
-        mock_pkexec.assert_not_called()
+    def test_transform_is_a_no_op_when_already_applied(self):
+        content = 'GRUB_CMDLINE_LINUX_DEFAULT="quiet amd_iommu=on iommu=pt"\n'
+        new = bi._update_grub_default_content(content, bi._iommu_params("amd"), remove=False)
+        self.assertEqual(new, content)
 
 
 class ConfigureIommuDispatchTests(unittest.TestCase):
@@ -128,21 +121,46 @@ class ConfigureIommuDispatchTests(unittest.TestCase):
         self.assertEqual(result["reason"], "unsupported_bootloader")
 
     def test_success_marks_reboot_required(self):
+        from core.kernel_features.base import OpResult
+
+        class _FakeWriter:
+            def execute(self, feature_id, action, value=None, device_id=None,
+                        force=False, record_history=True):
+                assert (feature_id, action) == ("virt.iommu", "enable")
+                return OpResult(True, value={"changed": True}, reboot_required=True)
+
         with mock.patch("core.virt_readiness._cpu_vendor", return_value="amd"), \
              mock.patch("core.bootloader_iommu.get_context") as mock_ctx, \
-             mock.patch.dict(bi._CONFIGURE_BY_BOOTLOADER, {"grub": lambda params, remove, job=None: {"ok": True, "changed": True}}):
+             mock.patch.object(bi, "default_privileged_writer", return_value=_FakeWriter()):
             mock_ctx.return_value.bootloader = "grub"
             result = bi.configure_iommu()
         self.assertTrue(result["ok"])
         self.assertTrue(result["reboot_required"])
 
+    def test_helper_failure_reported_with_friendly_reason(self):
+        from core.kernel_features.base import OpResult
+
+        class _FakeWriter:
+            def execute(self, *a, **kw):
+                return OpResult(False, friendly_message="kf_err_helper_missing")
+
+        with mock.patch("core.virt_readiness._cpu_vendor", return_value="amd"), \
+             mock.patch("core.bootloader_iommu.get_context") as mock_ctx, \
+             mock.patch.object(bi, "default_privileged_writer", return_value=_FakeWriter()):
+            mock_ctx.return_value.bootloader = "grub"
+            result = bi.configure_iommu()
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["reason"], "kf_err_helper_missing")
+
     def test_never_calls_real_pkexec_or_touches_real_files_in_this_test_module(self):
-        # Sanity check for the test suite itself: nothing in this file
-        # ever calls bi.run_pkexec / bi.atomic_write_text without first
-        # patching it out, and GRUB_DEFAULT_FILE / KERNEL_CMDLINE_FILE
-        # module-level constants are never mutated at import time.
+        # Sanity check for the test suite itself: the module-level
+        # constants are never mutated at import time, and the client
+        # module contains no /etc write at all (the helper owns writes).
         self.assertEqual(bi.GRUB_DEFAULT_FILE, "/etc/default/grub")
         self.assertEqual(bi.KERNEL_CMDLINE_FILE, "/etc/kernel/cmdline")
+        import inspect
+        source = inspect.getsource(bi)
+        self.assertNotIn("atomic_write_text", source)
 
 
 class VerifyAfterRebootTests(unittest.TestCase):

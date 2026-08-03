@@ -314,11 +314,23 @@ class IconExtractionTests(InstallScriptTestCase):
     actual code path instead of just a byte blob on disk."""
 
     def _fake_appimage_script(self):
+        # Also answers install.sh's own version-check extraction
+        # (usr/share/mg-linux-toolbox/core/version.py) with a minimal
+        # real module that reports "requirements met" — these tests are
+        # about icon extraction, not the (separately tested, see
+        # test_runtime_requirements.py) version gate, so the fake
+        # AppImage must not trip it.
         return (
             "#!/bin/sh\n"
             'if [ "$1" = "--appimage-extract" ]; then\n'
-            '    mkdir -p squashfs-root\n'
-            '    printf "fake-icon-bytes" > "squashfs-root/$2"\n'
+            '    mkdir -p "squashfs-root/$(dirname "$2")"\n'
+            '    if [ "$2" = "usr/share/mg-linux-toolbox/core/version.py" ]; then\n'
+            '        printf "" > "squashfs-root/usr/share/mg-linux-toolbox/core/__init__.py"\n'
+            '        printf "def check_runtime_requirements():\\n    return {\\"ok\\": True, \\"found\\": {}, \\"required\\": {}, \\"reason\\": \\"\\"}\\n" '
+            '> "squashfs-root/usr/share/mg-linux-toolbox/core/version.py"\n'
+            "    else\n"
+            '        printf "fake-icon-bytes" > "squashfs-root/$2"\n'
+            "    fi\n"
             '    exit 0\n'
             "fi\n"
             'exit 0\n'
@@ -390,6 +402,69 @@ class IconExtractionTests(InstallScriptTestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertTrue(os.path.isfile(self.icon_path()),
                          "l'icona non è stata installata quando la cwd del chiamante non è scrivibile")
+
+
+class MinimumVersionGateTests(InstallScriptTestCase):
+    """install.sh must refuse to declare success on a system whose
+    GTK4/Libadwaita is below the real minimum (Beta 4 finding: Debian
+    12's Libadwaita 1.2.2) — checked against the verified downloaded
+    AppImage's own bundled core/version.py, never a duplicated,
+    driftable copy of the version numbers inside install.sh itself."""
+
+    def _fake_appimage_reporting(self, ok: bool):
+        # Keeps "found"/"required" as empty dicts on purpose — this test
+        # only exercises install.sh's pass/fail branching on
+        # check_runtime_requirements()["ok"], not the message formatting
+        # (covered separately by tests/test_runtime_requirements.py) —
+        # embedding a realistic nested dict literal through three layers
+        # of quoting (Python f-string -> shell printf -> Python source)
+        # is not worth the fragility for what this test verifies.
+        ok_literal = "True" if ok else "False"
+        py_source = (
+            f'def check_runtime_requirements():\\n'
+            f'    return {{\\"ok\\": {ok_literal}, \\"found\\": {{}}, \\"required\\": {{}}, \\"reason\\": \\"version_too_old\\"}}\\n'
+        )
+        return (
+            "#!/bin/sh\n"
+            'if [ "$1" = "--appimage-extract" ]; then\n'
+            '    mkdir -p "squashfs-root/$(dirname "$2")"\n'
+            '    printf "" > "squashfs-root/usr/share/mg-linux-toolbox/core/__init__.py"\n'
+            f'    printf "{py_source}" > "squashfs-root/usr/share/mg-linux-toolbox/core/version.py"\n'
+            "    exit 0\n"
+            "fi\n"
+            "exit 0\n"
+        )
+
+    def test_old_libadwaita_blocks_installation(self):
+        content = self._fake_appimage_reporting(ok=False).encode()
+        appimage_path = "/assets/MG-Linux-Toolbox-0.9.0-beta.1-x86_64.AppImage"
+        checksum_path = f"{appimage_path}.sha256"
+        self.server.set_releases([_make_release("0.9.0-beta.1", [appimage_path, checksum_path], self.server.api_base)])
+        self.server.set_asset(appimage_path, content)
+        self.server.set_asset(checksum_path, _appimage_and_checksum_bytes(content, "0.9.0-beta.1"))
+
+        result = self.run_install("--no-deps")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("richiede una versione recente di GTK4 e Libadwaita", result.stdout + result.stderr)
+        self.assertFalse(os.path.isfile(self.appimage_path()),
+                         "l'AppImage non deve essere installata quando i requisiti minimi non sono soddisfatti")
+        self.assertFalse(os.path.isfile(self.desktop_path()),
+                         "nessuna voce di menu deve comparire se l'installazione è stata rifiutata")
+
+    def test_compatible_version_proceeds_normally(self):
+        content = self._fake_appimage_reporting(ok=True).encode()
+        appimage_path = "/assets/MG-Linux-Toolbox-0.9.0-beta.1-x86_64.AppImage"
+        checksum_path = f"{appimage_path}.sha256"
+        self.server.set_releases([_make_release("0.9.0-beta.1", [appimage_path, checksum_path], self.server.api_base)])
+        self.server.set_asset(appimage_path, content)
+        self.server.set_asset(checksum_path, _appimage_and_checksum_bytes(content, "0.9.0-beta.1"))
+
+        result = self.run_install("--no-deps")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Requisiti minimi soddisfatti", result.stdout)
+        self.assertTrue(os.path.isfile(self.appimage_path()))
 
 
 class ChannelSelectionTests(InstallScriptTestCase):

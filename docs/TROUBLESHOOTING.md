@@ -9,7 +9,7 @@
 - Check that the file architecture matches the computer.
 - Start the file from a terminal and read the first meaningful error.
 
-The official file is `MG-Linux-Toolbox-0.9.0-beta.3-x86_64.AppImage` and is associated with [Release v0.9.0-beta.3](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.3).
+The official file is `MG-Linux-Toolbox-0.9.0-beta.4-x86_64.AppImage` and is associated with [Release v0.9.0-beta.4](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.4).
 
 ## FUSE error
 
@@ -21,6 +21,12 @@ When using `install.sh`, the script first shows the available package and asks f
 
 The system must provide GTK4, Libadwaita, PyGObject, and the required introspection data. Use the distribution's software manager or official documentation. If sufficiently recent components do not exist, the system is too old for this edition.
 
+## "M.G Linux Toolbox requires a recent version of GTK4 and Libadwaita"
+
+Since Beta 4, both `install.sh` and the AppImage itself check the real minimum versions before proceeding (**Libadwaita 1.4** is the actual requirement — GTK4 4.8 and PyGObject 3.42 are not the constraint). The message shows the version found and the version required, never a raw technical error.
+
+Concrete example: Debian 12 ships Libadwaita 1.2.2, below the minimum — verified for real in a Debian 12 container while developing Beta 4. To fix it, upgrade the distribution to a newer release or install Libadwaita from your distribution's official backport repository.
+
 ## A feature is unavailable
 
 Not every feature exists on every kernel or hardware platform. The item should show the detected state and why it is unavailable. This is safer than offering an unsupported change.
@@ -31,6 +37,18 @@ Not every feature exists on every kernel or hardware platform. The item should s
 - If the trial was temporary, reboot the computer.
 - Check whether another service manages the same setting.
 - Do not make a change permanent before checking its effect.
+
+## Administrative changes do not work (or you saw a "Permission denied" error on `/tmp/.mount_...`)
+
+In Beta 3, when the app ran as an AppImage, password-protected changes could fail with a technical error mentioning a `/tmp/.mount_...` path. Beta 4 fixes this with a stable administrative component installed by the automatic method (`install.sh`).
+
+If the app says the administrative component is not installed or must be updated:
+
+1. run (or re-run) the `install.sh` script from the current Release;
+2. confirm the administrative component installation when offered;
+3. check from the Overview page with "Check it works".
+
+A portable AppImage started from Downloads or a USB stick only offers the read-only features: that is expected behaviour, not a fault.
 
 ## The program asks for a password
 

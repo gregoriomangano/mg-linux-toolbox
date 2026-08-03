@@ -16,6 +16,11 @@
     <name>Gregorio Mangano</name>
   </developer>
   <releases>
+    <release version="0.9.0-beta.4" date="2026-08-03" type="development">
+      <description>
+        <p>Fixes privileged operations when running as AppImage via a stable root-owned helper, rewrites the VFIO wizard with safe per-group selection, and adds full one-click updates with checksum verification, backup and rollback.</p>
+      </description>
+    </release>
     <release version="0.9.0-beta.3" date="2026-08-03" type="development">
       <description>
         <p>Adds corrected live PSI status, disk activity monitoring and the read-only Gaming Pack V1 preview.</p>

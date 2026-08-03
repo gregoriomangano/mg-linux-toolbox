@@ -4,6 +4,32 @@ Le modifiche pubbliche di M.G Linux Toolbox saranno registrate in questo file.
 
 Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il progetto usa [Semantic Versioning](https://semver.org/lang/it/) quando viene assegnata una versione pubblica.
 
+## [0.9.0-beta.4] - 2026-08-03
+
+### Corretto
+
+- **Modifiche amministrative dall'AppImage**: le operazioni che richiedono la password (KSM, CPU, batteria, audio, sicurezza kernel, ecc.) fallivano quando l'app era avviata come AppImage, perché il componente privilegiato veniva cercato dentro il montaggio temporaneo `/tmp/.mount_*`, non attraversabile da root. Ora un helper stabile viene installato in `/usr/libexec/mg-linux-toolbox/` (proprietà root:root) e l'app verifica proprietario, permessi e versione prima di ogni uso.
+- La configurazione VFIO e IOMMU non scrive più file in `/etc` dal processo grafico non privilegiato: l'intera operazione (validazione, backup, scrittura, verifica, initramfs, rollback) avviene come transazione unica nell'helper.
+- Le modifiche a `/etc/systemd/resolved.conf` (DNS over TLS), `/etc/ssh/sshd_config` (accesso root SSH) e alla virtualizzazione annidata non usano più script generati al volo o `sh -c` come root.
+- Lo stato KSM distingue ora onestamente "Attiva adesso" (stato corrente) da "Avvio automatico configurato" (persistenza reale su file).
+- Il ripristino salva il valore reale all'inizio di ogni nuova prova e verifica la rilettura finale: se il valore richiesto non è stato applicato, l'operazione restituisce un errore e non viene registrata come riuscita.
+
+### Aggiunto
+
+- **Aggiornamento completo con un clic**: controllo della versione, dettagli della release, download con avanzamento, verifica SHA-256 prima di rendere eseguibile il file, backup della versione precedente, sostituzione atomica, riavvio sul percorso stabile e "Ripristina versione precedente" con conferma.
+- Azione Polkit dedicata `it.manganogregorio.mg-linux-toolbox.modify-system` che autorizza esclusivamente l'helper ufficiale installato.
+- Card "Componente amministrativo" nella Panoramica con stato reale (installato, da installare, da aggiornare, danneggiato, modalità portatile) e pulsante "Verifica funzionamento" di sola diagnostica.
+- Procedura guidata VFIO riscritta: nomi comprensibili dei dispositivi, selezione per gruppo IOMMU, dispositivi protetti disabilitati con spiegazione, riepilogo completo (driver attuale e futuro, file creati, comando initramfs, procedura di ripristino) e conferma esplicita ad alto rischio.
+- In assenza di dispositivi adatti la schermata VFIO lo dice chiaramente, senza elenchi di codici né messaggi fuorvianti.
+- `install.sh` installa e verifica il componente amministrativo (helper + policy Polkit) mostrando prima l'elenco esatto dei file e chiedendo una sola conferma; `uninstall.sh` li rimuove in sicurezza.
+- Aggiornamento sicuro dell'helper: il candidato viene estratto da un'AppImage già verificata e installato da un'azione chiusa con controllo checksum, controllo versione, backup e rollback.
+
+### Sicurezza e limiti
+
+- Nessun processo privilegiato esegue mai file da `/tmp/.mount_*` o da percorsi modificabili dall'utente.
+- In modalità portatile (AppImage avviata da Scaricati, Desktop, USB) le funzioni in sola lettura restano complete; le modifiche amministrative sono disabilitate con una spiegazione e l'invito a installare la versione gestita.
+- VFIO resta una funzione avanzata: dipende dall'hardware e dal gruppo IOMMU, non abilita mai ACS override e non permette il passthrough della GPU principale o del controller del disco di sistema.
+
 ## [0.9.0-beta.3] - 2026-08-03
 
 ### Aggiunto

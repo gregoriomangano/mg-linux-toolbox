@@ -34,7 +34,7 @@ def _read_lines() -> list:
         return []
 
 
-def read_key(key: str) -> str | None:
+def read_key(key: str) -> "str | None":
     for line in _read_lines():
         line = line.strip()
         if line.startswith("#") or "=" not in line:

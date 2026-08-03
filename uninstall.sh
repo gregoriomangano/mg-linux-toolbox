@@ -16,6 +16,15 @@ set -euo pipefail
 
 INSTALL_DIR="$HOME/.local/opt/mg-linux-toolbox"
 BIN_PATH="$HOME/.local/bin/mg-linux-toolbox"
+
+# Root-owned files installed by install.sh's "componente amministrativo"
+# step — ONLY these exact paths are ever removed with sudo, and only if
+# they exist. Nothing belonging to other programs is ever touched.
+HELPER_CANDIDATE_PATHS=(
+    "/usr/libexec/mg-linux-toolbox/mg-privileged-helper"
+    "/usr/lib/mg-linux-toolbox/mg-privileged-helper"
+)
+POLKIT_POLICY_PATH="/usr/share/polkit-1/actions/it.manganogregorio.mg-linux-toolbox.policy"
 XDG_DATA_HOME_DIR="${XDG_DATA_HOME:-$HOME/.local/share}"
 XDG_STATE_HOME_DIR="${XDG_STATE_HOME:-$HOME/.local/state}"
 DESKTOP_PATH="$XDG_DATA_HOME_DIR/applications/mg-linux-toolbox.desktop"
@@ -93,6 +102,33 @@ if app_installed; then
     say "M.G Linux Toolbox è stata rimossa."
     say "Le dipendenze di sistema (Python, GTK4, libadwaita, FUSE) non sono state toccate:"
     say "potrebbero servire ad altri programmi."
+
+    # ── Root-owned privileged component (helper + Polkit policy) ──────
+    ROOT_FILES_TO_REMOVE=()
+    for candidate in "${HELPER_CANDIDATE_PATHS[@]}"; do
+        # Never follow an unexpected symlink: only a regular file at the
+        # exact known path is ever considered ours.
+        [ -f "$candidate" ] && [ ! -L "$candidate" ] && ROOT_FILES_TO_REMOVE+=("$candidate")
+    done
+    [ -f "$POLKIT_POLICY_PATH" ] && [ ! -L "$POLKIT_POLICY_PATH" ] && ROOT_FILES_TO_REMOVE+=("$POLKIT_POLICY_PATH")
+
+    if [ "${#ROOT_FILES_TO_REMOVE[@]}" -gt 0 ]; then
+        say ""
+        say "Il componente amministrativo installato da M.G Linux Toolbox verrà rimosso"
+        say "con la tua password. Verranno eliminati SOLTANTO questi file di sistema:"
+        for f in "${ROOT_FILES_TO_REMOVE[@]}"; do
+            say "  - $f"
+        done
+        if sudo rm -f -- "${ROOT_FILES_TO_REMOVE[@]}"; then
+            for d in /usr/libexec/mg-linux-toolbox /usr/lib/mg-linux-toolbox; do
+                sudo rmdir --ignore-fail-on-non-empty "$d" 2>/dev/null || true
+            done
+            say "Componente amministrativo rimosso."
+        else
+            say "Attenzione: il componente amministrativo non è stato rimosso (password annullata?)."
+            say "Puoi rimuoverlo in seguito rieseguendo questo script."
+        fi
+    fi
 else
     say "M.G Linux Toolbox non risulta installata con il metodo automatico (nessun file del programma da rimuovere)."
 fi

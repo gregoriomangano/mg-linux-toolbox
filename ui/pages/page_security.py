@@ -6,7 +6,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk, GLib
 from core.i18n import T, on_change
 from core import i18n as _i18n_mod
-from ui.widgets import FeatureRow, SwitchRow, make_group
+from ui.widgets import FeatureRow, SwitchRow, make_group, report_toggle_result
 import backend.all as B
 from core import apparmor_setup as aa
 from core.kernel_features.base import SupportStatus
@@ -193,7 +193,7 @@ class _SecureBootRow(FeatureRow):
     whenever the state is "unknown" — never a second guess at
     active/inactive, only an honest explanation of why detection failed
     this time (see backend.all.secureboot_unknown_reason)."""
-    def __init__(self, control, reason_key: str | None):
+    def __init__(self, control, reason_key: "str | None"):
         self._reason_key = reason_key
         super().__init__("secureboot", control, risk="low")
 
@@ -298,6 +298,9 @@ class SecurityPage(Adw.PreferencesPage):
 
     def _on_rootssh(self, sw, _):
         want_allowed = sw.get_active()
-        sw.set_active(not B.root_ssh_set_disabled(not want_allowed))
+        result = B.root_ssh_set_disabled(not want_allowed)
+        sw.set_active(not result.value)
+        report_toggle_result(self.rootssh, "security", "security.root_ssh", result.ok,
+                             result.technical_detail, friendly_key=result.friendly_message or "kf_err_generic")
     def _on_autoupd(self, sw, _):
         sw.set_active(B.auto_updates_set(sw.get_active()))

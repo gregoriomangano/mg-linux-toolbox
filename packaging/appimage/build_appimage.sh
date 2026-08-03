@@ -69,6 +69,16 @@ git -C "$ROOT_DIR" ls-files -z -- main.py core backend ui assets LICENSE \
     | rsync -a --from0 --files-from=- "$ROOT_DIR/" \
         "$APPDIR_BUILD/usr/share/mg-linux-toolbox/"
 
+# ── Privileged helper + Polkit policy (extracted by install.sh) ────
+# Regenerated from the tracked sources on every build, so the bundled
+# helper can never drift from core/priv_writer.py and the stores.
+log_info "Rigenerazione dell'helper privilegiato dai sorgenti..."
+python3 "$ROOT_DIR/scripts/build_privileged_helper.py"
+cp "$ROOT_DIR/packaging/helper/mg-privileged-helper" "$APPDIR_BUILD/mg-privileged-helper"
+chmod 755 "$APPDIR_BUILD/mg-privileged-helper"
+cp "$ROOT_DIR/packaging/polkit/it.manganogregorio.mg-linux-toolbox.policy" \
+    "$APPDIR_BUILD/it.manganogregorio.mg-linux-toolbox.policy"
+
 log_ok "AppDir pronta: $APPDIR_BUILD"
 
 # ── Build ──────────────────────────────────────────────────────────
@@ -77,7 +87,16 @@ OUT_NAME="MG-Linux-Toolbox-${APP_VERSION}-${APPIMAGE_ARCH}.AppImage"
 OUT_PATH="$DIST_DIR/$OUT_NAME"
 
 log_info "Esecuzione di appimagetool..."
-ARCH="$APPIMAGE_ARCH" "$APPIMAGETOOL" "$APPDIR_BUILD" "$OUT_PATH"
+# Runtime AppImage locale (packaging/appimage/tools/runtime-<arch>, non
+# tracciato): se presente evita il download da GitHub, che può fallire
+# o cambiare tra una build e l'altra.
+RUNTIME_FILE="$SCRIPT_DIR/tools/runtime-$APPIMAGE_ARCH"
+if [ -f "$RUNTIME_FILE" ]; then
+    log_info "Uso il runtime locale: $RUNTIME_FILE"
+    ARCH="$APPIMAGE_ARCH" "$APPIMAGETOOL" --runtime-file "$RUNTIME_FILE" "$APPDIR_BUILD" "$OUT_PATH"
+else
+    ARCH="$APPIMAGE_ARCH" "$APPIMAGETOOL" "$APPDIR_BUILD" "$OUT_PATH"
+fi
 
 [ -s "$OUT_PATH" ] || fail "appimagetool ha terminato ma $OUT_PATH è vuoto o assente."
 

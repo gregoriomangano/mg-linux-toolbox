@@ -9,6 +9,7 @@ build/
 dist/
 packaging/appimage/.build-AppDir/
 packaging/appimage/tools/*.AppImage
+packaging/appimage/tools/runtime-*
 *.AppImage
 *.log
 *.tmp

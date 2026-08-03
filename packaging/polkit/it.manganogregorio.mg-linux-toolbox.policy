@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1.0/policyconfig.dtd">
+<policyconfig>
+  <vendor>Gregorio Mangano</vendor>
+  <vendor_url>https://manganogregorio.it</vendor_url>
+
+  <action id="it.manganogregorio.mg-linux-toolbox.modify-system">
+    <description>Apply a system change requested from M.G Linux Toolbox</description>
+    <description xml:lang="it">Applica una modifica di sistema richiesta da M.G Linux Toolbox</description>
+    <message>Authentication is required to let M.G Linux Toolbox change a system setting</message>
+    <message xml:lang="it">È richiesta l'autenticazione per permettere a M.G Linux Toolbox di modificare un'impostazione di sistema</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/mg-linux-toolbox/mg-privileged-helper</annotate>
+  </action>
+</policyconfig>

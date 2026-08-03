@@ -440,54 +440,221 @@ class VfioRow(FeatureRow):
         self._result_lbl.set_text(text)
         self._result_lbl.add_css_class("status-active" if ok else "desc-con")
 
+    # ── Wizard, step 1: pick IOMMU groups (never single devices) ──────
+    @staticmethod
+    def _device_display_name(dev) -> str:
+        """Plain-language line for a device: kind + human vendor/device
+        name. Technical ids only ever appear under 'Mostra dettagli
+        tecnici'."""
+        kind = T(dev.get("kind_key", "vfio_kind_other"))
+        name = dev.get("name") or ""
+        return f"{kind} — {name}" if name else kind
+
+    @staticmethod
+    def _protection_label(dev) -> str:
+        reason = dev.get("protection_reason")
+        if reason == "storage_controller":
+            return T("vfio_protected_storage_boot")
+        if reason == "primary_gpu":
+            return T("vfio_protected_gpu_desktop")
+        if reason == "essential_device":
+            return T("vfio_protected_essential")
+        return T("vfio_not_recommended")
+
     def _on_wizard_clicked(self, _btn):
+        status = vr.check_vfio()
         devices = vfs.list_pci_devices()
-        body_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        groups = vfs.passthrough_groups(devices, iommu_active=status["iommu_active"])
+        selectable_groups = [g for g in groups if g["selectable"]]
+
+        # No safe candidate (or IOMMU off): a clear explanation, no list
+        # of codes that looks selectable, no privileged operation, and no
+        # "Seleziona almeno un dispositivo" dead end.
+        if not selectable_groups:
+            body_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+            title = Gtk.Label(label=T("vfio_no_candidates_title"), wrap=True, xalign=0)
+            hint = Gtk.Label(label=T("vfio_no_candidates_hint"), wrap=True, xalign=0)
+            hint.add_css_class("dim-label")
+            body_box.append(title)
+            body_box.append(hint)
+            if not status["iommu_active"]:
+                iommu_note = Gtk.Label(label=T("vfio_iommu_required_note"), wrap=True, xalign=0)
+                iommu_note.add_css_class("desc-con")
+                body_box.append(iommu_note)
+            dialog = Adw.MessageDialog(transient_for=self.get_root(), heading=T("vfio_wizard_title"))
+            dialog.set_extra_child(body_box)
+            dialog.add_response("close", T("kf_dialog_cancel"))
+            dialog.present()
+            return
+
+        body_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         body_box.append(Gtk.Label(label=T("vfio_wizard_body"), wrap=True, xalign=0))
+        hint = Gtk.Label(label=T("vfio_select_group_hint"), wrap=True, xalign=0)
+        hint.add_css_class("dim-label")
+        body_box.append(hint)
 
-        checks = {}
-        for dev in devices:
-            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        group_checks = {}
+        for group_info in groups:
+            group_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
             check = Gtk.CheckButton()
-            check.set_sensitive(not dev["protected"])
-            label_text = f"{dev['address']}  {dev['description']}  (IOMMU group {dev['iommu_group']})"
-            if dev["protected"]:
-                reason_key = "vfio_protected_storage" if dev["protection_reason"] == "storage_controller" else "vfio_protected_gpu"
-                label_text += f"  — {T(reason_key)}"
-            row.append(check)
-            row.append(Gtk.Label(label=label_text, wrap=True, xalign=0, hexpand=True))
-            body_box.append(row)
-            checks[dev["address"]] = check
+            check.set_sensitive(group_info["selectable"])
+            header.append(check)
+            group_lbl = Gtk.Label(
+                label=T("vfio_group_label").format(group=group_info["group"] or "—"),
+                xalign=0, hexpand=True)
+            group_lbl.add_css_class("heading")
+            header.append(group_lbl)
+            group_box.append(header)
 
-        scroller = Gtk.ScrolledWindow(min_content_height=200, max_content_height=400)
+            if not group_info["selectable"]:
+                reason_key = {
+                    "contains_protected": "vfio_group_reason_contains_protected",
+                    "no_group": "vfio_group_reason_no_group",
+                    "no_iommu": "vfio_group_reason_no_iommu",
+                }.get(group_info["reason"], "vfio_not_recommended")
+                reason_lbl = Gtk.Label(label=T(reason_key), wrap=True, xalign=0)
+                reason_lbl.add_css_class("desc-con")
+                reason_lbl.set_margin_start(30)
+                group_box.append(reason_lbl)
+
+            for dev in group_info["devices"]:
+                line = self._device_display_name(dev)
+                if dev["protected"]:
+                    line += f"  — {self._protection_label(dev)}"
+                dev_lbl = Gtk.Label(label=line, wrap=True, xalign=0)
+                dev_lbl.set_margin_start(30)
+                if dev["protected"] or not group_info["selectable"]:
+                    dev_lbl.add_css_class("dim-label")
+                group_box.append(dev_lbl)
+
+            # Technical ids behind an expander, per group.
+            tech_lines = "\n".join(
+                f"{d['address']}  {d['description']}" for d in group_info["devices"])
+            expander = Gtk.Expander(label=T("vfio_show_tech_details"))
+            tech_lbl = Gtk.Label(label=tech_lines, xalign=0, selectable=True)
+            tech_lbl.add_css_class("dim-label")
+            tech_lbl.set_margin_start(30)
+            expander.set_child(tech_lbl)
+            expander.set_margin_start(30)
+            group_box.append(expander)
+
+            body_box.append(group_box)
+            if group_info["selectable"]:
+                group_checks[group_info["group"]] = (check, group_info)
+
+        scroller = Gtk.ScrolledWindow(min_content_height=240, max_content_height=420)
         scroller.set_child(body_box)
 
         dialog = Adw.MessageDialog(transient_for=self.get_root(), heading=T("vfio_wizard_title"))
         dialog.set_extra_child(scroller)
         dialog.add_response("cancel", T("kf_dialog_cancel"))
         dialog.add_response("confirm", T("vfio_configure_confirm_btn"))
-        dialog.set_response_appearance("confirm", Adw.ResponseAppearance.DESTRUCTIVE)
-        dialog.connect("response", lambda d, r: self._on_wizard_response(r, checks))
+        dialog.set_response_appearance("confirm", Adw.ResponseAppearance.SUGGESTED)
+        # "Configura" only becomes active once at least one group is
+        # ticked — the "Seleziona almeno un dispositivo" message can no
+        # longer happen at all.
+        dialog.set_response_enabled("confirm", False)
+
+        def on_toggled(_check):
+            any_active = any(c.get_active() for c, _g in group_checks.values())
+            dialog.set_response_enabled("confirm", any_active)
+
+        for check, _g in group_checks.values():
+            check.connect("toggled", on_toggled)
+
+        dialog.connect("response", lambda d, r: self._on_wizard_response(r, group_checks))
         dialog.present()
 
-    def _on_wizard_response(self, response, checks):
+    def _on_wizard_response(self, response, group_checks):
         if response != "confirm":
             return
-        selected = [addr for addr, check in checks.items() if check.get_active()]
-        if not selected:
-            self._show_result(T("vfio_no_devices_selected"), False)
+        selected_groups = [g for c, g in group_checks.values() if c.get_active()]
+        if not selected_groups:
+            return
+        self._present_summary(selected_groups)
+
+    # ── Wizard, step 2: full summary + explicit high-risk confirm ─────
+    def _current_driver(self, address: str) -> str:
+        import os
+        try:
+            return os.path.basename(os.readlink(f"/sys/bus/pci/devices/{address}/driver"))
+        except OSError:
+            return "—"
+
+    def _present_summary(self, selected_groups):
+        addresses = [d["address"] for g in selected_groups for d in g["devices"]]
+        devices = [d for g in selected_groups for d in g["devices"]]
+
+        body_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        body_box.append(Gtk.Label(label=T("vfio_summary_devices"), wrap=True, xalign=0))
+        for dev in devices:
+            line = (f"• {self._device_display_name(dev)}"
+                    f"  ({T('vfio_group_label').format(group=dev['iommu_group'])})\n"
+                    f"   {T('vfio_summary_driver_now')}: {self._current_driver(dev['address'])}"
+                    f" → {T('vfio_summary_driver_after')}: vfio-pci")
+            lbl = Gtk.Label(label=line, wrap=True, xalign=0)
+            body_box.append(lbl)
+
+        files_lbl = Gtk.Label(
+            label=f"{T('vfio_summary_files')}:\n  {vfs.MODPROBE_FILE}\n  {vfs.MODULES_LOAD_FILE}",
+            wrap=True, xalign=0)
+        files_lbl.add_css_class("dim-label")
+        body_box.append(files_lbl)
+
+        from core.distro import distro as _distro
+        initramfs_cmd = ("mkinitcpio -P" if _distro.is_arch
+                          else "update-initramfs -u" if _distro.is_debian
+                          else "dracut -f")
+        initramfs_lbl = Gtk.Label(label=f"{T('vfio_summary_initramfs')}: {initramfs_cmd}",
+                                   wrap=True, xalign=0)
+        initramfs_lbl.add_css_class("dim-label")
+        body_box.append(initramfs_lbl)
+
+        body_box.append(Gtk.Label(label=T("vfio_summary_reboot"), wrap=True, xalign=0))
+        undo_lbl = Gtk.Label(label=T("vfio_summary_undo"), wrap=True, xalign=0)
+        undo_lbl.add_css_class("dim-label")
+        body_box.append(undo_lbl)
+
+        risk_check = Gtk.CheckButton(label=T("vfio_confirm_high_risk"))
+        body_box.append(risk_check)
+
+        scroller = Gtk.ScrolledWindow(min_content_height=220, max_content_height=420)
+        scroller.set_child(body_box)
+
+        dialog = Adw.MessageDialog(transient_for=self.get_root(), heading=T("vfio_summary_title"))
+        dialog.set_extra_child(scroller)
+        dialog.add_response("cancel", T("kf_dialog_cancel"))
+        dialog.add_response("confirm", T("vfio_configure_confirm_btn"))
+        dialog.set_response_appearance("confirm", Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.set_response_enabled("confirm", False)
+        risk_check.connect("toggled",
+                           lambda c: dialog.set_response_enabled("confirm", c.get_active()))
+        dialog.connect("response", lambda d, r: self._on_summary_response(r, addresses))
+        dialog.present()
+
+    def _on_summary_response(self, response, addresses):
+        if response != "confirm":
             return
         self._wizard_btn.set_sensitive(False)
 
         def run():
-            result = vfs.configure_vfio(selected)
+            result = vfs.configure_vfio(addresses)
             GLib.idle_add(self._on_configure_done, result)
 
         threading.Thread(target=run, daemon=True).start()
 
     def _on_configure_done(self, result):
         self._wizard_btn.set_sensitive(True)
-        self._show_result(T("vfio_configure_success" if result["ok"] else "vfio_configure_failed"), result["ok"])
+        if result["ok"]:
+            self._show_result(T("vfio_configure_success"), True)
+        else:
+            # Show the specific friendly message when there is one (e.g.
+            # missing admin component, initramfs rollback) instead of a
+            # generic failure; raw detail stays out of the main UI.
+            reason = result.get("reason") or ""
+            text = T(reason) if reason and T(reason) != reason else T("vfio_configure_failed")
+            self._show_result(text, False)
         self._refresh_detail()
         return False
 
@@ -564,9 +731,10 @@ class DockerRow(InstallRow):
         self._detail_box.append(note)
 
     def _on_install(self, _btn):
-        from ui.widgets import run_install_in_background
+        from ui.widgets import run_install_in_background, report_toggle_result
         run_install_in_background(self.button, B.docker_install, B.docker_installed,
-                                   lambda: (self.mark_installed(), self._refresh_detail()))
+                                   lambda: (self.mark_installed(), self._refresh_detail()),
+                                   on_failure=lambda: report_toggle_result(self, "virt", "virt.docker_install", False))
 
 
 class PodmanRow(InstallRow):
@@ -604,9 +772,10 @@ class PodmanRow(InstallRow):
             self._detail_box.append(note)
 
     def _on_install(self, _btn):
-        from ui.widgets import run_install_in_background
+        from ui.widgets import run_install_in_background, report_toggle_result
         run_install_in_background(self.button, B.podman_install, B.podman_installed,
-                                   lambda: (self.mark_installed(), self._refresh_detail()))
+                                   lambda: (self.mark_installed(), self._refresh_detail()),
+                                   on_failure=lambda: report_toggle_result(self, "virt", "virt.podman_install", False))
 
 
 class DistroboxRow(InstallRow):
@@ -651,9 +820,10 @@ class DistroboxRow(InstallRow):
             self._detail_box.append(b_lbl)
 
     def _on_install(self, _btn):
-        from ui.widgets import run_install_in_background
+        from ui.widgets import run_install_in_background, report_toggle_result
         run_install_in_background(self.button, B.distrobox_install, B.distrobox_installed,
-                                   lambda: (self.mark_installed(), self._refresh_detail()))
+                                   lambda: (self.mark_installed(), self._refresh_detail()),
+                                   on_failure=lambda: report_toggle_result(self, "virt", "virt.distrobox_install", False))
 
     def _on_try_clicked(self, _btn):
         plan = ce.distrobox_test_plan()

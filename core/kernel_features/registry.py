@@ -9,7 +9,7 @@ def register(feature: KernelFeature) -> KernelFeature:
     return feature
 
 
-def get(feature_id: str) -> KernelFeature | None:
+def get(feature_id: str) -> "KernelFeature | None":
     return _features.get(feature_id)
 
 

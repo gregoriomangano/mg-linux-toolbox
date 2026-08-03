@@ -12,7 +12,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 from core.i18n import T, on_change
 from core import i18n as _i18n_mod
-from ui.widgets import SwitchRow, InstallRow, make_group, run_install_in_background
+from ui.widgets import SwitchRow, InstallRow, make_group, run_install_in_background, report_toggle_result
 import backend.all as B
 
 from ui.design_system.page_header import PageHeader, wrap_in_preferences_group
@@ -88,14 +88,17 @@ class PrintersPage(Adw.PreferencesPage):
         self.set_title(T("tab_printers"))
 
     def _on_cups(self, sw, _):
-        sw.set_active(B.cups_set(sw.get_active()))
+        result = B.cups_set(sw.get_active())
+        sw.set_active(result.value)
+        report_toggle_result(self.cups, "printers", "printers.cups", result.ok, result.technical_detail)
 
     def _install_printer_set(self, row, key):
         run_install_in_background(
             row.button,
             lambda: B.printer_set_install(key),
             lambda: B.printer_set_installed(key),
-            row.mark_installed)
+            row.mark_installed,
+            on_failure=lambda: report_toggle_result(row, "printers", f"printers.{key}", False))
 
     def _on_printer_base(self, _btn):
         self._install_printer_set(self.printer_base, "printer_base")

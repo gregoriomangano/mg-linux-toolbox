@@ -107,6 +107,8 @@ _overview_strings = {
     "ov2_quick_network_d": {"en": "Network status and security settings.", "it": "Stato della rete e impostazioni di sicurezza.", "es": "Estado de la red y ajustes de seguridad.", "fr": "État du réseau et paramètres de sécurité."},
     "ov2_quick_history_t": {"en": "History and restore", "it": "Cronologia e ripristino", "es": "Historial y restauración", "fr": "Historique et restauration"},
     "ov2_quick_history_d": {"en": "Review applied changes and restore saved values.", "it": "Rivedi le modifiche applicate e ripristina i valori.", "es": "Revisa los cambios aplicados y restaura los valores.", "fr": "Passez en revue les modifications et restaurez les valeurs."},
+
+    "ov2_admin_section_title": {"en": "System permissions", "it": "Permessi di sistema", "es": "Permisos del sistema", "fr": "Autorisations système"},
 }
 for _k, _v in _overview_strings.items():
     _i18n_mod._strings[_k] = _v
@@ -247,6 +249,7 @@ class OverviewPage(Gtk.ScrolledWindow):
         content.append(self._build_kernel_block())
         content.append(self._build_disks_block())
         content.append(self._build_quick_actions_block())
+        content.append(self._build_admin_component_block())
 
         clamp.set_child(content)
         self.set_child(clamp)
@@ -727,3 +730,133 @@ class OverviewPage(Gtk.ScrolledWindow):
         lbl = Gtk.Label(label=text, xalign=0)
         lbl.add_css_class("mgv2-section-title")
         return lbl
+
+    # ── Administrative component (privileged helper) status ─────────
+    # Lives at the bottom of the Panoramica, after the quick actions —
+    # a deliberate, logical spot for a system-capability summary, never
+    # a random unrelated page. Built entirely from the same DashboardCard
+    # / StatusPill components every other block on this page uses, so it
+    # can never again end up with a stray light "card" style class that
+    # ignores the app's dark theme.
+    _ADMIN_PILL_STATE = {
+        "admincomp_state_ready": "installed",
+        "admincomp_state_missing": "not_installed",
+        "admincomp_state_update": "incomplete",
+        "admincomp_state_broken": "failed",
+        "admincomp_state_portable": "not_available",
+    }
+
+    def _admin_component_state(self) -> "tuple[str, bool]":
+        """(i18n key for the state, helper usable). Portable AppImage
+        without the helper reads as 'portable', not as an error."""
+        from core.persistence import priv_client
+        status = priv_client.installed_helper_status()
+        if status.state == priv_client.HELPER_READY:
+            from core.privileged import helper_meta
+
+            def _t(v):
+                try:
+                    return tuple(int(p) for p in v.split("."))
+                except ValueError:
+                    return ()
+            if _t(status.version) < _t(helper_meta.HELPER_VERSION):
+                return "admincomp_state_update", True
+            return "admincomp_state_ready", True
+        if status.state == priv_client.HELPER_MISSING:
+            if priv_client.running_from_appimage():
+                return "admincomp_state_portable", False
+            return "admincomp_state_missing", False
+        if status.state == priv_client.HELPER_INCOMPATIBLE:
+            return "admincomp_state_update", False
+        return "admincomp_state_broken", False
+
+    def _build_admin_component_block(self) -> Gtk.Widget:
+        from ui.design_system.status_pill import state_pill
+
+        section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        section.append(self._section_label(T("ov2_admin_section_title")))
+
+        state_key, usable = self._admin_component_state()
+        pill = state_pill(self._ADMIN_PILL_STATE.get(state_key, "unknown"), T(state_key))
+
+        card = DashboardCard(level=2, spacing=10)
+        card.add_header(T("admincomp_title"), icon_name="system-lock-screen-symbolic",
+                        badge_widget=pill)
+
+        desc_lbl = Gtk.Label(label=T("admincomp_desc"), wrap=True, xalign=0)
+        desc_lbl.add_css_class("mgv2-card-note")
+        card.append(desc_lbl)
+
+        self._admin_result_lbl = Gtk.Label(wrap=True, xalign=0)
+        self._admin_result_lbl.add_css_class("mgv2-card-note")
+        self._admin_result_lbl.set_visible(False)
+
+        if usable:
+            ready_lbl = Gtk.Label(label=T("admincomp_ready_msg"), xalign=0)
+            ready_lbl.add_css_class("mgv2-card-note")
+            card.append(ready_lbl)
+
+        btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        if not usable:
+            # No silent root install from a portable AppImage — a clear
+            # explanation of the managed install instead.
+            complete_btn = Gtk.Button(label=T("admincomp_complete_btn"))
+            complete_btn.add_css_class("mgv2-card-action-btn")
+            complete_btn.connect("clicked", self._on_admin_complete_clicked)
+            btn_box.append(complete_btn)
+
+        why_btn = Gtk.Button(label=T("admincomp_why_btn"))
+        why_btn.add_css_class("mgv2-card-action-btn-flat")
+        why_btn.connect("clicked", self._on_admin_why_clicked)
+        btn_box.append(why_btn)
+
+        verify_btn = Gtk.Button(label=T("admincomp_verify_btn"))
+        verify_btn.add_css_class("mgv2-card-action-btn-flat")
+        verify_btn.connect("clicked", self._on_admin_verify_clicked)
+        btn_box.append(verify_btn)
+
+        card.append(btn_box)
+        card.append(self._admin_result_lbl)
+        section.append(card)
+        return section
+
+    def _on_admin_verify_clicked(self, btn):
+        """Read-only diagnostics: asks the installed helper its version.
+        Never applies or changes any setting."""
+        import threading
+        from core.persistence import priv_client
+        btn.set_sensitive(False)
+
+        def run():
+            result = priv_client.run_helper_diagnostics()
+            GLib.idle_add(self._on_admin_verify_done, btn, result)
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _on_admin_verify_done(self, btn, result):
+        btn.set_sensitive(True)
+        self._admin_result_lbl.set_visible(True)
+        self._admin_result_lbl.remove_css_class("status-active")
+        self._admin_result_lbl.remove_css_class("desc-con")
+        if result.ok and isinstance(result.value, dict):
+            version = result.value.get("helper_version", "?")
+            self._admin_result_lbl.set_text(T("admincomp_verify_ok").format(version=version))
+            self._admin_result_lbl.add_css_class("status-active")
+        else:
+            self._admin_result_lbl.set_text(T(result.friendly_message or "kf_err_helper_missing"))
+            self._admin_result_lbl.add_css_class("desc-con")
+        return False
+
+    def _on_admin_complete_clicked(self, _btn):
+        dialog = Adw.MessageDialog(transient_for=self.get_root(),
+                                    heading=T("admincomp_complete_btn"),
+                                    body=T("admincomp_complete_body"))
+        dialog.add_response("close", T("kf_dialog_cancel"))
+        dialog.present()
+
+    def _on_admin_why_clicked(self, _btn):
+        dialog = Adw.MessageDialog(transient_for=self.get_root(),
+                                    heading=T("admincomp_why_btn"),
+                                    body=T("admincomp_why_body"))
+        dialog.add_response("close", T("kf_dialog_cancel"))
+        dialog.present()

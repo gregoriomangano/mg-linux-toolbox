@@ -6,9 +6,9 @@ M.G Linux Toolbox raccoglie in un'interfaccia grafica semplice funzioni Linux ch
 
 ## Stato del progetto
 
-La versione **0.9.0 Beta 3** è la prerelease corrente. L'ultimo collaudo comprende **932 test superati**.
+La versione **0.9.0 Beta 4** è la prerelease corrente. L'ultimo collaudo comprende **1355 test superati**.
 
-Il pacchetto AppImage verificato e il relativo checksum sono associati alla [Release v0.9.0-beta.3](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.3).
+Il pacchetto AppImage verificato e il relativo checksum sono associati alla [Release v0.9.0-beta.4](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.4).
 
 Il codice è distribuito con licenza **GPL-3.0-or-later**. Nome, logo e identità del progetto sono trattati separatamente in [TRADEMARKS.md](TRADEMARKS.md).
 
@@ -81,6 +81,8 @@ Le modifiche permanenti vengono proposte soltanto quando il sistema le supporta.
 
 La cronologia aiuta a ricostruire le operazioni effettuate. Alcune modifiche di sistema richiedono privilegi amministrativi.
 
+La Beta 4 rilegge il valore reale dopo ogni ripristino: un'operazione viene registrata come riuscita soltanto quando il valore corrisponde davvero a quello iniziale salvato per la prova corrente.
+
 ## Installazione
 
 Il metodo automatico controlla le dipendenze, verifica il checksum, installa l'AppImage nella cartella personale e aggiunge nome e icona al menu delle applicazioni:
@@ -89,7 +91,7 @@ Il metodo automatico controlla le dipendenze, verifica il checksum, installa l'A
 curl -fsSL https://raw.githubusercontent.com/gregoriomangano/mg-linux-toolbox/main/install.sh | bash
 ```
 
-In alternativa, l'AppImage può essere scaricata dalla Release e avviata manualmente. Non usare vecchie AppImage o collegamenti non indicati nei canali ufficiali. L'AppImage usa Python 3, GTK4, Libadwaita, PyGObject e FUSE forniti dal sistema; l'installer ne controlla la presenza.
+In alternativa, l'AppImage può essere scaricata dalla Release e avviata manualmente. Non usare vecchie AppImage o collegamenti non indicati nei canali ufficiali. L'AppImage usa Python 3, GTK4, Libadwaita, PyGObject e FUSE forniti dal sistema; l'installer ne controlla la presenza, incluse le versioni minime reali (**Libadwaita 1.4** è il vincolo effettivo — vedi la [guida di installazione](docs/INSTALLAZIONE.md#versioni-minime-reali-dalla-beta-4)).
 
 Consulta la [guida di installazione](docs/INSTALLAZIONE.md) per i due metodi, le dipendenze e FUSE.
 
@@ -134,7 +136,7 @@ M.G Linux Toolbox non promette:
 
 Una scelta utile su un computer può essere inutile o controproducente su un altro. Leggi sempre le spiegazioni mostrate e concedi privilegi soltanto per un'azione riconosciuta.
 
-Ambiente verificato durante la preparazione pubblica: **Pop!_OS 24.04 LTS**, Python 3.12, GTK 4.14, Libadwaita 1.5 e PyGObject 3.48. La mappatura Debian del Gaming Pack è stata controllata realmente su questa macchina; Fedora, famiglia Arch e openSUSE richiedono ancora prove su macchine reali. Per altre distribuzioni moderne la compatibilità è prevista ma deve essere verificata. Debian 12 non è dichiarata supportata.
+Ambiente verificato durante la preparazione pubblica: **Pop!_OS 24.04 LTS**, Python 3.12, GTK 4.14, Libadwaita 1.5 e PyGObject 3.48. La mappatura Debian del Gaming Pack è stata controllata realmente su questa macchina; Fedora, famiglia Arch e openSUSE richiedono ancora prove su macchine reali. Per altre distribuzioni moderne la compatibilità è prevista ma deve essere verificata. **Debian 12 non è dichiarata supportata: la sua Libadwaita 1.2.2 è sotto la versione minima reale richiesta (1.4)**, verificato empiricamente in un container Debian 12 — l'app lo rileva e lo dice chiaramente invece di fallire con un errore tecnico.
 
 Per le segnalazioni riservate consulta [SECURITY.md](SECURITY.md). Per i limiti generali consulta [DISCLAIMER.md](DISCLAIMER.md).
 
@@ -152,7 +154,7 @@ Verifica sempre il destinatario prima di confermare un pagamento.
 - Canale YouTube: <https://www.youtube.com/@GregorioMangano>
 - Contatti: <https://www.manganogregorio.it/contatti-gregorio-mangano-mondovi/>
 - Codice pubblico: <https://github.com/gregoriomangano/mg-linux-toolbox>
-- Release: <https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.3>
+- Release: <https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.4>
 
 ## Autore
 
@@ -185,4 +187,4 @@ Test automatici:
 python3 -m unittest discover -s tests
 ```
 
-La preparazione di una AppImage richiede inoltre `rsync`, `sha256sum` e una copia verificata di `appimagetool`. Il pacchetto della Release 0.9.0 Beta 3 viene costruito da un'AppDir nuova e verificato prima della pubblicazione.
+La preparazione di una AppImage richiede inoltre `rsync`, `sha256sum` e una copia verificata di `appimagetool`. Il pacchetto della Release 0.9.0 Beta 4 viene costruito da un'AppDir nuova e verificato prima della pubblicazione.

@@ -291,6 +291,10 @@ class PrivWriterKsmTests(unittest.TestCase):
         self.tmpfiles_known_paths_patch.stop()
         shutil.rmtree(self.tmp, ignore_errors=True)
 
+    def _read_path(self) -> str:
+        with open(self.path) as f:
+            return f.read().strip()
+
     def test_apply_and_restore(self):
         result = self.writer.apply_temporary("1", None, False, self.state)
         self.assertTrue(result["ok"])
@@ -328,6 +332,111 @@ class PrivWriterKsmTests(unittest.TestCase):
         restored = self.writer.restore(None, None, False, self.state)
         self.assertTrue(restored["ok"])
         self.assertIsNone(priv_writer.tmpfiles_store.read_value(self.path))
+
+    def test_run_value_2_reads_as_enabled(self):
+        # 2 = "stop merging and unmerge" — KSM machinery still engaged,
+        # read as enabled just like the read side does.
+        with open(self.path, "w") as f:
+            f.write("2")
+        self.assertTrue(self.writer._read_enabled())
+
+    # ── Regression: real Beta 4 restore bug ─────────────────────────
+    # Reported from a real machine: KSM 0 -> "Prova fino al riavvio" (1,
+    # verified on the real file) -> "Ripristina" recorded result=ok and
+    # verified_value=true in the history, but /sys/kernel/mm/ksm/run
+    # stayed at 1 — restore() wrote and re-read the file but never
+    # actually compared the two before declaring success.
+    def test_regression_ksm_0_to_1_to_restore_returns_to_0(self):
+        self.assertEqual(self._read_path(), "0")
+
+        applied = self.writer.apply_temporary("1", None, False, self.state)
+        self.assertTrue(applied["ok"])
+        self.assertTrue(applied["value"])
+        self.assertEqual(self._read_path(), "1")
+
+        restored = self.writer.restore(None, None, False, self.state)
+        self.assertTrue(restored["ok"])
+        self.assertFalse(restored["value"])
+        self.assertEqual(self._read_path(), "0",
+                         "il file reale deve tornare a 0, non solo il valore riportato dall'API")
+
+    def test_restore_reports_failure_when_the_write_does_not_take_effect(self):
+        """The exact defect: if the on-disk value doesn't actually change
+        to match what restore() wrote, this must NEVER return ok=True —
+        simulated here by making the real file read-only after the
+        temporary apply, so restore()'s write is silently a no-op at the
+        OS level for the *content* the writer itself controls (the write
+        call still succeeds against the file being openable, but a
+        mismatched value written via a stub _read_enabled proves the
+        comparison itself, independent of how the mismatch happens in
+        practice on real hardware)."""
+        applied = self.writer.apply_temporary("1", None, False, self.state)
+        self.assertTrue(applied["ok"])
+
+        # Force the post-write re-read to report a value that never
+        # actually changed, exactly like the real KSM bug — write
+        # happens, but the re-read disagrees with what was requested.
+        with mock.patch.object(priv_writer.KsmWriter, "_read_enabled", return_value=True):
+            result = self.writer.restore(None, None, False, self.state)
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["friendly_message"], "kf_err_write_mismatch")
+        # No entry recorded as a successful restore for a write that
+        # never really happened.
+        rec = self.state.get(self.writer.KEY)
+        self.assertNotEqual(rec.mode, "restored")
+
+    def test_restore_never_reuses_a_stale_initial_value_from_an_earlier_trial(self):
+        """The other half of the real bug: a value recorded during some
+        earlier, already-finished trial must never be what a brand new
+        "Prova fino al riavvio" restores to — each apply captures the
+        real value right before itself."""
+        # Trial 1: 0 -> 1 -> restore -> 0 (leaves a record behind).
+        self.writer.apply_temporary("1", None, False, self.state)
+        self.writer.restore(None, None, False, self.state)
+        self.assertEqual(self._read_path(), "0")
+
+        # Something else (or the user, outside the app) sets it to 1
+        # before the NEXT trial even starts.
+        with open(self.path, "w") as f:
+            f.write("1")
+
+        # Trial 2: a fresh "Prova fino al riavvio" toggling it OFF this
+        # time. The pre-trial value (1) must be what gets restored to —
+        # never the stale initial_value (0) left over from trial 1.
+        applied = self.writer.apply_temporary("0", None, False, self.state)
+        self.assertTrue(applied["ok"])
+        self.assertEqual(self._read_path(), "0")
+
+        restored = self.writer.restore(None, None, False, self.state)
+        self.assertTrue(restored["ok"])
+        self.assertEqual(self._read_path(), "1",
+                         "deve tornare al valore vero prima della prova 2 (1), non allo stale initial_value (0) della prova 1")
+
+
+class KsmAutostartStateTests(unittest.TestCase):
+    """Beta 4: /sys/.../ksm/run = 1 only means 'active NOW'. The
+    'autostart configured' fact must come from the real tmpfiles entry,
+    never be inferred from the runtime value."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(lambda: shutil.rmtree(self.tmp, ignore_errors=True))
+        self.tmpfiles_file = os.path.join(self.tmp, "tmpfiles.conf")
+        patcher = mock.patch(
+            "core.persistence.tmpfiles_store.TMPFILES_FILE", self.tmpfiles_file)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_runtime_active_but_not_configured_reads_as_not_configured(self):
+        feature = KsmFeature()
+        self.assertFalse(feature.autostart_state())
+
+    def test_configured_entry_reads_as_configured(self):
+        with open(self.tmpfiles_file, "w") as f:
+            f.write("w /sys/kernel/mm/ksm/run - - - - 1\n")
+        feature = KsmFeature()
+        self.assertTrue(feature.autostart_state())
 
 
 if __name__ == "__main__":

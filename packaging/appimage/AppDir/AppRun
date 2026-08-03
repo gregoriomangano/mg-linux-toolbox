@@ -7,8 +7,39 @@ if ! command -v python3 >/dev/null 2>&1; then
     exit 1
 fi
 
-if ! python3 -c 'import gi; gi.require_version("Gtk", "4.0"); gi.require_version("Adw", "1"); from gi.repository import Gtk, Adw' >/dev/null 2>&1; then
-    printf '%s\n' "M.G Linux Toolbox richiede PyGObject, GTK4 e Libadwaita sul sistema host." >&2
+# Real version check (never just "can it be imported at all") — the
+# single source of truth lives in core/version.py, shared with main.py
+# (the plain-source-checkout entry point) so the two never drift.
+# `|| true` keeps this from tripping `set -e` on a non-zero exit: the
+# failure is handled explicitly right below, with a plain message.
+# Run from $HERE, never from the caller's own cwd: `python3 -c`
+# implicitly puts the current directory first on sys.path, and a cwd
+# that happened to contain an unrelated `core` package would shadow
+# PYTHONPATH (found the hard way in install.sh's own test suite).
+VERSION_CHECK_OUTPUT="$(cd "$HERE" && PYTHONPATH="$HERE/usr/share/mg-linux-toolbox" python3 -c '
+import sys
+try:
+    from core.version import check_runtime_requirements
+except Exception:
+    print("IMPORT_FAILED")
+    sys.exit(1)
+req = check_runtime_requirements()
+if req["ok"]:
+    print("OK")
+    sys.exit(0)
+print("Trovata: " + str(req.get("found", {})))
+print("Richiesta: " + str(req["required"]))
+sys.exit(1)
+' 2>/dev/null)" || true
+
+if [ "$VERSION_CHECK_OUTPUT" != "OK" ]; then
+    printf '%s\n' "M.G Linux Toolbox richiede una versione recente di GTK4 e Libadwaita." >&2
+    printf '%s\n' "La versione presente su questo sistema è troppo vecchia." >&2
+    if [ "$VERSION_CHECK_OUTPUT" = "IMPORT_FAILED" ] || [ -z "$VERSION_CHECK_OUTPUT" ]; then
+        printf '%s\n' "PyGObject, GTK4 o Libadwaita non risultano installati." >&2
+    else
+        printf '%s\n' "$VERSION_CHECK_OUTPUT" >&2
+    fi
     exit 1
 fi
 

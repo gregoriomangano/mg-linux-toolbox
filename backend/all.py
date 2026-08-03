@@ -3,8 +3,9 @@ Complete backend module — all features from the PDF.
 Kernel-first: every feature operates via sysfs/procfs/modprobe where possible.
 Fallback to userspace tools when unavoidable, with dep-check helpers.
 """
-from core.executor import run_command, run_pkexec, run_pkexec_full, INSTALL_TIMEOUT
+from core.executor import run_command, run_command_full, run_pkexec, run_pkexec_full, INSTALL_TIMEOUT
 from core.distro import distro
+from core.kernel_features.base import OpResult
 import os
 import shutil
 
@@ -67,12 +68,15 @@ def _service_active(name: str) -> bool:
     return out == "active"
 
 
-def _service_set(name: str, enabled: bool) -> bool:
+def _service_set(name: str, enabled: bool) -> OpResult:
     state = "start" if enabled else "stop"
     enable = "enable" if enabled else "disable"
-    run_pkexec(["systemctl", state, name])
-    run_pkexec(["systemctl", enable, name])
-    return _service_active(name)
+    r1 = run_pkexec_full(["systemctl", state, name])
+    r2 = run_pkexec_full(["systemctl", enable, name])
+    active = _service_active(name)
+    ok = active == enabled
+    detail = "" if ok else "\n".join(r.technical_detail() for r in (r1, r2) if not r.ok)
+    return OpResult(ok, value=active, technical_detail=detail)
 
 
 def _service_enabled(name: str) -> bool:
@@ -80,19 +84,24 @@ def _service_enabled(name: str) -> bool:
     return out == "enabled"
 
 
-def service_start(name: str) -> bool:
-    run_pkexec(["systemctl", "start", name])
-    return _service_active(name)
+def service_start(name: str) -> OpResult:
+    result = run_pkexec_full(["systemctl", "start", name])
+    active = _service_active(name)
+    return OpResult(active, value=active, technical_detail="" if active else result.technical_detail())
 
 
-def service_stop(name: str) -> bool:
-    run_pkexec(["systemctl", "stop", name])
-    return _service_active(name)
+def service_stop(name: str) -> OpResult:
+    result = run_pkexec_full(["systemctl", "stop", name])
+    active = _service_active(name)
+    ok = not active
+    return OpResult(ok, value=active, technical_detail="" if ok else result.technical_detail())
 
 
-def service_set_enabled(name: str, enabled: bool) -> bool:
-    run_pkexec(["systemctl", "enable" if enabled else "disable", name])
-    return _service_enabled(name)
+def service_set_enabled(name: str, enabled: bool) -> OpResult:
+    result = run_pkexec_full(["systemctl", "enable" if enabled else "disable", name])
+    real = _service_enabled(name)
+    ok = real == enabled
+    return OpResult(ok, value=real, technical_detail="" if ok else result.technical_detail())
 
 
 # Curated list of common services shown in the "Services" tab — deliberately
@@ -125,9 +134,11 @@ def wifi_active() -> bool:
     ok, out, _ = run_command(["nmcli", "radio", "wifi"])
     return "enabled" in out
 
-def wifi_set(on: bool) -> bool:
-    run_command(["nmcli", "radio", "wifi", "on" if on else "off"])
-    return wifi_active()
+def wifi_set(on: bool) -> OpResult:
+    result = run_command_full(["nmcli", "radio", "wifi", "on" if on else "off"])
+    active = wifi_active()
+    ok = active == on
+    return OpResult(ok, value=active, technical_detail="" if ok else result.technical_detail())
 
 def hotspot_active() -> bool:
     """NetworkManager-based (nmcli) — identical on Debian/Arch/Fedora/openSUSE."""
@@ -156,12 +167,17 @@ def hotspot_stop() -> bool:
 def bluetooth_active() -> bool:
     return _service_active("bluetooth")
 
-def bluetooth_set(on: bool) -> bool:
+def bluetooth_set(on: bool) -> OpResult:
     mask = "unmask" if on else "mask"
-    run_pkexec(["systemctl", mask, "bluetooth"])
-    run_pkexec(["systemctl", "start" if on else "stop", "bluetooth"])
-    run_pkexec(["rfkill", "unblock" if on else "block", "bluetooth"])
-    return bluetooth_active()
+    results = [
+        run_pkexec_full(["systemctl", mask, "bluetooth"]),
+        run_pkexec_full(["systemctl", "start" if on else "stop", "bluetooth"]),
+        run_pkexec_full(["rfkill", "unblock" if on else "block", "bluetooth"]),
+    ]
+    active = bluetooth_active()
+    ok = active == on
+    detail = "" if ok else "\n".join(r.technical_detail() for r in results if not r.ok)
+    return OpResult(ok, value=active, technical_detail=detail)
 
 def bluetooth_scan(timeout: int = 6) -> list:
     """
@@ -200,11 +216,16 @@ def ipv6_disabled() -> bool:
     ok, out, _ = run_command(["sysctl", "-n", "net.ipv6.conf.all.disable_ipv6"])
     return out == "1"
 
-def ipv6_set_disabled(disabled: bool) -> bool:
+def ipv6_set_disabled(disabled: bool) -> OpResult:
     val = "1" if disabled else "0"
-    run_pkexec(["sysctl", "-w", f"net.ipv6.conf.all.disable_ipv6={val}"])
-    run_pkexec(["sysctl", "-w", f"net.ipv6.conf.default.disable_ipv6={val}"])
-    return ipv6_disabled()
+    results = [
+        run_pkexec_full(["sysctl", "-w", f"net.ipv6.conf.all.disable_ipv6={val}"]),
+        run_pkexec_full(["sysctl", "-w", f"net.ipv6.conf.default.disable_ipv6={val}"]),
+    ]
+    active = ipv6_disabled()
+    ok = active == disabled
+    detail = "" if ok else "\n".join(r.technical_detail() for r in results if not r.ok)
+    return OpResult(ok, value=active, technical_detail=detail)
 
 def firewall_active() -> bool:
     # Try ufw first, then firewalld
@@ -213,15 +234,20 @@ def firewall_active() -> bool:
         return "Status: active" in out
     return _service_active("firewalld")
 
-def firewall_set(on: bool) -> bool:
+def firewall_set(on: bool) -> OpResult:
     # firewalld is the default on Fedora AND openSUSE; ufw elsewhere
     # (Debian/Ubuntu/Arch, where it's the common choice).
     if distro.is_fedora or distro.is_opensuse:
-        run_pkexec(["systemctl", "start" if on else "stop", "firewalld"])
-        run_pkexec(["systemctl", "enable" if on else "disable", "firewalld"])
+        results = [
+            run_pkexec_full(["systemctl", "start" if on else "stop", "firewalld"]),
+            run_pkexec_full(["systemctl", "enable" if on else "disable", "firewalld"]),
+        ]
     else:
-        run_pkexec(["ufw", "--force", "enable" if on else "disable"])
-    return firewall_active()
+        results = [run_pkexec_full(["ufw", "--force", "enable" if on else "disable"])]
+    active = firewall_active()
+    ok = active == on
+    detail = "" if ok else "\n".join(r.technical_detail() for r in results if not r.ok)
+    return OpResult(ok, value=active, technical_detail=detail)
 
 def ssh_active() -> bool:
     # service name differs: ssh (debian) vs sshd (arch/fedora)
@@ -247,23 +273,19 @@ def dns_dot_active() -> bool:
     except Exception:
         return False
 
-def dns_dot_set(on: bool) -> bool:
-    val = "yes" if on else "no"
-    script = f"""
-import re, shutil
-shutil.copy('/etc/systemd/resolved.conf', '/etc/systemd/resolved.conf.bak')
-with open('/etc/systemd/resolved.conf', 'r') as f:
-    content = f.read()
-if 'DNSOverTLS' in content:
-    content = re.sub(r'#?DNSOverTLS=.*', 'DNSOverTLS={val}', content)
-else:
-    content += '\\nDNSOverTLS={val}\\n'
-with open('/etc/systemd/resolved.conf', 'w') as f:
-    f.write(content)
-""".strip()
-    run_pkexec(["python3", "-c", script])
-    run_pkexec(["systemctl", "restart", "systemd-resolved"])
-    return dns_dot_active()
+def dns_dot_set(on: bool) -> OpResult:
+    # Through the privileged helper (feature dns.dot) — fixed file, one
+    # directive, backup + atomic write + verification, service restarted
+    # root-side. Never `pkexec python3 -c <script>` again. The helper's
+    # own OpResult (friendly_message already distinguishes "component
+    # missing" from a plain write failure) is propagated as-is, not
+    # discarded — real state is always re-read regardless of ok/failed.
+    from core.persistence.priv_client import default_privileged_writer
+    result = default_privileged_writer().execute("dns.dot", "apply_temporary", on)
+    active = dns_dot_active()
+    ok = result.ok and active == on
+    return OpResult(ok, value=active, friendly_message="" if ok else (result.friendly_message or "kf_err_generic"),
+                    technical_detail="" if ok else result.technical_detail)
 
 
 # ─── Disk ────────────────────────────────────────────────────────
@@ -504,12 +526,10 @@ def nested_virt_active() -> bool:
     return False
 
 def nested_virt_set(on: bool):
-    val = "1" if on else "0"
-    cpu = kvm_supported()
-    if cpu == "intel":
-        run_pkexec(["sh", "-c", f"echo {val} > /sys/module/kvm_intel/parameters/nested"])
-    elif cpu == "amd":
-        run_pkexec(["sh", "-c", f"echo {val} > /sys/module/kvm_amd/parameters/nested"])
+    # Through the privileged helper (feature virt.nested) — fixed sysfs
+    # paths, value validated and re-read root-side; never `sh -c` again.
+    from core.persistence.priv_client import default_privileged_writer
+    default_privileged_writer().execute("virt.nested", "apply_temporary", on)
     return nested_virt_active()
 
 def docker_installed() -> bool:
@@ -696,19 +716,18 @@ def root_ssh_disabled() -> bool:
         pass
     return False
 
-def root_ssh_set_disabled(disabled: bool) -> bool:
-    val = "no" if disabled else "yes"
-    script = (
-        "import shutil, re; "
-        "shutil.copy('/etc/ssh/sshd_config', '/etc/ssh/sshd_config.bak'); "
-        "content = open('/etc/ssh/sshd_config').read(); "
-        f"content = re.sub(r'#?PermitRootLogin.*', 'PermitRootLogin {val}', content); "
-        "open('/etc/ssh/sshd_config', 'w').write(content)"
-    )
-    run_pkexec(["python3", "-c", script])
-    svc = "sshd" if (distro.is_arch or distro.is_fedora or distro.is_opensuse) else "ssh"
-    run_pkexec(["systemctl", "reload", svc])
-    return root_ssh_disabled()
+def root_ssh_set_disabled(disabled: bool) -> OpResult:
+    # Through the privileged helper (feature security.root_ssh) — fixed
+    # file, one directive, backup + atomic write + verification, service
+    # reloaded root-side. Never `pkexec python3 -c <script>` again. The
+    # helper's own OpResult is propagated, not discarded.
+    from core.persistence.priv_client import default_privileged_writer
+    result = default_privileged_writer().execute("security.root_ssh", "apply_temporary", disabled)
+    active_disabled = root_ssh_disabled()
+    ok = result.ok and active_disabled == disabled
+    return OpResult(ok, value=active_disabled,
+                    friendly_message="" if ok else (result.friendly_message or "kf_err_generic"),
+                    technical_detail="" if ok else result.technical_detail)
 
 def cups_active() -> bool:
     return _service_active("cups")

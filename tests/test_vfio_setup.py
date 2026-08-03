@@ -3,22 +3,28 @@ Tests for core.vfio_setup — real VFIO passthrough wizard logic. Per
 explicit project policy, this NEVER runs lspci/pkexec/dracut/mkinitcpio/
 update-initramfs for real, and never reads/writes real
 /etc/modprobe.d or /etc/modules-load.d files or real /sys/bus/pci paths
-— everything is mocked or redirected to temp files.
+— everything is mocked or redirected to temp files. Beta 4: the write
+side lives in the privileged helper (see tests/test_privileged_helper.py
+for the root-side transaction) — here the client orchestration is
+exercised against a mocked PrivilegedWriter.
 """
-import contextlib
 import os
-import tempfile
 import unittest
 from unittest import mock
 
 from core import vfio_setup as vf
+from core.kernel_features.base import OpResult
 
 
-def _distro_flags(stack, **flags):
-    for name in ("is_arch", "is_fedora", "is_opensuse", "is_debian"):
-        stack.enter_context(mock.patch.object(
-            type(vf.distro), name,
-            new_callable=mock.PropertyMock, return_value=flags.get(name, False)))
+class _FakeWriter:
+    def __init__(self, result: OpResult):
+        self.result = result
+        self.calls = []
+
+    def execute(self, feature_id, action, value=None, device_id=None,
+                force=False, record_history=True):
+        self.calls.append((feature_id, action, value))
+        return self.result
 
 
 class ParseLspciLineTests(unittest.TestCase):
@@ -66,8 +72,12 @@ class ProtectionTests(unittest.TestCase):
 class ValidateSelectionTests(unittest.TestCase):
     def _devices(self):
         return [
-            {"address": "0000:01:00.0", "protected": False, "vendor_id": "10de", "device_id": "1234"},
-            {"address": "0000:00:17.0", "protected": True, "vendor_id": "8086", "device_id": "2822"},
+            {"address": "0000:01:00.0", "protected": False, "vendor_id": "10de",
+             "device_id": "1234", "iommu_group": "14"},
+            {"address": "0000:01:00.1", "protected": False, "vendor_id": "10de",
+             "device_id": "5678", "iommu_group": "14"},
+            {"address": "0000:00:17.0", "protected": True, "vendor_id": "8086",
+             "device_id": "2822", "iommu_group": "3"},
         ]
 
     def test_never_trusts_caller_supplied_protected_flag(self):
@@ -77,9 +87,20 @@ class ValidateSelectionTests(unittest.TestCase):
             reason = vf._validate_selection(["0000:00:17.0"], self._devices())
         self.assertEqual(reason, "storage_controller")
 
-    def test_safe_device_passes(self):
+    def test_safe_whole_group_passes(self):
         with mock.patch.object(vf, "_protection_reason", return_value=None):
-            self.assertIsNone(vf._validate_selection(["0000:01:00.0"], self._devices()))
+            self.assertIsNone(vf._validate_selection(
+                ["0000:01:00.0", "0000:01:00.1"], self._devices()))
+
+    def test_partial_group_selection_rejected(self):
+        # A group is the smallest passthrough unit: picking only one of
+        # two group-mates must be refused.
+        with mock.patch.object(vf, "_protection_reason", return_value=None):
+            reason = vf._validate_selection(["0000:01:00.0"], self._devices())
+        self.assertEqual(reason, "incomplete_group")
+
+    def test_empty_selection_rejected(self):
+        self.assertEqual(vf._validate_selection([], self._devices()), "no_devices")
 
     def test_unknown_address_rejected(self):
         with mock.patch.object(vf, "_protection_reason", return_value=None):
@@ -88,115 +109,164 @@ class ValidateSelectionTests(unittest.TestCase):
 
 
 class ConfigureVfioTests(unittest.TestCase):
-    def setUp(self):
-        self._tmpdir = tempfile.TemporaryDirectory()
-        self.addCleanup(self._tmpdir.cleanup)
-        self.modprobe_file = os.path.join(self._tmpdir.name, "vfio.conf")
-        self.modules_file = os.path.join(self._tmpdir.name, "vfio-modules.conf")
-        mp = mock.patch.object(vf, "MODPROBE_FILE", self.modprobe_file)
-        mp.start(); self.addCleanup(mp.stop)
-        ml = mock.patch.object(vf, "MODULES_LOAD_FILE", self.modules_file)
-        ml.start(); self.addCleanup(ml.stop)
-        logp = mock.patch.object(vf.hs, "record_operation")
-        logp.start(); self.addCleanup(logp.stop)
+    """Beta 4: configure_vfio() validates client-side, then hands the
+    whole transaction to the privileged helper — no /etc write and no
+    pkexec ever happens in this process."""
 
     def _devices(self):
         return [{"address": "0000:01:00.0", "vendor_id": "10de", "device_id": "1234",
                   "iommu_group": "14", "protected": False, "protection_reason": None}]
 
-    def test_refuses_protected_device(self):
+    def test_refuses_protected_device_without_calling_the_helper(self):
+        writer = _FakeWriter(OpResult(True))
         with mock.patch.object(vf, "list_pci_devices", return_value=self._devices()), \
              mock.patch.object(vf, "_validate_selection", return_value="storage_controller"), \
-             mock.patch.object(vf, "run_pkexec") as mock_pkexec:
+             mock.patch.object(vf, "default_privileged_writer", return_value=writer):
             result = vf.configure_vfio(["0000:00:17.0"])
         self.assertFalse(result["ok"])
         self.assertEqual(result["reason"], "storage_controller")
-        mock_pkexec.assert_not_called()
+        self.assertEqual(writer.calls, [])
 
-    def test_writes_modprobe_and_modules_load_files(self):
+    def test_sends_one_helper_transaction_with_the_addresses(self):
+        writer = _FakeWriter(OpResult(True, value={"ids": "10de:1234"}, reboot_required=True))
         with mock.patch.object(vf, "list_pci_devices", return_value=self._devices()), \
              mock.patch.object(vf, "_protection_reason", return_value=None), \
-             mock.patch.object(vf, "run_pkexec", return_value=(True, "", "")) as mock_pkexec:
+             mock.patch.object(vf, "default_privileged_writer", return_value=writer):
             result = vf.configure_vfio(["0000:01:00.0"])
         self.assertTrue(result["ok"])
         self.assertTrue(result["reboot_required"])
-        with open(self.modprobe_file) as f:
-            self.assertIn("options vfio-pci ids=10de:1234", f.read())
-        with open(self.modules_file) as f:
-            content = f.read()
-        self.assertIn("vfio_pci", content)
-        mock_pkexec.assert_called_once()
+        self.assertEqual(writer.calls,
+                         [("virt.vfio", "configure", {"addresses": ["0000:01:00.0"]})])
 
-    def test_never_mixes_initramfs_tools_across_distro_families(self):
-        with contextlib.ExitStack() as stack:
-            _distro_flags(stack, is_arch=True)
-            self.assertEqual(vf._initramfs_regen_cmd(), ["mkinitcpio", "-P"])
-        with contextlib.ExitStack() as stack:
-            _distro_flags(stack, is_debian=True)
-            self.assertEqual(vf._initramfs_regen_cmd(), ["update-initramfs", "-u"])
+    def test_helper_failure_reported_with_friendly_reason(self):
+        writer = _FakeWriter(OpResult(False, friendly_message="kf_err_helper_missing",
+                                       technical_detail="helper state=missing"))
+        with mock.patch.object(vf, "list_pci_devices", return_value=self._devices()), \
+             mock.patch.object(vf, "_protection_reason", return_value=None), \
+             mock.patch.object(vf, "default_privileged_writer", return_value=writer):
+            result = vf.configure_vfio(["0000:01:00.0"])
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["reason"], "kf_err_helper_missing")
+
+    def test_no_etc_write_exists_in_the_client_module(self):
+        # Structural regression guard for the Beta 3 bug: the client
+        # module must not contain any code writing files (the helper
+        # owns every write).
+        import inspect
+        source = inspect.getsource(vf)
+        self.assertNotIn("atomic_write_text", source)
+        self.assertNotIn('open(MODPROBE_FILE, "w"', source)
 
 
 class RemoveAndRestoreTests(unittest.TestCase):
-    def setUp(self):
-        self._tmpdir = tempfile.TemporaryDirectory()
-        self.addCleanup(self._tmpdir.cleanup)
-        self.modprobe_file = os.path.join(self._tmpdir.name, "vfio.conf")
-        self.modules_file = os.path.join(self._tmpdir.name, "vfio-modules.conf")
-        mp = mock.patch.object(vf, "MODPROBE_FILE", self.modprobe_file)
-        mp.start(); self.addCleanup(mp.stop)
-        ml = mock.patch.object(vf, "MODULES_LOAD_FILE", self.modules_file)
-        ml.start(); self.addCleanup(ml.stop)
-        logp = mock.patch.object(vf.hs, "record_operation")
-        logp.start(); self.addCleanup(logp.stop)
-        with open(self.modprobe_file, "w") as f:
-            f.write("options vfio-pci ids=10de:1234\n")
-        with open(self.modules_file, "w") as f:
-            f.write("vfio\nvfio_pci\n")
-
-    def test_remove_deletes_both_files_and_regenerates(self):
-        with mock.patch.object(vf, "run_pkexec", return_value=(True, "", "")) as mock_pkexec:
+    def test_remove_goes_through_the_helper(self):
+        writer = _FakeWriter(OpResult(True, value={"changed": True}, reboot_required=True))
+        with mock.patch.object(vf, "default_privileged_writer", return_value=writer):
             result = vf.remove_vfio_configuration()
         self.assertTrue(result["ok"])
-        self.assertFalse(os.path.exists(self.modprobe_file))
-        self.assertFalse(os.path.exists(self.modules_file))
-        mock_pkexec.assert_called_once()
+        self.assertTrue(result["changed"])
+        self.assertEqual(writer.calls[0][:2], ("virt.vfio", "disable"))
 
-    def test_remove_when_nothing_configured_is_a_no_op(self):
-        os.remove(self.modprobe_file)
-        os.remove(self.modules_file)
-        with mock.patch.object(vf, "run_pkexec") as mock_pkexec:
+    def test_remove_when_nothing_configured_reports_unchanged(self):
+        writer = _FakeWriter(OpResult(True, value={"changed": False}))
+        with mock.patch.object(vf, "default_privileged_writer", return_value=writer):
             result = vf.remove_vfio_configuration()
         self.assertTrue(result["ok"])
         self.assertFalse(result["changed"])
-        mock_pkexec.assert_not_called()
 
-    def test_restore_original_driver_is_mechanically_the_same_as_remove(self):
-        with mock.patch.object(vf, "run_pkexec", return_value=(True, "", "")):
+    def test_restore_original_driver_uses_the_restore_action(self):
+        writer = _FakeWriter(OpResult(True, value={"changed": True}, reboot_required=True))
+        with mock.patch.object(vf, "default_privileged_writer", return_value=writer):
             result = vf.restore_original_driver()
         self.assertTrue(result["ok"])
-        self.assertFalse(os.path.exists(self.modprobe_file))
+        self.assertEqual(writer.calls[0][:2], ("virt.vfio", "restore"))
 
 
 class VerifyAfterRebootTests(unittest.TestCase):
     def test_all_bound_to_vfio_pci_is_ok(self):
         with mock.patch("os.readlink", return_value="/sys/bus/pci/drivers/vfio-pci"), \
-             mock.patch.object(vf.hs, "record_operation"):
+             mock.patch("core.persistence.history_store.record_operation"):
             result = vf.verify_after_reboot(["0000:01:00.0"])
         self.assertTrue(result["ok"])
         self.assertEqual(result["drivers"]["0000:01:00.0"], "vfio-pci")
 
     def test_still_bound_to_original_driver_is_not_ok(self):
         with mock.patch("os.readlink", return_value="/sys/bus/pci/drivers/nvidia"), \
-             mock.patch.object(vf.hs, "record_operation"):
+             mock.patch("core.persistence.history_store.record_operation"):
             result = vf.verify_after_reboot(["0000:01:00.0"])
         self.assertFalse(result["ok"])
 
     def test_missing_driver_link_reported_as_none(self):
         with mock.patch("os.readlink", side_effect=OSError), \
-             mock.patch.object(vf.hs, "record_operation"):
+             mock.patch("core.persistence.history_store.record_operation"):
             result = vf.verify_after_reboot(["0000:01:00.0"])
         self.assertIsNone(result["drivers"]["0000:01:00.0"])
         self.assertFalse(result["ok"])
+
+
+class PassthroughGroupsTests(unittest.TestCase):
+    """The Beta 4 group-based selection model the wizard is built on."""
+
+    def _devices(self):
+        return [
+            {"address": "0000:00:01.0", "iommu_group": "0", "protected": True,
+             "protection_reason": "essential_device"},
+            {"address": "0000:01:00.0", "iommu_group": "14", "protected": False,
+             "protection_reason": None},
+            {"address": "0000:01:00.1", "iommu_group": "14", "protected": False,
+             "protection_reason": None},
+            {"address": "0000:02:00.0", "iommu_group": "15", "protected": True,
+             "protection_reason": "primary_gpu"},
+            {"address": "0000:03:00.0", "iommu_group": "15", "protected": False,
+             "protection_reason": None},
+            {"address": "0000:04:00.0", "iommu_group": "", "protected": False,
+             "protection_reason": None},
+        ]
+
+    def test_safe_group_is_selectable_as_a_unit(self):
+        groups = vf.passthrough_groups(self._devices(), iommu_active=True)
+        by_id = {g["group"]: g for g in groups}
+        self.assertTrue(by_id["14"]["selectable"])
+        self.assertEqual(len(by_id["14"]["devices"]), 2)
+
+    def test_group_with_any_protected_device_is_disabled_whole(self):
+        groups = vf.passthrough_groups(self._devices(), iommu_active=True)
+        by_id = {g["group"]: g for g in groups}
+        self.assertFalse(by_id["0"]["selectable"])
+        self.assertFalse(by_id["15"]["selectable"])
+        self.assertEqual(by_id["15"]["reason"], "contains_protected")
+
+    def test_device_without_group_is_never_selectable(self):
+        groups = vf.passthrough_groups(self._devices(), iommu_active=True)
+        by_id = {g["group"]: g for g in groups}
+        self.assertFalse(by_id[""]["selectable"])
+        self.assertEqual(by_id[""]["reason"], "no_group")
+
+    def test_iommu_off_disables_every_group(self):
+        groups = vf.passthrough_groups(self._devices(), iommu_active=False)
+        self.assertTrue(all(not g["selectable"] for g in groups))
+        self.assertTrue(all(g["reason"] == "no_iommu" for g in groups))
+
+    def test_no_devices_means_no_candidates(self):
+        groups = vf.passthrough_groups([], iommu_active=True)
+        self.assertEqual(groups, [])
+        self.assertFalse(vf.has_passthrough_candidates(groups))
+
+    def test_only_protected_devices_means_no_candidates(self):
+        devices = [d for d in self._devices() if d["protected"]]
+        groups = vf.passthrough_groups(devices, iommu_active=True)
+        self.assertFalse(vf.has_passthrough_candidates(groups))
+
+    def test_has_candidates_true_with_one_safe_group(self):
+        groups = vf.passthrough_groups(self._devices(), iommu_active=True)
+        self.assertTrue(vf.has_passthrough_candidates(groups))
+
+    def test_non_numeric_group_id_still_listed_and_disabled_only_by_rules(self):
+        devices = [{"address": "0000:05:00.0", "iommu_group": "abc",
+                     "protected": False, "protection_reason": None}]
+        groups = vf.passthrough_groups(devices, iommu_active=True)
+        self.assertEqual(groups[0]["group"], "abc")
+        self.assertTrue(groups[0]["selectable"])
 
 
 class ListPciDevicesTests(unittest.TestCase):

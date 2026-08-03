@@ -16,7 +16,8 @@ import threading
 from core.i18n import T, on_change
 from core import version as app_version
 from core import release_config
-from core.updater import github_provider, update_state, installer
+from core.updater import github_provider, update_state, installer, orchestrator
+from core.updater.downloader import CancelToken
 from core.updater.models import UpdateCheckResult
 from ui.license_dialog import show_license_window
 
@@ -254,6 +255,7 @@ class AboutWindow(Adw.Window):
         self._check_update_btn.set_sensitive(True)
         if result.update_available and result.latest is not None:
             self._update_status_lbl.set_text(T("updater_update_available").format(version=result.latest.version))
+            self._present_update_dialog(result.latest)
         elif result.friendly_message:
             # Covers both a real error (GithubError, has technical_detail
             # too) and the plain "nothing published for this channel
@@ -264,6 +266,178 @@ class AboutWindow(Adw.Window):
         else:
             self._update_status_lbl.set_text(T("updater_up_to_date"))
         return False
+
+    # ── One-click update flow (Beta 4) ────────────────────────────
+    def _present_update_dialog(self, release):
+        """Step 3 of the flow: versions, channel, short notes, size, and
+        the real choice — "Aggiorna adesso" / "Non ora"."""
+        running_path = _running_appimage_path()
+        is_managed = bool(running_path) and installer.is_managed_install(running_path)
+
+        body_lines = [
+            f"{T('updater_dialog_installed')}: {app_version.APP_VERSION}",
+            f"{T('updater_dialog_available')}: {release.version}",
+            T("updater_dialog_channel_stable" if release.channel == "stable"
+              else "updater_dialog_channel_beta"),
+        ]
+        asset = installer.select_asset(release, installer.current_arch())
+        if asset is not None and asset.size:
+            body_lines.append(f"{T('updater_dialog_size')}: {asset.size / (1024 * 1024):.0f} MB")
+        notes = (release.notes or "").strip()
+        if notes:
+            short = "\n".join(notes.splitlines()[:6])
+            body_lines.append("")
+            body_lines.append(f"{T('updater_dialog_notes')}:")
+            body_lines.append(short)
+
+        dialog = Adw.MessageDialog(transient_for=self, heading=T("updater_dialog_title"),
+                                    body="\n".join(body_lines))
+        dialog.add_response("later", T("updater_not_now_btn"))
+        dialog.add_response("update", T("updater_update_now_btn"))
+        dialog.set_response_appearance("update", Adw.ResponseAppearance.SUGGESTED)
+        dialog.connect("response", lambda _d, r: self._on_update_dialog_response(r, release, is_managed))
+        dialog.present()
+
+    def _on_update_dialog_response(self, response, release, is_managed):
+        if response != "update":
+            return
+        if is_managed:
+            self._start_managed_update(release)
+        else:
+            self._present_portable_choice(release)
+
+    def _present_portable_choice(self, release):
+        """A running portable AppImage is never overwritten silently —
+        the user picks between converting to a managed install or a
+        plain verified download to a folder of their choice."""
+        dialog = Adw.MessageDialog(transient_for=self,
+                                    heading=T("updater_portable_choice_title"),
+                                    body=T("updater_portable_choice_body"))
+        dialog.add_response("cancel", T("updater_not_now_btn"))
+        dialog.add_response("download", T("updater_portable_download_btn"))
+        dialog.add_response("install", T("updater_portable_install_btn"))
+        dialog.set_response_appearance("install", Adw.ResponseAppearance.SUGGESTED)
+        dialog.connect("response", lambda _d, r: self._on_portable_choice(r, release))
+        dialog.present()
+
+    def _on_portable_choice(self, response, release):
+        if response == "install":
+            # Converting to managed: first register the currently
+            # running copy as the managed install (menu entry included),
+            # then run the exact same managed update on top of it.
+            running_path = _running_appimage_path()
+            if running_path:
+                installer.install_to_managed_location(running_path)
+            self._start_managed_update(release)
+        elif response == "download":
+            self._choose_download_folder(release)
+
+    def _choose_download_folder(self, release):
+        dialog = Gtk.FileChooserNative.new(
+            T("updater_portable_download_btn"), self,
+            Gtk.FileChooserAction.SELECT_FOLDER, T("updater_portable_download_btn"), None)
+
+        def on_response(d, response):
+            if response == Gtk.ResponseType.ACCEPT:
+                folder = d.get_file()
+                if folder is not None:
+                    self._start_download_only(release, folder.get_path())
+            d.destroy()
+
+        dialog.connect("response", on_response)
+        dialog.show()
+
+    def _begin_update_ui(self):
+        self._cancel_token = CancelToken()
+        self._check_update_btn.set_sensitive(False)
+        self._update_status_lbl.set_visible(True)
+
+    def _progress_cb(self, downloaded, total):
+        percent = int(downloaded * 100 / total) if total else 0
+        GLib.idle_add(self._update_status_lbl.set_text,
+                      T("updater_downloading").format(percent=percent))
+
+    def _start_managed_update(self, release):
+        self._begin_update_ui()
+
+        def run():
+            result = orchestrator.perform_managed_update(
+                release, app_version.APP_VERSION,
+                on_progress=self._progress_cb, cancel_token=self._cancel_token)
+            helper_result = None
+            if result.ok and orchestrator.helper_update_needed():
+                GLib.idle_add(self._update_status_lbl.set_text, T("updater_helper_updating"))
+                helper_result = orchestrator.update_helper_from_appimage(
+                    installer.MANAGED_APPIMAGE_PATH)
+            GLib.idle_add(self._on_managed_update_done, result, helper_result)
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _on_managed_update_done(self, result, helper_result):
+        self._check_update_btn.set_sensitive(True)
+        if not result.ok:
+            self._show_update_failure(result)
+            return False
+        message = T("updater_done")
+        if helper_result is not None:
+            message += "\n" + T("updater_helper_updated" if helper_result.ok
+                                 else "updater_helper_update_failed")
+        self._update_status_lbl.set_text(message)
+
+        dialog = Adw.MessageDialog(transient_for=self, heading=T("updater_done"), body=message)
+        dialog.add_response("later", T("updater_not_now_btn"))
+        dialog.add_response("restart", T("updater_restart_now_btn"))
+        dialog.set_response_appearance("restart", Adw.ResponseAppearance.SUGGESTED)
+        dialog.connect("response", self._on_restart_response)
+        dialog.present()
+        return False
+
+    def _on_restart_response(self, _dialog, response):
+        if response != "restart":
+            return
+        # Always the stable managed path — never the /tmp/.mount_* path
+        # of the currently mounted AppImage.
+        if orchestrator.restart_into_managed():
+            app = self.get_root().get_application() if self.get_root() else None
+            if app is None and self._main_window is not None:
+                app = self._main_window.get_application()
+            if app is not None:
+                app.quit()
+
+    def _start_download_only(self, release, dest_dir):
+        self._begin_update_ui()
+
+        def run():
+            result = orchestrator.download_only(release, dest_dir,
+                                                 on_progress=self._progress_cb,
+                                                 cancel_token=self._cancel_token)
+            GLib.idle_add(self._on_download_only_done, result)
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _on_download_only_done(self, result):
+        self._check_update_btn.set_sensitive(True)
+        if result.ok:
+            self._update_status_lbl.set_text(T("updater_download_only_done"))
+        else:
+            self._show_update_failure(result)
+        return False
+
+    def _show_update_failure(self, result):
+        """Simple sentence up front; raw detail only behind 'Mostra
+        dettagli'."""
+        friendly = T(result.friendly_message) if result.friendly_message else T("updater_failed_generic")
+        self._update_status_lbl.set_text(friendly)
+        dialog = Adw.MessageDialog(transient_for=self, heading=T("updater_failed_generic"),
+                                    body=friendly)
+        if result.technical_detail:
+            expander = Gtk.Expander(label=T("updater_show_details"))
+            detail = Gtk.Label(label=result.technical_detail, wrap=True, xalign=0, selectable=True)
+            detail.add_css_class("dim-label")
+            expander.set_child(detail)
+            dialog.set_extra_child(expander)
+        dialog.add_response("close", T("updater_not_now_btn"))
+        dialog.present()
 
     # ── Managed install ───────────────────────────────────────────
     def _on_add_to_menu(self, _btn):
@@ -286,8 +460,18 @@ class AboutWindow(Adw.Window):
         return False
 
     def _on_restore_previous(self, _btn):
+        dialog = Adw.MessageDialog(transient_for=self,
+                                    heading=T("updater_restore_confirm_title"),
+                                    body=T("updater_restore_confirm_body"))
+        dialog.add_response("cancel", T("updater_not_now_btn"))
+        dialog.add_response("restore", T("updater_restore_previous_btn"))
+        dialog.set_response_appearance("restore", Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.connect("response",
+                       lambda _d, r: self._do_restore_previous() if r == "restore" else None)
+        dialog.present()
+
+    def _do_restore_previous(self):
         self._restore_prev_btn.set_sensitive(False)
-        backup_path = os.path.join(installer.BACKUP_DIR, "")  # existence checked inside restore_previous per exact file
 
         def run():
             # There is exactly one kept backup per the spec ("conservare
@@ -318,7 +502,7 @@ class AboutWindow(Adw.Window):
         self._update_status_lbl.set_visible(True)
         self._update_status_lbl.set_text(
             T("updater_restore_failed") if not result.ok and result.friendly_message != "updater_no_backup_available"
-            else T(result.friendly_message) if not result.ok else T("dns_success"))
+            else T(result.friendly_message) if not result.ok else T("updater_restore_done"))
         return False
 
     # ── Diagnostics ────────────────────────────────────────────────

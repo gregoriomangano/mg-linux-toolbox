@@ -28,7 +28,7 @@
 set -euo pipefail
 
 # ── Centralized configuration ───────────────────────────────────
-APP_VERSION="0.9.0-beta.3"
+APP_VERSION="0.9.0-beta.4"
 APPIMAGE_RELEASE_NAME="MG-Linux-Toolbox-${APP_VERSION}-x86_64.AppImage"
 GITHUB_OWNER="gregoriomangano"
 GITHUB_REPOSITORY="mg-linux-toolbox"
@@ -57,6 +57,20 @@ DESKTOP_DIR="$XDG_DATA_HOME_DIR/applications"
 DESKTOP_PATH="$DESKTOP_DIR/mg-linux-toolbox.desktop"
 ICON_DIR="$XDG_DATA_HOME_DIR/icons/hicolor/256x256/apps"
 ICON_PATH="$ICON_DIR/mg-linux-toolbox.png"
+
+# Root-owned privileged component (the ONLY files this script ever
+# installs with sudo outside $HOME). /usr/libexec is preferred; /usr/lib
+# is the fallback for distributions without it.
+HELPER_NAME="mg-privileged-helper"
+if [ -d /usr/libexec ]; then
+    HELPER_DIR="/usr/libexec/mg-linux-toolbox"
+else
+    HELPER_DIR="/usr/lib/mg-linux-toolbox"
+fi
+HELPER_PATH="$HELPER_DIR/$HELPER_NAME"
+POLKIT_ACTIONS_DIR="/usr/share/polkit-1/actions"
+POLKIT_POLICY_NAME="it.manganogregorio.mg-linux-toolbox.policy"
+POLKIT_POLICY_PATH="$POLKIT_ACTIONS_DIR/$POLKIT_POLICY_NAME"
 
 API_BASE="https://api.github.com"
 UA="mg-linux-toolbox-install.sh"
@@ -488,6 +502,127 @@ PYEOF
     return $rc
 }
 
+# ── Privileged component (helper + Polkit policy) ─────────────────────
+# The helper is extracted from the ALREADY VERIFIED AppImage (checksum
+# checked earlier in this run), never downloaded separately. sudo is
+# used only for these files, after showing exactly what will be
+# installed. Idempotent: if the installed helper is byte-identical and
+# correctly owned, sudo is never even invoked.
+
+extract_privileged_component() {
+    # $1 = destination dir. Extracts helper + policy from the AppImage.
+    local dest="$1"
+    (cd "$dest" && "$APPIMAGE_PATH" --appimage-extract "$HELPER_NAME" >/dev/null 2>&1) || true
+    (cd "$dest" && "$APPIMAGE_PATH" --appimage-extract "$POLKIT_POLICY_NAME" >/dev/null 2>&1) || true
+    if [ ! -f "$dest/squashfs-root/$HELPER_NAME" ] || [ ! -f "$dest/squashfs-root/$POLKIT_POLICY_NAME" ]; then
+        return 1
+    fi
+    return 0
+}
+
+helper_already_current() {
+    # Identical content AND root:root AND not group/other-writable.
+    local candidate="$1"
+    [ -f "$HELPER_PATH" ] || return 1
+    local installed_sha candidate_sha owner mode
+    read -r installed_sha _ < <(sha256sum "$HELPER_PATH") || return 1
+    read -r candidate_sha _ < <(sha256sum "$candidate") || return 1
+    [ "$installed_sha" = "$candidate_sha" ] || return 1
+    owner="$(stat -c '%u:%g' "$HELPER_PATH" 2>/dev/null)" || return 1
+    [ "$owner" = "0:0" ] || return 1
+    mode="$(stat -c '%a' "$HELPER_PATH" 2>/dev/null)" || return 1
+    case "$mode" in *[2367]?|*?[2367]) return 1 ;; esac
+    [ -f "$POLKIT_POLICY_PATH" ] || return 1
+    return 0
+}
+
+verify_privileged_install() {
+    local owner mode
+    owner="$(stat -c '%u:%g' "$HELPER_PATH" 2>/dev/null)" || return 1
+    [ "$owner" = "0:0" ] || return 1
+    mode="$(stat -c '%a' "$HELPER_PATH" 2>/dev/null)" || return 1
+    [ "$mode" = "755" ] || return 1
+    [ -f "$POLKIT_POLICY_PATH" ] || return 1
+    return 0
+}
+
+install_privileged_component() {
+    say_step "Componente amministrativo (funzioni che richiedono la password)."
+
+    local extract_dir="$TMP_DIR/priv"
+    mkdir -p "$extract_dir"
+    if ! extract_privileged_component "$extract_dir"; then
+        say_warn "il componente amministrativo non è incluso in questo pacchetto: le funzioni che richiedono privilegi resteranno disattivate. L'app funziona comunque in sola lettura."
+        return 0
+    fi
+    local new_helper="$extract_dir/squashfs-root/$HELPER_NAME"
+    local new_policy="$extract_dir/squashfs-root/$POLKIT_POLICY_NAME"
+
+    # The policy authorizes ONLY the exact installed path; align it when
+    # this system uses the /usr/lib fallback instead of /usr/libexec.
+    if [ "$HELPER_DIR" != "/usr/libexec/mg-linux-toolbox" ]; then
+        sed -i "s|/usr/libexec/mg-linux-toolbox/$HELPER_NAME|$HELPER_PATH|" "$new_policy"
+    fi
+
+    if helper_already_current "$new_helper"; then
+        say "Il componente amministrativo è già installato e aggiornato."
+        return 0
+    fi
+
+    say "Per abilitare le modifiche di sistema (KSM, CPU, batteria, VFIO, ecc.)"
+    say "verranno installati, con la tua password, SOLTANTO questi file di sistema:"
+    say "  - $HELPER_PATH        (eseguibile di root, proprietà root:root)"
+    say "  - $POLKIT_POLICY_PATH (regola di autorizzazione Polkit)"
+    say "Nient'altro fuori dalla tua cartella personale verrà toccato."
+
+    local answer=""
+    if [ -n "${MG_TOOLBOX_HELPER_ANSWER:-}" ]; then
+        # Test/automation hook: never used interactively.
+        answer="$MG_TOOLBOX_HELPER_ANSWER"
+    elif { printf 'Vuoi installare il componente amministrativo ora? [s/N] ' > /dev/tty; } 2>/dev/null; then
+        read -r answer < /dev/tty 2>/dev/null || true
+    elif [ -t 0 ]; then
+        printf 'Vuoi installare il componente amministrativo ora? [s/N] '
+        read -r answer || true
+    else
+        say "Esecuzione non interattiva: il componente amministrativo non è stato installato."
+        say "Potrai installarlo in seguito rieseguendo questo script da un terminale."
+        return 0
+    fi
+    case "$answer" in
+        s|S|si|SI|sì|SÌ) ;;
+        *)
+            say "Componente amministrativo non installato: l'app funzionerà in sola lettura."
+            say "Potrai installarlo in seguito rieseguendo questo script."
+            return 0
+            ;;
+    esac
+
+    # Keep the previous helper for rollback if a later step fails.
+    local had_previous=0
+    if [ -f "$HELPER_PATH" ]; then
+        had_previous=1
+        sudo cp -f -- "$HELPER_PATH" "$HELPER_PATH.previous" || true
+    fi
+
+    if ! sudo install -d -o root -g root -m 0755 "$HELPER_DIR" || \
+       ! sudo install -o root -g root -m 0755 -- "$new_helper" "$HELPER_PATH" || \
+       ! sudo install -o root -g root -m 0644 -- "$new_policy" "$POLKIT_POLICY_PATH"; then
+        if [ "$had_previous" -eq 1 ] && sudo test -f "$HELPER_PATH.previous"; then
+            sudo mv -f -- "$HELPER_PATH.previous" "$HELPER_PATH" || true
+        fi
+        say_warn "l'installazione del componente amministrativo non è riuscita. L'app funziona comunque: le funzioni che richiedono privilegi resteranno disattivate."
+        return 0
+    fi
+    sudo rm -f -- "$HELPER_PATH.previous" 2>/dev/null || true
+
+    if verify_privileged_install; then
+        say "Componente amministrativo installato e verificato (root:root, permessi corretti)."
+    else
+        say_warn "il componente amministrativo è stato copiato ma la verifica di proprietario/permessi non è riuscita. Riesegui lo script o controlla manualmente $HELPER_PATH."
+    fi
+}
+
 # Lets the test suite `source` this file to unit-test individual
 # functions (distro/package-manager detection, package-name fallback
 # logic) without ever running the real install flow.
@@ -631,6 +766,56 @@ if [[ ! "$EXPECTED_SHA" =~ ^[[:xdigit:]]{64}$ ]] || [ "${EXPECTED_SHA,,}" != "$A
     fail "Il file scaricato non ha superato il controllo di sicurezza. La versione attuale non è stata modificata."
 fi
 say "Il file è stato controllato correttamente."
+chmod 755 "$DOWNLOAD_APPIMAGE"
+
+say_step "Controllo dei requisiti minimi (GTK4, Libadwaita)."
+# Real check against THIS system's installed libraries, using the
+# verified AppImage's own bundled core/version.py as the single source
+# of truth (never a duplicated, driftable copy of the version numbers
+# here) — before ever declaring the installation successful, per the
+# permanent rule: an install must not succeed only for the app to fail
+# with a version error the very first time it's launched.
+VERSION_EXTRACT_DIR="$TMP_DIR/version-check"
+mkdir -p "$VERSION_EXTRACT_DIR"
+if (cd "$VERSION_EXTRACT_DIR" && "$DOWNLOAD_APPIMAGE" --appimage-extract usr/share/mg-linux-toolbox/core/version.py) >/dev/null 2>&1; then
+    # Run from inside VERSION_EXTRACT_DIR (never from wherever this
+    # script was invoked): `python3 -c` implicitly puts the current
+    # directory first on sys.path, and if install.sh is ever run with
+    # its cwd inside a checkout that happens to contain a real `core`
+    # package, that would shadow PYTHONPATH and silently check the
+    # WRONG (real, already-installed) core.version instead of the
+    # just-downloaded AppImage's own bundled copy — caught by this
+    # script's own test suite the first time this was written.
+    VERSION_CHECK_OUTPUT="$(cd "$VERSION_EXTRACT_DIR" && PYTHONPATH="$VERSION_EXTRACT_DIR/squashfs-root/usr/share/mg-linux-toolbox" python3 -c '
+import sys
+try:
+    from core.version import check_runtime_requirements
+except Exception:
+    print("IMPORT_FAILED")
+    sys.exit(1)
+req = check_runtime_requirements()
+if req["ok"]:
+    print("OK")
+    sys.exit(0)
+print("Trovata: " + str(req.get("found", {})))
+print("Richiesta: " + str(req["required"]))
+sys.exit(1)
+' 2>/dev/null)" || true
+    rm -rf "$VERSION_EXTRACT_DIR/squashfs-root"
+    if [ "$VERSION_CHECK_OUTPUT" != "OK" ]; then
+        say_err "M.G Linux Toolbox richiede una versione recente di GTK4 e Libadwaita."
+        say_err "La versione presente su questo sistema è troppo vecchia."
+        if [ "$VERSION_CHECK_OUTPUT" = "IMPORT_FAILED" ] || [ -z "$VERSION_CHECK_OUTPUT" ]; then
+            say_err "PyGObject, GTK4 o Libadwaita non risultano installati."
+        else
+            printf '%s\n' "$VERSION_CHECK_OUTPUT" >&2
+        fi
+        fail "Installazione interrotta: i requisiti minimi non sono soddisfatti. La versione attuale non è stata modificata."
+    fi
+    say "Requisiti minimi soddisfatti."
+else
+    say_warn "non è stato possibile verificare i requisiti minimi prima dell'installazione (estrazione fallita); verranno controllati al primo avvio."
+fi
 
 # Back up whatever is currently installed BEFORE touching it, so a
 # problem after this point can still be rolled back.
@@ -638,7 +823,6 @@ if [ -f "$APPIMAGE_PATH" ] && [ -n "$CURRENT_VERSION" ]; then
     cp -f "$APPIMAGE_PATH" "$BACKUP_DIR/previous-$CURRENT_VERSION.AppImage"
 fi
 
-chmod 755 "$DOWNLOAD_APPIMAGE"
 if ! mv -f "$DOWNLOAD_APPIMAGE" "$APPIMAGE_PATH"; then
     if [ -f "$BACKUP_DIR/previous-$CURRENT_VERSION.AppImage" ]; then
         cp -f "$BACKUP_DIR/previous-$CURRENT_VERSION.AppImage" "$APPIMAGE_PATH"
@@ -695,6 +879,9 @@ if command -v gtk-update-icon-cache >/dev/null 2>&1 && [ -d "$XDG_DATA_HOME_DIR/
 fi
 
 say "M.G Linux Toolbox è stata aggiunta al menu delle applicazioni."
+
+install_privileged_component
+
 say_step "Installazione completata."
 say "Versione installata: $LATEST_VERSION"
 say "Trovi \"$APP_DISPLAY_NAME\" nel menu delle applicazioni del tuo desktop,"

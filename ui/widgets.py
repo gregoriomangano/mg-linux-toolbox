@@ -52,6 +52,34 @@ def load_image_or_placeholder(path: str, placeholder_icon_name: str, placeholder
 SLOW_INSTALL_THRESHOLD_SECONDS = 15
 
 
+def report_toggle_result(row, page: str, feature_id: str, ok: bool, technical_detail: str = "",
+                          friendly_key: str = "kf_err_generic", device_id: str = None):
+    """
+    Shared failure path for the bespoke (non-KernelFeature-registry)
+    privileged toggles — Wi-Fi, Bluetooth, IPv6, Firewall, SSH, Samba,
+    CUPS, TRIM, SMART, KVM, package installs. The switch/button itself
+    is ALWAYS already snapped back to the real re-read state by the
+    caller before this runs (never an optimistic guess) — this only
+    adds the missing half: a plain-language message on `row` (a
+    FeatureRow, so "Mostra dettagli" is already wired) and a history
+    entry, so a failed pkexec/systemctl call is never silent again.
+    `friendly_key` should be "kf_err_helper_missing" when the failure is
+    known to be caused by the privileged helper being absent/untrusted;
+    "kf_err_generic" otherwise ("Non è stato possibile applicare questa
+    modifica...").
+    """
+    if ok:
+        row.clear_operation_error()
+        return
+    row.show_operation_error(friendly_key, technical_detail)
+    try:
+        from core.persistence import history_store as hs
+        hs.record_operation(page, feature_id, hs.ERROR, False,
+                            technical_detail=technical_detail, device_id=device_id)
+    except Exception:
+        logger.exception("Failed to record toggle failure to history")
+
+
 def run_install_in_background(button: Gtk.Button, install_fn: callable,
                                verify_fn: callable, on_success: callable,
                                on_failure: callable = None):
@@ -308,7 +336,7 @@ class FeatureRow(Adw.ExpanderRow):
 
     def __init__(self,
                  key_prefix:   str,
-                 control:      Gtk.Widget | None,
+                 control:      "Gtk.Widget | None",
                  risk:         str  = "low",
                  reboot:       bool = False,
                  dep_pkg:      str  | None = None,
@@ -379,6 +407,31 @@ class FeatureRow(Adw.ExpanderRow):
                 if control is not None:
                     control.set_sensitive(False)
 
+        # ── Operation error (hidden until a privileged action fails) ──
+        # Same shape as KernelFeatureRow.show_error()/clear_error(): one
+        # short friendly sentence, raw technical_detail only ever behind
+        # "Mostra dettagli". Every FeatureRow subclass (SwitchRow,
+        # InstallRow — wifi/bluetooth/ipv6/firewall/ssh/samba/cups/trim/
+        # smart/KVM/Docker/Podman/Distrobox/printer drivers/GameMode/
+        # MangoHud/Vulkan/lib32/EasyEffects) gets this for free instead
+        # of each page silently reverting the control with no feedback.
+        self._lbl_op_error = Gtk.Label(wrap=True, xalign=0, use_markup=False)
+        self._lbl_op_error.add_css_class("desc-con")
+        self._lbl_op_error.set_visible(False)
+        body.append(self._lbl_op_error)
+
+        self._op_details_btn = Gtk.Button(label=T("kf_show_details_btn"))
+        self._op_details_btn.add_css_class("flat")
+        self._op_details_btn.set_halign(Gtk.Align.START)
+        self._op_details_btn.set_visible(False)
+        self._op_details_btn.connect("clicked", self._on_toggle_op_details)
+        body.append(self._op_details_btn)
+
+        self._lbl_op_details = Gtk.Label(wrap=True, xalign=0, selectable=True, use_markup=False)
+        self._lbl_op_details.add_css_class("sysinfo-value-sub")
+        self._lbl_op_details.set_visible(False)
+        body.append(self._lbl_op_details)
+
         self.add_row(body)
 
         on_change(self._refresh)
@@ -392,6 +445,23 @@ class FeatureRow(Adw.ExpanderRow):
         self._lbl_what.set_text(f"❓ {T('what_is')}: {T(f'{self._key}_desc')}")
         self._lbl_pro.set_text(f"✅ {T('advantage')}: {T(f'{self._key}_pro')}")
         self._lbl_con.set_text(f"⚠️  {T('when_avoid')}: {T(f'{self._key}_con')}")
+        self._op_details_btn.set_label(T("kf_show_details_btn"))
+
+    def show_operation_error(self, friendly_key: str = "kf_err_generic", technical_detail: str = ""):
+        self._lbl_op_error.set_text(T(friendly_key) if friendly_key else T("kf_err_generic"))
+        self._lbl_op_error.set_visible(True)
+        self._op_details_btn.set_visible(bool(technical_detail))
+        self._lbl_op_details.set_text(technical_detail)
+        self._lbl_op_details.set_visible(False)
+        self.set_expanded(True)
+
+    def clear_operation_error(self):
+        self._lbl_op_error.set_visible(False)
+        self._op_details_btn.set_visible(False)
+        self._lbl_op_details.set_visible(False)
+
+    def _on_toggle_op_details(self, _btn):
+        self._lbl_op_details.set_visible(not self._lbl_op_details.get_visible())
 
 
 # ── SwitchRow ────────────────────────────────────────────────────

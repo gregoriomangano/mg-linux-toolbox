@@ -31,6 +31,7 @@ behind "Show details" in the UI>}.
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -40,6 +41,15 @@ from core.persistence.rollback_store import JsonStateStore, FeatureRecord, DEFAU
 from core.persistence import sysctl_store
 from core.persistence import tmpfiles_store
 from core.persistence import selinux_config_store
+from core.persistence.atomic_io import atomic_write_text, backup_file
+from core.privileged import cmdline_edit
+
+# Literal marker lines: the unprivileged client reads the INSTALLED
+# helper file as text and greps for these to learn its version without
+# executing anything. Kept in sync with core/privileged/helper_meta.py
+# (enforced by tests/test_privileged_helper.py).
+MG_HELPER_VERSION = "1.0.0"
+MG_HELPER_PROTOCOL = "1"
 
 
 def _parse_bool(raw_value) -> bool:
@@ -47,8 +57,11 @@ def _parse_bool(raw_value) -> bool:
     return str(raw_value).strip().lower() in ("true", "1", "y", "yes")
 
 
-def ok(value, friendly_message="", technical_detail=""):
-    return {"ok": True, "value": value, "friendly_message": friendly_message, "technical_detail": technical_detail}
+def ok(value, friendly_message="", technical_detail="", reboot_required=False):
+    result = {"ok": True, "value": value, "friendly_message": friendly_message, "technical_detail": technical_detail}
+    if reboot_required:
+        result["reboot_required"] = True
+    return result
 
 
 def err(friendly_message, technical_detail="", value=None):
@@ -56,8 +69,25 @@ def err(friendly_message, technical_detail="", value=None):
 
 
 def _note_initial(state: JsonStateStore, key: str, current_value, device_id=None):
-    if state.get(key) is None:
-        state.put(FeatureRecord(feature_id=key, initial_value=current_value, device_id=device_id))
+    """
+    Always captures the value read right before THIS apply as what a
+    later "Ripristina" should return to — never a stale value left
+    over from an earlier, already-finished trial.
+
+    Real Beta 4 bug this fixes: the previous "only if not already
+    recorded" behaviour meant that once any record existed for a
+    feature, every later apply/restore cycle kept using whatever
+    initial_value was captured the very first time ever (potentially
+    from a completely unrelated earlier session) instead of the state
+    right before the CURRENT "Prova fino al riavvio" — "Ripristina"
+    could silently return to the wrong value while still reporting
+    success, because it was comparing against the wrong target.
+    _note_applied() (called right after this in every writer) always
+    re-sets last_applied_value/mode/timestamps immediately afterwards,
+    so overwriting the whole record here first never loses anything a
+    correctly-behaving call sequence still needs.
+    """
+    state.put(FeatureRecord(feature_id=key, initial_value=current_value, device_id=device_id))
 
 
 def _note_applied(state: JsonStateStore, key: str, value, mode: str, device_id=None,
@@ -147,6 +177,8 @@ class SwappinessWriter:
             sysctl_store.remove_key("vm.swappiness")
         except OSError as e:
             return err("kf_err_generic", str(e))
+        if reread != v:
+            return err("kf_err_write_mismatch", f"wanted restore to {v}, kernel reports {reread}")
         _note_applied(state, self.KEY, reread, "restored")
         return ok(reread)
 
@@ -213,6 +245,8 @@ class IOSchedulerWriter:
             _, reread = self._read(path)
         except OSError as e:
             return err("kf_err_generic", str(e))
+        if reread != rec.initial_value:
+            return err("kf_err_write_mismatch", f"wanted restore to {rec.initial_value}, kernel reports {reread}")
         _note_applied(state, key, reread, "restored", device_id=device_id)
         return ok(reread)
 
@@ -276,6 +310,8 @@ class TurboBoostWriter:
             reread = self._read_enabled(mode, path)
         except OSError as e:
             return err("kf_err_generic", str(e))
+        if reread != want_enabled:
+            return err("kf_err_write_mismatch", f"wanted restore to turbo={want_enabled}, kernel reports {reread}")
         _note_applied(state, self.KEY, reread, "restored")
         return ok(reread)
 
@@ -372,6 +408,8 @@ class _PolicyBasedWriter:
         reread = {d: self._read_one(d) for d in dirs}
         distinct = set(reread.values())
         final = distinct.pop() if len(distinct) == 1 else "mixed"
+        if final != want:
+            return err("kf_err_write_mismatch", f"wanted restore to {want}, kernel reports {reread}")
         _note_applied(state, self.KEY, final, "restored")
         return ok(final)
 
@@ -434,6 +472,8 @@ class THPWriter:
             _, reread = self._read()
         except OSError as e:
             return err("kf_err_generic", str(e))
+        if reread != rec.initial_value:
+            return err("kf_err_write_mismatch", f"wanted restore to {rec.initial_value}, kernel reports {reread}")
         _note_applied(state, self.KEY, reread, "restored")
         return ok(reread)
 
@@ -481,6 +521,8 @@ class ZswapWriter:
             reread = self._read_enabled()
         except OSError as e:
             return err("kf_err_generic", str(e))
+        if reread != want_enabled:
+            return err("kf_err_write_mismatch", f"wanted restore to zswap={want_enabled}, kernel reports {reread}")
         _note_applied(state, self.KEY, reread, "restored")
         return ok(reread)
 
@@ -630,6 +672,8 @@ class ZramWriter:
             reread = self._zram_active()
         except OSError as e:
             return err("kf_err_generic", str(e))
+        if reread != want_on:
+            return err("kf_err_write_mismatch", f"wanted zram restore to {want_on}, actual={reread}")
         # Restoring to "was on" may land on a different device index than
         # before (can't guarantee reusing the exact same one); record
         # whichever device is genuinely active now, or None once disabled.
@@ -731,6 +775,8 @@ class BatteryThresholdWriter:
             reread = self._read_both(start_path, end_path)
         except OSError as e:
             return err("kf_err_generic", str(e))
+        if reread["start"] != want["start"] or reread["end"] != want["end"]:
+            return err("kf_err_write_mismatch", f"wanted restore to {want}, kernel reports {reread}")
         _note_applied(state, self.KEY, reread, "restored")
         return ok(reread)
 
@@ -786,6 +832,8 @@ class PlatformProfileWriter:
                 reread = f.read().strip()
         except OSError as e:
             return err("kf_err_generic", str(e))
+        if reread != rec.initial_value:
+            return err("kf_err_write_mismatch", f"wanted restore to {rec.initial_value}, kernel reports {reread}")
         _note_applied(state, self.KEY, reread, "restored")
         return ok(reread)
 
@@ -836,6 +884,8 @@ class SuspendModeWriter:
             _, reread = self._read()
         except OSError as e:
             return err("kf_err_generic", str(e))
+        if reread != rec.initial_value:
+            return err("kf_err_write_mismatch", f"wanted restore to {rec.initial_value}, kernel reports {reread}")
         _note_applied(state, self.KEY, reread, "restored")
         return ok(reread)
 
@@ -928,6 +978,8 @@ class DevicePowerWriter:
                 reread = f.read().strip()
         except OSError as e:
             return err("kf_err_generic", str(e))
+        if reread != rec.initial_value:
+            return err("kf_err_write_mismatch", f"wanted restore to {rec.initial_value}, kernel reports {reread}")
         _note_applied(state, key, reread, "restored", device_id=f"{bus}:{dev_id}")
         return ok(reread)
 
@@ -994,6 +1046,10 @@ class AudioPowerSaveWriter:
             reread = self._read()
         except OSError as e:
             return err("kf_err_generic", str(e))
+        controller_mismatch = (want.get("controller") is not None
+                               and reread.get("controller") != want["controller"])
+        if reread["seconds"] != want["seconds"] or controller_mismatch:
+            return err("kf_err_write_mismatch", f"wanted restore to {want}, kernel reports {reread}")
         _note_applied(state, self.KEY, reread, "restored")
         return ok(reread)
 
@@ -1071,6 +1127,15 @@ class KsmWriter:
             reread = self._read_enabled()
         except OSError as e:
             return err("kf_err_generic", str(e))
+        # The real Beta 4 bug this fixes: restore() used to write, re-read,
+        # and then unconditionally report success — a write that silently
+        # didn't take effect (or a stale initial_value from an earlier,
+        # unrelated trial) was recorded as result=ok/verified_value=true
+        # while /sys/kernel/mm/ksm/run stayed at the old value. Never
+        # report ok, and never strip the persistent tmpfiles entry, unless
+        # the re-read genuinely matches what was requested.
+        if reread != want_enabled:
+            return err("kf_err_write_mismatch", f"wanted restore to ksm={want_enabled}, kernel reports {reread}")
         if rec.mode == "persistent":
             try:
                 tmpfiles_store.remove_value(self.PATH)
@@ -1148,6 +1213,8 @@ class SELinuxWriter:
             return err("kf_err_generic", str(e))
         if result.returncode != 0:
             return err("kf_err_permission", result.stderr.strip())
+        if reread != mode:
+            return err("kf_err_write_mismatch", f"wanted restore to {mode}, kernel reports {reread}")
         if rec.mode == "persistent":
             try:
                 selinux_config_store.write_mode(mode)
@@ -1197,6 +1264,8 @@ class MGLRUWriter:
             reread = self._read()
         except OSError as e:
             return err("kf_err_generic", str(e))
+        if reread != rec.initial_value:
+            return err("kf_err_write_mismatch", f"wanted restore to {rec.initial_value}, kernel reports {reread}")
         _note_applied(state, self.KEY, reread, "restored")
         return ok(reread)
 
@@ -1271,6 +1340,8 @@ class SwapReadaheadWriter:
             sysctl_store.remove_key(self.SYSCTL_KEY)
         except OSError as e:
             return err("kf_err_generic", str(e))
+        if reread != v:
+            return err("kf_err_write_mismatch", f"wanted restore to {v}, kernel reports {reread}")
         _note_applied(state, self.KEY, reread, "restored")
         return ok(reread)
 
@@ -1338,6 +1409,8 @@ class ReadAheadWriter:
             reread = self._read(path)
         except OSError as e:
             return err("kf_err_generic", str(e))
+        if reread != rec.initial_value:
+            return err("kf_err_write_mismatch", f"wanted restore to {rec.initial_value}, kernel reports {reread}")
         _note_applied(state, key, reread, "restored", device_id=device_id)
         return ok(reread)
 
@@ -1411,6 +1484,8 @@ class TcpCongestionControlWriter:
             sysctl_store.remove_key(self.SYSCTL_KEY)
         except OSError as e:
             return err("kf_err_generic", str(e))
+        if reread != v:
+            return err("kf_err_write_mismatch", f"wanted restore to {v}, kernel reports {reread}")
         _note_applied(state, self.KEY, reread, "restored")
         return ok(reread)
 
@@ -1575,6 +1650,10 @@ class CpuFrequencyLimitsWriter:
         for d in dirs:
             r_min, r_max = self._read_pair(d)
             final[os.path.basename(d)] = {"min": r_min, "max": r_max}
+        mismatched = {name: final[name] for name, want in initial.items()
+                      if want is not None and final.get(name) != want}
+        if mismatched:
+            return err("kf_err_write_mismatch", f"wanted restore to {initial}, kernel reports {final}")
         _note_applied(state, self.KEY, final, "restored")
         return ok(final)
 
@@ -1646,6 +1725,8 @@ class _SimpleSysctlChoiceWriter:
                 sysctl_store.remove_key(self.SYSCTL_KEY)
         except OSError as e:
             return err("kf_err_generic", str(e))
+        if reread != v:
+            return err("kf_err_write_mismatch", f"wanted restore to {v}, kernel reports {reread}")
         _note_applied(state, self.KEY, reread, "restored")
         return ok(reread)
 
@@ -1788,8 +1869,706 @@ class ProtectedPathsWriter:
             except OSError as e:
                 return err("kf_err_generic", str(e))
         final = {key: self._read(key) for key in existing}
+        mismatched = {key: final[key] for key, want in initial.items()
+                      if want is not None and final.get(key) != want}
+        if mismatched:
+            return err("kf_err_write_mismatch", f"wanted restore to {initial}, kernel reports {final}")
         _note_applied(state, self.KEY, final, "restored")
         return ok(final)
+
+
+class HelperPingWriter:
+    """Safe diagnostics — reports the helper's own version and whether it
+    is running privileged. Never reads or writes any system setting, so
+    the UI's "Verifica funzionamento" button can call it freely (even
+    without pkexec: unprivileged is fine for a version handshake)."""
+    KEY = "helper.ping"
+
+    def diagnose(self, raw_value, device_id, force, state: JsonStateStore):
+        return ok({
+            "helper_version": MG_HELPER_VERSION,
+            "protocol": MG_HELPER_PROTOCOL,
+            "running_as_root": os.geteuid() == 0,
+        })
+
+
+class HelperUpdateWriter:
+    """
+    Closed self-update action for the installed helper. The GUI stages a
+    candidate file (extracted from an ALREADY checksum-verified AppImage,
+    never from the FUSE mount) and asks this action to install it. The
+    authorization comes from the dedicated Polkit action; on top of
+    that, this validates the candidate itself before touching anything:
+      - regular file, no symlink (O_NOFOLLOW), size-capped;
+      - sha256 must match the value the client computed;
+      - must compile as Python and carry MG_HELPER_VERSION /
+        MG_HELPER_PROTOCOL markers;
+      - the version must be >= the currently running helper's (no
+        downgrade to a version with known problems);
+    then: backup of the current helper, atomic replace, marker
+    re-verification on the installed file, rollback on any failure.
+    """
+    KEY = "helper.update"
+    INSTALL_PATH = "/usr/libexec/mg-linux-toolbox/mg-privileged-helper"
+    FALLBACK_INSTALL_PATH = "/usr/lib/mg-linux-toolbox/mg-privileged-helper"
+    MAX_SIZE = 5 * 1024 * 1024
+
+    def _target(self) -> str:
+        if os.path.isfile(self.FALLBACK_INSTALL_PATH) and not os.path.isfile(self.INSTALL_PATH):
+            return self.FALLBACK_INSTALL_PATH
+        return self.INSTALL_PATH
+
+    @staticmethod
+    def _chown_root(path: str):
+        # Separate hook so tests (running unprivileged against a temp
+        # target) can neutralize it; in real use this runs as root.
+        os.chown(path, 0, 0)
+
+    @staticmethod
+    def _marker(text: str, marker: str) -> "str | None":
+        for line in text.splitlines():
+            if line.startswith(marker):
+                value = line.partition("=")[2].strip().strip('"').strip("'")
+                if value:
+                    return value
+        return None
+
+    @staticmethod
+    def _version_tuple(v: str) -> tuple:
+        try:
+            return tuple(int(p) for p in v.split("."))
+        except ValueError:
+            return ()
+
+    def self_update(self, raw_value, device_id, force, state: JsonStateStore):
+        import hashlib
+        try:
+            payload = json.loads(raw_value) if raw_value else {}
+            source_path = payload["source_path"]
+            expected_sha256 = payload["expected_sha256"].strip().lower()
+        except (ValueError, KeyError, TypeError, AttributeError):
+            return err("kf_err_invalid_value", f"bad payload {raw_value!r}")
+        if not re.fullmatch(r"[0-9a-f]{64}", expected_sha256):
+            return err("kf_err_invalid_value", "expected_sha256 is not a sha256 hex digest")
+
+        try:
+            fd = os.open(source_path, os.O_RDONLY | os.O_NOFOLLOW)
+        except OSError as e:
+            return err("helper_update_err_source", str(e))
+        try:
+            st = os.fstat(fd)
+            import stat as _stat
+            if not _stat.S_ISREG(st.st_mode):
+                return err("helper_update_err_source", "candidate is not a regular file")
+            if st.st_size == 0 or st.st_size > self.MAX_SIZE:
+                return err("helper_update_err_source", f"candidate size {st.st_size} out of bounds")
+            with os.fdopen(fd, "rb") as f:
+                fd = None
+                data = f.read()
+        finally:
+            if fd is not None:
+                os.close(fd)
+
+        if hashlib.sha256(data).hexdigest() != expected_sha256:
+            return err("helper_update_err_checksum")
+        try:
+            text = data.decode("utf-8")
+            compile(text, "<candidate helper>", "exec")
+        except (UnicodeDecodeError, SyntaxError) as e:
+            return err("helper_update_err_source", f"candidate does not parse: {e}")
+        new_version = self._marker(text, "MG_HELPER_VERSION")
+        new_protocol = self._marker(text, "MG_HELPER_PROTOCOL")
+        if not new_version or not new_protocol:
+            return err("helper_update_err_source", "candidate lacks version markers")
+        if self._version_tuple(new_version) < self._version_tuple(MG_HELPER_VERSION):
+            return err("helper_update_err_downgrade",
+                       f"candidate {new_version} older than installed {MG_HELPER_VERSION}")
+
+        target = self._target()
+        backup_path = f"{target}.previous"
+        had_previous = os.path.isfile(target)
+        try:
+            if had_previous:
+                shutil.copy2(target, backup_path)
+            os.makedirs(os.path.dirname(target), mode=0o755, exist_ok=True)
+            tmp_path = f"{target}.tmp{os.getpid()}"
+            tmp_fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o755)
+            with os.fdopen(tmp_fd, "wb") as f:
+                f.write(data)
+                f.flush()
+                os.fsync(f.fileno())
+            self._chown_root(tmp_path)
+            os.chmod(tmp_path, 0o755)
+            os.replace(tmp_path, target)
+        except OSError as e:
+            try:
+                if had_previous and os.path.isfile(backup_path):
+                    os.replace(backup_path, target)
+            except OSError:
+                pass
+            return err("helper_update_err_install", str(e))
+
+        # Re-verify what actually landed.
+        try:
+            with open(target, encoding="utf-8") as f:
+                installed_text = f.read()
+            installed_version = self._marker(installed_text, "MG_HELPER_VERSION")
+        except OSError as e:
+            installed_version = None
+            installed_err = str(e)
+        if installed_version != new_version:
+            try:
+                if had_previous and os.path.isfile(backup_path):
+                    os.replace(backup_path, target)
+            except OSError:
+                pass
+            return err("helper_update_err_install",
+                       locals().get("installed_err", f"marker mismatch: {installed_version!r}"))
+        _note_applied(state, self.KEY, {"version": new_version}, "persistent")
+        return ok({"installed_version": new_version, "path": target})
+
+
+class NestedVirtWriter:
+    """Replaces the old `pkexec sh -c "echo X > /sys/module/kvm_*/..."`
+    pattern — no shell, fixed paths, value re-read after writing."""
+    KEY = "virt.nested"
+    INTEL_PATH = "/sys/module/kvm_intel/parameters/nested"
+    AMD_PATH = "/sys/module/kvm_amd/parameters/nested"
+
+    def _path(self):
+        if os.path.isfile(self.INTEL_PATH):
+            return self.INTEL_PATH
+        if os.path.isfile(self.AMD_PATH):
+            return self.AMD_PATH
+        return None
+
+    def _read_enabled(self, path) -> bool:
+        with open(path) as f:
+            return f.read().strip() in ("1", "Y", "y")
+
+    def apply_temporary(self, raw_value, device_id, force, state: JsonStateStore):
+        path = self._path()
+        if path is None:
+            return err("kf_unsupported_hardware")
+        want_enabled = _parse_bool(raw_value)
+        try:
+            current = self._read_enabled(path)
+            _note_initial(state, self.KEY, current)
+            with open(path, "w") as f:
+                f.write("1" if want_enabled else "0")
+            reread = self._read_enabled(path)
+        except PermissionError as e:
+            return err("kf_err_permission", str(e))
+        except OSError as e:
+            return err("kf_err_generic", str(e))
+        if reread != want_enabled:
+            return err("kf_err_write_mismatch", f"wanted nested={want_enabled}, kernel reports {reread}")
+        _note_applied(state, self.KEY, reread, "temporary")
+        return ok(reread)
+
+    def restore(self, raw_value, device_id, force, state: JsonStateStore):
+        path = self._path()
+        if path is None:
+            return err("kf_unsupported_hardware")
+        rec = state.get(self.KEY)
+        if rec is None:
+            return err("kf_err_nothing_to_restore")
+        try:
+            current = self._read_enabled(path)
+        except OSError as e:
+            return err("kf_err_generic", str(e))
+        if not force and rec.last_applied_value is not None and current != rec.last_applied_value:
+            return {"ok": False, "value": current, "friendly_message": "kf_external_change_detected", "technical_detail": ""}
+        try:
+            with open(path, "w") as f:
+                f.write("1" if rec.initial_value else "0")
+            reread = self._read_enabled(path)
+        except OSError as e:
+            return err("kf_err_generic", str(e))
+        if reread != rec.initial_value:
+            return err("kf_err_write_mismatch", f"wanted restore to nested={rec.initial_value}, kernel reports {reread}")
+        _note_applied(state, self.KEY, reread, "restored")
+        return ok(reread)
+
+
+class _ConfigLineEditWriter:
+    """
+    Shared logic for the two "edit exactly one directive in one system
+    config file, then poke its service" features (DNS-over-TLS in
+    resolved.conf, PermitRootLogin in sshd_config). Replaces the old
+    `pkexec python3 -c <script>` pattern: fixed file, fixed directive,
+    closed value set, backup + atomic write + re-read verification, and
+    a fixed-argv service command — nothing arbitrary ever reaches root.
+    Subclasses set KEY, FILE_PATH, DIRECTIVE, VALUE_MAP and SERVICE_CMDS.
+    """
+    KEY = ""
+    FILE_PATH = ""
+    DIRECTIVE = ""
+    VALUE_MAP = {}      # raw_value ("true"/"false") -> directive value
+    SERVICE_CMDS = ()   # tuple of fixed argv lists tried in order (first that succeeds wins)
+
+    def _read_directive(self) -> "str | None":
+        try:
+            with open(self.FILE_PATH) as f:
+                content = f.read()
+        except OSError:
+            return None
+        for line in content.splitlines():
+            stripped = line.strip()
+            if stripped.startswith(self.DIRECTIVE):
+                parts = re.split(r"[=\s]+", stripped, maxsplit=1)
+                if len(parts) == 2:
+                    return parts[1].strip()
+        return None
+
+    def _edit_content(self, content: str, value: str) -> str:
+        sep = "=" if self.DIRECTIVE_USES_EQUALS else " "
+        new_line = f"{self.DIRECTIVE}{sep}{value}"
+        pattern = re.compile(rf"^[#\s]*{self.DIRECTIVE}\b.*$", re.MULTILINE)
+        if pattern.search(content):
+            return pattern.sub(new_line, content, count=1)
+        return content.rstrip("\n") + f"\n{new_line}\n"
+
+    DIRECTIVE_USES_EQUALS = True
+
+    def _run_service_cmds(self) -> "str | None":
+        last_err = ""
+        for cmd in self.SERVICE_CMDS:
+            try:
+                result = subprocess.run(list(cmd), capture_output=True, text=True, timeout=30)
+            except (OSError, subprocess.TimeoutExpired) as e:
+                last_err = str(e)
+                continue
+            if result.returncode == 0:
+                return None
+            last_err = (result.stderr or result.stdout or "").strip()
+        return last_err or "service command failed"
+
+    def apply_temporary(self, raw_value, device_id, force, state: JsonStateStore):
+        want = self.VALUE_MAP.get(str(raw_value).strip().lower())
+        if want is None:
+            return err("kf_err_invalid_value", f"unsupported value {raw_value!r}")
+        if not os.path.isfile(self.FILE_PATH):
+            return err("kf_unsupported_kernel", f"{self.FILE_PATH} not found")
+        try:
+            with open(self.FILE_PATH) as f:
+                content = f.read()
+            current = self._read_directive()
+            _note_initial(state, self.KEY, current)
+            backup_file(self.FILE_PATH)
+            atomic_write_text(self.FILE_PATH, self._edit_content(content, want),
+                              mode=0o644 if self.FILE_MODE is None else self.FILE_MODE)
+        except (OSError, RuntimeError) as e:
+            return err("kf_err_generic", str(e))
+        reread = self._read_directive()
+        if reread != want:
+            return err("kf_err_write_mismatch", f"wrote {want!r}, file reports {reread!r}")
+        service_error = self._run_service_cmds()
+        if service_error is not None:
+            return err("kf_err_generic", service_error, value=reread)
+        _note_applied(state, self.KEY, reread, "persistent")
+        return ok(reread)
+
+    FILE_MODE = None
+
+    def restore(self, raw_value, device_id, force, state: JsonStateStore):
+        rec = state.get(self.KEY)
+        if rec is None:
+            return err("kf_err_nothing_to_restore")
+        if not os.path.isfile(self.FILE_PATH):
+            return err("kf_unsupported_kernel", f"{self.FILE_PATH} not found")
+        try:
+            current = self._read_directive()
+        except OSError as e:
+            return err("kf_err_generic", str(e))
+        if not force and rec.last_applied_value is not None and current != rec.last_applied_value:
+            return {"ok": False, "value": current, "friendly_message": "kf_external_change_detected", "technical_detail": ""}
+        want = rec.initial_value
+        reverse = {v: k for k, v in self.VALUE_MAP.items()}
+        if want not in self.VALUE_MAP.values() and want is not None:
+            return err("kf_err_generic", f"recorded initial value {want!r} is not restorable")
+        try:
+            with open(self.FILE_PATH) as f:
+                content = f.read()
+            backup_file(self.FILE_PATH)
+            if want is None:
+                # Directive absent originally: comment our line back out.
+                pattern = re.compile(rf"^{self.DIRECTIVE}\b.*$\n?", re.MULTILINE)
+                new_content = pattern.sub("", content, count=1)
+            else:
+                new_content = self._edit_content(content, want)
+            atomic_write_text(self.FILE_PATH, new_content,
+                              mode=0o644 if self.FILE_MODE is None else self.FILE_MODE)
+        except (OSError, RuntimeError) as e:
+            return err("kf_err_generic", str(e))
+        reread = self._read_directive()
+        if reread != want:
+            return err("kf_err_write_mismatch", f"wanted restore to {want!r}, file reports {reread!r}")
+        service_error = self._run_service_cmds()
+        if service_error is not None:
+            return err("kf_err_generic", service_error, value=reread)
+        _ = reverse  # documented mapping direction; value comparison is on directive text
+        _note_applied(state, self.KEY, reread, "restored")
+        return ok(reread)
+
+
+class DnsOverTlsWriter(_ConfigLineEditWriter):
+    KEY = "dns.dot"
+    FILE_PATH = "/etc/systemd/resolved.conf"
+    DIRECTIVE = "DNSOverTLS"
+    DIRECTIVE_USES_EQUALS = True
+    VALUE_MAP = {"true": "yes", "1": "yes", "false": "no", "0": "no"}
+    SERVICE_CMDS = (["systemctl", "restart", "systemd-resolved"],)
+
+
+class RootSshWriter(_ConfigLineEditWriter):
+    KEY = "security.root_ssh"
+    FILE_PATH = "/etc/ssh/sshd_config"
+    DIRECTIVE = "PermitRootLogin"
+    DIRECTIVE_USES_EQUALS = False
+    # raw_value True means "disable root login" (the safe direction).
+    VALUE_MAP = {"true": "no", "1": "no", "false": "yes", "0": "yes"}
+    # Unit name differs per family; try both fixed spellings.
+    SERVICE_CMDS = (["systemctl", "reload", "sshd"], ["systemctl", "reload", "ssh"])
+
+
+def _detect_initramfs_cmd() -> list:
+    """Distro detection re-done HERE (root side) from /etc/os-release —
+    never trusted from the GUI."""
+    os_id, id_like = "", ""
+    try:
+        with open("/etc/os-release") as f:
+            for line in f:
+                if line.startswith("ID="):
+                    os_id = line.partition("=")[2].strip().strip('"')
+                elif line.startswith("ID_LIKE="):
+                    id_like = line.partition("=")[2].strip().strip('"')
+    except OSError:
+        pass
+    family = f"{os_id} {id_like}"
+    if "arch" in family:
+        return ["mkinitcpio", "-P"]
+    if "debian" in family or "ubuntu" in family:
+        return ["update-initramfs", "-u"]
+    return ["dracut", "-f"]  # fedora and openSUSE are both dracut-based
+
+
+_PCI_ADDRESS_RE = re.compile(r"^[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\.[0-7]$")
+
+
+class VfioWriter:
+    """
+    The whole VFIO configuration as ONE root-side transaction:
+      1. server-side validation of every selected device (format,
+         existence, protection rules re-derived from /sys — never
+         trusted from the GUI);
+      2. vendor:device ids re-read from /sys, never taken from the GUI;
+      3. backup of both config files;
+      4. atomic writes;
+      5. content re-read and compared;
+      6. initramfs regeneration;
+      7. file rollback if the regeneration fails;
+      8. structured JSON result with reboot_required.
+    """
+    KEY = "virt.vfio"
+    PCI_DEVICES_DIR = "/sys/bus/pci/devices"    # overridden by tests
+    MODPROBE_FILE = "/etc/modprobe.d/90-mg-linux-toolbox-vfio.conf"
+    MODULES_LOAD_FILE = "/etc/modules-load.d/90-mg-linux-toolbox-vfio.conf"
+    MODULES_CONTENT = "vfio\nvfio_pci\nvfio_iommu_type1\n"
+    _PROTECTED_CLASS_PREFIXES = ("01", "05", "06", "08")  # storage, memory, bridges, system
+
+    def _initramfs_cmd(self) -> list:
+        return _detect_initramfs_cmd()
+
+    def _sys_read(self, address: str, name: str) -> str:
+        try:
+            with open(os.path.join(self.PCI_DEVICES_DIR, address, name)) as f:
+                return f.read().strip()
+        except OSError:
+            return ""
+
+    def _protection_reason(self, address: str) -> "str | None":
+        raw_class = self._sys_read(address, "class")
+        prefix = raw_class[2:4] if raw_class.startswith("0x") and len(raw_class) >= 4 else ""
+        if prefix in self._PROTECTED_CLASS_PREFIXES:
+            return "storage_controller" if prefix == "01" else "essential_device"
+        if self._sys_read(address, "boot_vga") == "1":
+            return "primary_gpu"
+        return None
+
+    def _validate_addresses(self, addresses) -> "str | None":
+        if not isinstance(addresses, list) or not addresses:
+            return "no_devices"
+        for address in addresses:
+            if not isinstance(address, str) or not _PCI_ADDRESS_RE.fullmatch(address):
+                return "bad_address_format"
+            if not os.path.isdir(os.path.join(self.PCI_DEVICES_DIR, address)):
+                return "device_not_found"
+            reason = self._protection_reason(address)
+            if reason is not None:
+                return reason
+        return None
+
+    def _ids_for(self, addresses) -> "str | None":
+        pairs = []
+        for address in addresses:
+            vendor = self._sys_read(address, "vendor")
+            device = self._sys_read(address, "device")
+            if not vendor.startswith("0x") or not device.startswith("0x"):
+                return None
+            pairs.append(f"{vendor[2:]}:{device[2:]}")
+        return ",".join(pairs)
+
+    def _snapshot(self) -> dict:
+        snap = {}
+        for path in (self.MODPROBE_FILE, self.MODULES_LOAD_FILE):
+            try:
+                with open(path) as f:
+                    snap[path] = f.read()
+            except FileNotFoundError:
+                snap[path] = None
+            except OSError:
+                snap[path] = None
+        return snap
+
+    def _rollback(self, snapshot: dict):
+        for path, content in snapshot.items():
+            try:
+                if content is None:
+                    if os.path.exists(path):
+                        os.remove(path)
+                else:
+                    atomic_write_text(path, content, mode=0o644)
+            except (OSError, RuntimeError):
+                pass  # best-effort rollback; failure is reported by caller
+
+    def _regen_initramfs(self) -> "str | None":
+        try:
+            result = subprocess.run(self._initramfs_cmd(), capture_output=True, text=True, timeout=300)
+        except (OSError, subprocess.TimeoutExpired) as e:
+            return str(e)
+        if result.returncode != 0:
+            return (result.stderr or result.stdout or "").strip() or "initramfs regeneration failed"
+        return None
+
+    def configure(self, raw_value, device_id, force, state: JsonStateStore):
+        try:
+            payload = json.loads(raw_value) if raw_value else {}
+            addresses = payload.get("addresses")
+        except (ValueError, TypeError):
+            return err("kf_err_invalid_value", f"bad payload {raw_value!r}")
+        reason = self._validate_addresses(addresses)
+        if reason is not None:
+            return err("vfio_err_validation", reason)
+        ids = self._ids_for(addresses)
+        if ids is None:
+            return err("vfio_err_validation", "could not read vendor/device ids from /sys")
+
+        snapshot = self._snapshot()
+        _note_initial(state, self.KEY, {p: (c is not None) for p, c in snapshot.items()})
+        try:
+            backup_file(self.MODPROBE_FILE)
+            backup_file(self.MODULES_LOAD_FILE)
+            atomic_write_text(self.MODPROBE_FILE, f"options vfio-pci ids={ids}\n", mode=0o644)
+            atomic_write_text(self.MODULES_LOAD_FILE, self.MODULES_CONTENT, mode=0o644)
+        except (OSError, RuntimeError) as e:
+            self._rollback(snapshot)
+            return err("kf_err_generic", str(e))
+
+        # Verify what actually landed on disk before touching initramfs.
+        try:
+            with open(self.MODPROBE_FILE) as f:
+                written = f.read()
+        except OSError as e:
+            self._rollback(snapshot)
+            return err("kf_err_generic", str(e))
+        if f"ids={ids}" not in written:
+            self._rollback(snapshot)
+            return err("kf_err_write_mismatch", f"expected ids={ids}, file has: {written.strip()}")
+
+        regen_error = self._regen_initramfs()
+        if regen_error is not None:
+            self._rollback(snapshot)
+            return err("vfio_err_initramfs", regen_error)
+
+        _note_applied(state, self.KEY, {"addresses": addresses, "ids": ids}, "persistent")
+        return ok({"addresses": addresses, "ids": ids}, reboot_required=True)
+
+    def disable(self, raw_value, device_id, force, state: JsonStateStore):
+        snapshot = self._snapshot()
+        existed = [p for p, c in snapshot.items() if c is not None]
+        if not existed:
+            return ok({"changed": False})
+        try:
+            for path in existed:
+                backup_file(path)
+                os.remove(path)
+        except OSError as e:
+            self._rollback(snapshot)
+            return err("kf_err_generic", str(e))
+        regen_error = self._regen_initramfs()
+        if regen_error is not None:
+            self._rollback(snapshot)
+            return err("vfio_err_initramfs", regen_error)
+        _note_applied(state, self.KEY, {"removed": True}, "restored")
+        return ok({"changed": True}, reboot_required=True)
+
+    # "Ripristina driver originale" is mechanically identical to disable:
+    # without our modprobe.d override the device rebinds to its normal
+    # driver at the next boot.
+    restore = disable
+
+
+class IommuWriter:
+    """
+    Bootloader kernel-cmdline edit for IOMMU, root-side and transactional.
+    The GUI only ever sends enable/disable/restore — vendor and
+    bootloader are re-detected HERE. GRUB and systemd-boot file edits
+    are backed up and rolled back if the regeneration step fails;
+    kernelstub manages its own configuration.
+    """
+    KEY = "virt.iommu"
+    GRUB_DEFAULT_FILE = "/etc/default/grub"
+    KERNEL_CMDLINE_FILE = "/etc/kernel/cmdline"
+    CPUINFO_PATH = "/proc/cpuinfo"
+
+    def _cpu_vendor(self) -> "str | None":
+        try:
+            with open(self.CPUINFO_PATH) as f:
+                content = f.read()
+        except OSError:
+            return None
+        if "AuthenticAMD" in content:
+            return "amd"
+        if "GenuineIntel" in content:
+            return "intel"
+        return None
+
+    def _bootloader(self) -> "str | None":
+        if shutil.which("kernelstub"):
+            return "kernelstub"
+        if os.path.isfile(self.GRUB_DEFAULT_FILE):
+            return "grub"
+        if os.path.isfile(self.KERNEL_CMDLINE_FILE) or shutil.which("bootctl"):
+            return "systemd-boot"
+        return None
+
+    def _grub_regen_cmd(self) -> list:
+        os_id, id_like = "", ""
+        try:
+            with open("/etc/os-release") as f:
+                for line in f:
+                    if line.startswith("ID="):
+                        os_id = line.partition("=")[2].strip().strip('"')
+                    elif line.startswith("ID_LIKE="):
+                        id_like = line.partition("=")[2].strip().strip('"')
+        except OSError:
+            pass
+        family = f"{os_id} {id_like}"
+        if "debian" in family or "ubuntu" in family:
+            return ["update-grub"]
+        if "arch" in family:
+            return ["grub-mkconfig", "-o", "/boot/grub/grub.cfg"]
+        return ["grub2-mkconfig", "-o", "/boot/grub2/grub.cfg"]
+
+    def _run(self, cmd: list, timeout: int = 120) -> "str | None":
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        except (OSError, subprocess.TimeoutExpired) as e:
+            return str(e)
+        if result.returncode != 0:
+            return (result.stderr or result.stdout or "").strip() or f"{cmd[0]} failed"
+        return None
+
+    def _edit_file_and_regen(self, path: str, transform, regen_cmd: list):
+        try:
+            with open(path) as f:
+                original = f.read()
+        except FileNotFoundError:
+            original = ""
+        except OSError as e:
+            return err("kf_err_generic", str(e))
+        new_content = transform(original)
+        if new_content == original:
+            return ok({"changed": False})
+        try:
+            backup_file(path)
+            atomic_write_text(path, new_content, mode=0o644)
+        except (OSError, RuntimeError) as e:
+            return err("kf_err_generic", str(e))
+        regen_error = self._run(regen_cmd)
+        if regen_error is not None:
+            # Roll the file back so config and generated artifacts agree.
+            try:
+                atomic_write_text(path, original, mode=0o644)
+            except (OSError, RuntimeError):
+                pass
+            return err("iommu_err_regen", regen_error)
+        return ok({"changed": True}, reboot_required=True)
+
+    def _apply(self, remove: bool, state: JsonStateStore):
+        vendor = self._cpu_vendor()
+        if vendor is None:
+            return err("iommu_err_cpu_vendor")
+        bootloader = self._bootloader()
+        if bootloader is None:
+            return err("iommu_err_bootloader")
+        params = cmdline_edit.iommu_params(vendor)
+        _note_initial(state, self.KEY, {"vendor": vendor, "bootloader": bootloader})
+
+        if bootloader == "kernelstub":
+            flag = "-d" if remove else "-a"
+            run_error = self._run(["kernelstub", flag, " ".join(params)])
+            if run_error is not None:
+                return err("iommu_err_regen", run_error)
+            result = ok({"changed": True}, reboot_required=True)
+        elif bootloader == "grub":
+            result = self._edit_file_and_regen(
+                self.GRUB_DEFAULT_FILE,
+                lambda c: cmdline_edit.update_grub_default_content(c, params, remove),
+                self._grub_regen_cmd())
+        else:
+            result = self._edit_file_and_regen(
+                self.KERNEL_CMDLINE_FILE,
+                lambda c: (cmdline_edit.apply_params_to_cmdline(c.strip(), params, remove) + "\n"),
+                ["bootctl", "update"])
+        if result.get("ok"):
+            _note_applied(state, self.KEY,
+                          {"vendor": vendor, "bootloader": bootloader, "enabled": not remove},
+                          "persistent")
+        return result
+
+    def enable(self, raw_value, device_id, force, state: JsonStateStore):
+        return self._apply(remove=False, state=state)
+
+    def disable(self, raw_value, device_id, force, state: JsonStateStore):
+        return self._apply(remove=True, state=state)
+
+    def restore(self, raw_value, device_id, force, state: JsonStateStore):
+        bootloader = self._bootloader()
+        target = {"grub": self.GRUB_DEFAULT_FILE, "systemd-boot": self.KERNEL_CMDLINE_FILE}.get(bootloader)
+        if target is None or not os.path.exists(f"{target}.bak"):
+            return err("kf_err_nothing_to_restore")
+        try:
+            with open(f"{target}.bak") as f:
+                content = f.read()
+            atomic_write_text(target, content, mode=0o644)
+            with open(target) as f:
+                reread_content = f.read()
+        except (OSError, RuntimeError) as e:
+            return err("kf_err_generic", str(e))
+        # The actual IOMMU effect can only be verified after a real
+        # reboot (see verify_after_reboot()) — but the file write itself
+        # is checkable right now, and must be, the same as every other
+        # restore() here: never report ok on an unverified write.
+        if reread_content != content:
+            return err("kf_err_write_mismatch", f"{target} does not match its backup after restore")
+        regen_cmd = self._grub_regen_cmd() if bootloader == "grub" else ["bootctl", "update"]
+        regen_error = self._run(regen_cmd)
+        if regen_error is not None:
+            return err("iommu_err_regen", regen_error)
+        _note_applied(state, self.KEY, {"restored": True}, "restored")
+        return ok({"changed": True}, reboot_required=True)
 
 
 FEATURE_WRITERS = {
@@ -1817,7 +2596,22 @@ FEATURE_WRITERS = {
     "security.kptr_restrict": KptrRestrictWriter(),
     "security.ptrace_scope": PtraceScopeWriter(),
     "security.protected_paths": ProtectedPathsWriter(),
+    "helper.ping": HelperPingWriter(),
+    "helper.update": HelperUpdateWriter(),
+    "virt.nested": NestedVirtWriter(),
+    "dns.dot": DnsOverTlsWriter(),
+    "security.root_ssh": RootSshWriter(),
+    "virt.vfio": VfioWriter(),
+    "virt.iommu": IommuWriter(),
 }
+
+# Closed list of callable actions — getattr() on a writer is only ever
+# done for one of these names, so an attacker-controlled action string
+# can never reach a private method or a dunder.
+ALLOWED_ACTIONS = frozenset({
+    "apply_temporary", "apply_persistent", "restore",
+    "configure", "disable", "enable", "diagnose", "self_update",
+})
 
 
 def main(argv):
@@ -1836,12 +2630,25 @@ def main(argv):
         print(json.dumps(err("kf_err_generic", f"unknown feature_id {feature_id!r}")))
         return 1
 
+    if action not in ALLOWED_ACTIONS:
+        print(json.dumps(err("kf_err_generic", f"unknown action {action!r}")))
+        return 1
     method = getattr(writer, action, None)
     if method is None:
         print(json.dumps(err("kf_err_generic", f"unknown action {action!r} for {feature_id!r}")))
         return 1
 
-    os.makedirs(os.path.dirname(DEFAULT_STATE_PATH), exist_ok=True)
+    # The pure diagnostics action must work even unprivileged; anything
+    # else only makes sense as root (pkexec) — refuse early with a clear
+    # detail instead of a confusing PermissionError deep inside a write.
+    if action != "diagnose" and os.geteuid() != 0:
+        print(json.dumps(err("kf_err_permission", "helper invoked without root privileges")))
+        return 1
+
+    # diagnose runs unprivileged and touches no state — creating the
+    # root-owned /var/lib dir would (rightly) fail there.
+    if action != "diagnose":
+        os.makedirs(os.path.dirname(DEFAULT_STATE_PATH), exist_ok=True)
     state = JsonStateStore(DEFAULT_STATE_PATH)
 
     try:

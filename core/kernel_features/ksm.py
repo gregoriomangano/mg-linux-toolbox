@@ -50,6 +50,18 @@ class KsmFeature(KernelFeature):
     def to_friendly(self, raw_value) -> str:
         return "ksm_on" if raw_value else "ksm_off"
 
+    def autostart_state(self) -> "bool | None":
+        """Honest persistence state: /sys/kernel/mm/ksm/run = 1 only
+        means "active NOW". "Always active" is only true if our
+        tmpfiles.d entry really exists — read from the actual file
+        (world-readable), never assumed from the runtime value. Returns
+        True (configured), False (not configured), None (unknown)."""
+        try:
+            from core.persistence import tmpfiles_store
+            return tmpfiles_store.read_value("/sys/kernel/mm/ksm/run") is not None
+        except Exception:
+            return None
+
     def validate(self, value) -> bool:
         return isinstance(value, bool)
 

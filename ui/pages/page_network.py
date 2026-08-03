@@ -4,7 +4,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk, GLib
 from core.i18n import T, on_change
 from core import i18n as _i18n_mod
-from ui.widgets import SwitchRow, FeatureRow, make_group
+from ui.widgets import SwitchRow, FeatureRow, make_group, report_toggle_result
 import backend.all as B
 import threading
 from core.network import dns_detector, dns_manager, dns_providers
@@ -623,17 +623,32 @@ class NetworkPage(Adw.PreferencesPage):
         self.set_title(T("tab_network"))
 
     def _on_wifi(self, sw, _):
-        sw.set_active(B.wifi_set(sw.get_active()))
+        result = B.wifi_set(sw.get_active())
+        sw.set_active(result.value)
+        report_toggle_result(self.wifi, "network", "network.wifi", result.ok, result.technical_detail)
     def _on_bt(self, sw, _):
-        sw.set_active(B.bluetooth_set(sw.get_active()))
+        result = B.bluetooth_set(sw.get_active())
+        sw.set_active(result.value)
+        report_toggle_result(self.bt, "network", "network.bluetooth", result.ok, result.technical_detail)
     def _on_ipv6(self, sw, _):
         want_enabled = sw.get_active()
-        sw.set_active(not B.ipv6_set_disabled(not want_enabled))
+        result = B.ipv6_set_disabled(not want_enabled)
+        sw.set_active(not result.value)
+        report_toggle_result(self.ipv6, "network", "network.ipv6", result.ok, result.technical_detail)
     def _on_fw(self, sw, _):
-        sw.set_active(B.firewall_set(sw.get_active()))
+        result = B.firewall_set(sw.get_active())
+        sw.set_active(result.value)
+        report_toggle_result(self.fw, "network", "network.firewall", result.ok, result.technical_detail)
     def _on_ssh(self, sw, _):
-        sw.set_active(B.ssh_set(sw.get_active()))
+        result = B.ssh_set(sw.get_active())
+        sw.set_active(result.value)
+        report_toggle_result(self.ssh, "network", "network.ssh", result.ok, result.technical_detail)
     def _on_samba(self, sw, _):
-        sw.set_active(B.samba_set(sw.get_active()))
+        result = B.samba_set(sw.get_active())
+        sw.set_active(result.value)
+        report_toggle_result(self.samba, "network", "network.samba", result.ok, result.technical_detail)
     def _on_dns(self, sw, _):
-        sw.set_active(B.dns_dot_set(sw.get_active()))
+        result = B.dns_dot_set(sw.get_active())
+        sw.set_active(result.value)
+        report_toggle_result(self.dns, "network", "dns.dot", result.ok, result.technical_detail,
+                             friendly_key=result.friendly_message or "kf_err_generic")

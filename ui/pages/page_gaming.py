@@ -4,7 +4,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk, GLib
 from core.i18n import T, on_change
 from core import i18n as _i18n_mod
-from ui.widgets import InstallRow, FeatureRow, make_group, run_install_in_background
+from ui.widgets import InstallRow, FeatureRow, make_group, run_install_in_background, report_toggle_result
 import backend.all as B
 import logging
 import threading
@@ -286,6 +286,17 @@ class ControllerRow(FeatureRow):
             switch.handler_block_by_func(self._on_toggle)
             switch.set_active(not want_active)
             switch.handler_unblock_by_func(self._on_toggle)
+            # No expandable row here to host a full error+details area
+            # (this is a compact per-device list row); the friendly
+            # message — already correctly distinguishing a missing
+            # administrative component from a plain write failure,
+            # since it comes straight from the real helper OpResult —
+            # is still surfaced via tooltip instead of being silent.
+            # History is already recorded by PrivilegedWriter.execute()
+            # itself for every call, success or failure.
+            switch.set_tooltip_text(T(result.friendly_message or "kf_err_generic"))
+        else:
+            switch.set_tooltip_text("")
         return False
 
 
@@ -601,16 +612,20 @@ class GamingPage(Adw.PreferencesPage):
 
     def _on_gamemode(self, _):
         run_install_in_background(self.gamemode.button, B.gamemode_install,
-                                   B.gamemode_installed, self.gamemode.mark_installed)
+                                   B.gamemode_installed, self.gamemode.mark_installed,
+                                   on_failure=lambda: report_toggle_result(self.gamemode, "gaming", "gaming.gamemode_install", False))
 
     def _on_mango(self, _):
         run_install_in_background(self.mango.button, B.mangohud_install,
-                                   B.mangohud_installed, self.mango.mark_installed)
+                                   B.mangohud_installed, self.mango.mark_installed,
+                                   on_failure=lambda: report_toggle_result(self.mango, "gaming", "gaming.mangohud_install", False))
 
     def _on_lib32(self, _):
         run_install_in_background(self.lib32.button, B.lib32_install,
-                                   B.lib32_installed, self.lib32.mark_installed)
+                                   B.lib32_installed, self.lib32.mark_installed,
+                                   on_failure=lambda: report_toggle_result(self.lib32, "gaming", "gaming.lib32_install", False))
 
     def _on_vulkan(self, _):
         run_install_in_background(self.vulkan.button, B.vulkan_install,
-                                   B.vulkan_installed, self.vulkan.mark_installed)
+                                   B.vulkan_installed, self.vulkan.mark_installed,
+                                   on_failure=lambda: report_toggle_result(self.vulkan, "gaming", "gaming.vulkan_install", False))

@@ -4,7 +4,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk, GLib
 from core.i18n import T, on_change
 from core import i18n as _i18n_mod
-from ui.widgets import SwitchRow, FeatureRow, make_group
+from ui.widgets import SwitchRow, FeatureRow, make_group, report_toggle_result
 import backend.all as B
 import threading
 
@@ -89,10 +89,14 @@ class SystemPage(Adw.PreferencesPage):
         self._cleanup_size_pill.set_text(B.cache_size_human())
 
     def _on_trim(self, sw, _):
-        sw.set_active(B.trim_set(sw.get_active()))
+        result = B.trim_set(sw.get_active())
+        sw.set_active(result.value)
+        report_toggle_result(self.trim, "system", "storage.trim", result.ok, result.technical_detail)
 
     def _on_smart(self, sw, _):
-        sw.set_active(B.smart_set(sw.get_active()))
+        result = B.smart_set(sw.get_active())
+        sw.set_active(result.value)
+        report_toggle_result(self.smart, "system", "storage.smart", result.ok, result.technical_detail)
 
     def _on_cleanup(self, _btn):
         self.cleanup_btn.set_label("⏳")

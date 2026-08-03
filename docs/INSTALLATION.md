@@ -6,9 +6,9 @@ This guide is written for people who have never used a terminal as well.
 
 ## Current status
 
-The new AppImage is associated with the official 0.9.0 Beta 3 Release.
+The new AppImage is associated with the official 0.9.0 Beta 4 Release.
 
-Download it only from [Release v0.9.0-beta.3](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.3).
+Download it only from [Release v0.9.0-beta.4](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.4).
 
 Do not use AppImages from old backups as if they were the final version.
 
@@ -20,7 +20,7 @@ Use only the official link published in the README and on the project page. The 
 - its SHA-256 checksum;
 - the release notes.
 
-The file for x86_64 computers is `MG-Linux-Toolbox-0.9.0-beta.3-x86_64.AppImage`.
+The file for x86_64 computers is `MG-Linux-Toolbox-0.9.0-beta.4-x86_64.AppImage`.
 
 ## Making the file executable without a terminal
 
@@ -37,8 +37,8 @@ The exact wording may differ between Files, Dolphin, Nemo, and other file manage
 Open a terminal in the folder containing the downloaded file and run:
 
 ```bash
-chmod +x "MG-Linux-Toolbox-0.9.0-beta.3-x86_64.AppImage"
-./"MG-Linux-Toolbox-0.9.0-beta.3-x86_64.AppImage"
+chmod +x "MG-Linux-Toolbox-0.9.0-beta.4-x86_64.AppImage"
+./"MG-Linux-Toolbox-0.9.0-beta.4-x86_64.AppImage"
 ```
 
 Always compare the SHA-256 checksum with the one published in the same Release before starting the file.
@@ -56,6 +56,22 @@ curl -fsSL https://raw.githubusercontent.com/gregoriomangano/mg-linux-toolbox/ma
 The script downloads the AppImage and checksum from the Release, rejects an altered file, and installs everything under `~/.local/opt/mg-linux-toolbox` in the user's home.
 
 When it completes, **M.G Linux Toolbox** will appear in the applications menu with the MG icon. Do not run the script as root and do not put `sudo` before the command.
+
+## Portable AppImage vs managed installation
+
+The two modes are different, and it helps to know it up front:
+
+- **Portable AppImage** (downloaded manually and started from Downloads, Desktop or a USB stick): every **read-only** feature works right away — overview, monitoring, system information. Changes that require privileges stay disabled, with a clear message.
+- **Managed installation** (via `install.sh`): adds the menu entry, the **administrative component** and **one-click updates** from inside the app.
+
+### Administrative component
+
+The administrative component is a small system program installed at `/usr/libexec/mg-linux-toolbox/`, owned by root and authorized by a dedicated Polkit rule. It applies system changes (KSM, CPU, battery, VFIO, and so on) safely even when the app runs as an AppImage.
+
+- During installation the script shows **exactly** which system files will be created and asks for one confirmation.
+- Some operations will ask for your **administrator password** through the system dialog: this is normal.
+- **The program never stores your password**: the prompt is handled by Polkit, the same mechanism your system settings use.
+- You can check the component's state from the Overview page ("Administrative component" → "Check it works").
 
 ## Required components
 
@@ -76,6 +92,25 @@ Libadwaita provides the modern graphical components used by the interface. It mu
 PyGObject connects Python to GTK4 and Libadwaita. Depending on the distribution, the package name may include `python3-gi`, `python-gobject`, or `python3-gobject`.
 
 The automatic method checks packages that are actually available before offering installation. For a manual setup, use your distribution's documentation or software manager.
+
+### Real minimum versions (as of Beta 4)
+
+Determined by analyzing the interface features actually used (never assumed), also verified in Debian/Ubuntu, Fedora, Arch, and openSUSE containers:
+
+| Component | Minimum version |
+|---|---|
+| Python | 3.11 |
+| GTK4 | 4.8 |
+| **Libadwaita** | **1.4** |
+| PyGObject | 3.42 |
+
+The real constraint is **Libadwaita 1.4**: a few interface features (expandable rows with actions, window-size adaptation, the modern toolbar view) were introduced exactly in that version. Debian 12, for example, only ships Libadwaita 1.2.2 and does not meet the requirement. GTK4 and PyGObject are not the limiting factor: a distribution with Libadwaita 1.4 or newer always carries a new-enough GTK4 alongside it.
+
+`install.sh` checks these requirements before declaring the installation successful, and the AppImage itself checks them again on every launch (even when started manually, without going through `install.sh`). If the system does not meet them, it shows:
+
+> "M.G Linux Toolbox requires a recent version of GTK4 and Libadwaita. The version present on this system is too old."
+
+with the version found and the version required — never a raw technical error.
 
 ## Distribution status
 

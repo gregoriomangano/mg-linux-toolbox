@@ -19,6 +19,15 @@ from unittest import mock
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.persistence.priv_client import PrivilegedWriter
+from core.persistence.priv_client import HelperStatus, HELPER_MISSING, _PRIV_WRITER_PATH
+
+
+def _dev_resolver():
+    # Same argv shape the resolver produces for a source checkout —
+    # injected so these tests never depend on this machine's real
+    # /usr/libexec state.
+    return (["pkexec", "python3", _PRIV_WRITER_PATH],
+            HelperStatus(HELPER_MISSING))
 from core.persistence.history_store import HistoryStore
 
 
@@ -37,7 +46,7 @@ class SerializationTests(unittest.TestCase):
         self._tmpdir = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmpdir.cleanup)
         self.history = HistoryStore(path=os.path.join(self._tmpdir.name, "history.db"))
-        self.writer = PrivilegedWriter(history_store=self.history)
+        self.writer = PrivilegedWriter(history_store=self.history, argv_resolver=_dev_resolver)
 
     @mock.patch("subprocess.run")
     def test_dict_value_serialized_as_valid_json(self, mock_run):
@@ -104,7 +113,7 @@ class HistoryRecordingTests(unittest.TestCase):
         self._tmpdir = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmpdir.cleanup)
         self.history = HistoryStore(path=os.path.join(self._tmpdir.name, "history.db"))
-        self.writer = PrivilegedWriter(history_store=self.history)
+        self.writer = PrivilegedWriter(history_store=self.history, argv_resolver=_dev_resolver)
 
     @mock.patch("subprocess.run")
     def test_successful_apply_is_recorded(self, mock_run):
@@ -168,7 +177,7 @@ class HistoryRecordingTests(unittest.TestCase):
     @mock.patch("subprocess.run")
     def test_a_broken_history_store_never_breaks_the_real_result(self, mock_run):
         mock_run.return_value = _FakeCompletedProcess(stdout='{"ok": true, "value": "performance"}')
-        broken_writer = PrivilegedWriter()
+        broken_writer = PrivilegedWriter(argv_resolver=_dev_resolver)
         broken_writer._history_store = mock.Mock()
         broken_writer._history_store.record.side_effect = RuntimeError("disk full")
         result = broken_writer.execute("cpu.governor", "apply_temporary", "performance")

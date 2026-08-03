@@ -4,7 +4,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk, GLib
 from core.i18n import T, on_change
 from core import i18n as _i18n_mod
-from ui.widgets import InstallRow, FeatureRow, make_group, run_install_in_background, _repo_has_package
+from ui.widgets import InstallRow, FeatureRow, make_group, run_install_in_background, _repo_has_package, report_toggle_result
 import backend.all as B
 import threading
 
@@ -196,6 +196,13 @@ class AudioUsbPowerRow(FeatureRow):
             switch.handler_block_by_func(self._on_toggle)
             switch.set_active(not want_auto)
             switch.handler_unblock_by_func(self._on_toggle)
+            # Compact per-device row, no expandable area for a details
+            # disclosure — friendly message shown via tooltip instead of
+            # being silent. History already recorded by
+            # PrivilegedWriter.execute() itself.
+            switch.set_tooltip_text(T(result.friendly_message or "kf_err_generic"))
+        else:
+            switch.set_tooltip_text("")
         return False
 
 
@@ -387,4 +394,5 @@ class AudioPage(Adw.PreferencesPage):
 
     def _on_ee(self, _):
         run_install_in_background(self.ee.button, B.easyeffects_install,
-                                   B.easyeffects_installed, self.ee.mark_installed)
+                                   B.easyeffects_installed, self.ee.mark_installed,
+                                   on_failure=lambda: report_toggle_result(self.ee, "audio", "audio.easyeffects_install", False))
