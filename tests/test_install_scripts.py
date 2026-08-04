@@ -31,6 +31,16 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INSTALL_SH = os.path.join(_REPO_ROOT, "install.sh")
 UNINSTALL_SH = os.path.join(_REPO_ROOT, "uninstall.sh")
 
+_PRIVILEGE_GUARD_MARKER = "MG_TEST_FORBIDDEN_PRIVILEGE_CALL"
+_PRIVILEGE_GUARD_SHELL = r'''
+sudo() { printf '%s sudo\n' "$MG_TEST_PRIVILEGE_GUARD_MARKER" >&2; exit 97; }
+pkexec() { printf '%s pkexec\n' "$MG_TEST_PRIVILEGE_GUARD_MARKER" >&2; exit 97; }
+su() { printf '%s su\n' "$MG_TEST_PRIVILEGE_GUARD_MARKER" >&2; exit 97; }
+doas() { printf '%s doas\n' "$MG_TEST_PRIVILEGE_GUARD_MARKER" >&2; exit 97; }
+export -f sudo pkexec su doas
+exec "$@"
+'''
+
 
 class _FakeGithubHandler(http.server.BaseHTTPRequestHandler):
     releases_json = "[]"
@@ -122,20 +132,57 @@ class InstallScriptTestCase(unittest.TestCase):
         self.server.stop()
         shutil.rmtree(self.home, ignore_errors=True)
 
-    def run_install(self, *args, timeout=30):
+    def _isolated_env(self):
+        """Per-test HOME/XDG/TMP paths, independent of runner state."""
         env = dict(os.environ)
-        env["HOME"] = self.home
+        env.update({
+            "HOME": self.home,
+            "XDG_CONFIG_HOME": os.path.join(self.home, ".config"),
+            "XDG_CACHE_HOME": os.path.join(self.home, ".cache"),
+            "XDG_DATA_HOME": os.path.join(self.home, ".local", "share"),
+            "XDG_STATE_HOME": os.path.join(self.home, ".local", "state"),
+            "TMPDIR": os.path.join(self.home, "tmp"),
+        })
+        for key in ("XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME",
+                    "XDG_STATE_HOME", "TMPDIR"):
+            os.makedirs(env[key], exist_ok=True)
+        return env
+
+    def _run_script_guarded(self, script, *args, env, timeout,
+                            input_text=None, cwd=None, bash_path=None):
+        """Run a real shell script while shadowing privilege tools with
+        exported shell functions.  An accidental call never spawns a
+        pkexec/sudo/su/doas process and fails the calling test explicitly."""
+        outer_bash = shutil.which("bash") or "/bin/bash"
+        child_bash = bash_path or outer_bash
+        guarded_env = dict(env)
+        guarded_env["MG_TEST_PRIVILEGE_GUARD_MARKER"] = _PRIVILEGE_GUARD_MARKER
+        result = subprocess.run(
+            [outer_bash, "-c", _PRIVILEGE_GUARD_SHELL,
+             "mg-test-privilege-guard", child_bash, script, *args],
+            env=guarded_env, capture_output=True, text=True,
+            timeout=timeout, input=input_text, cwd=cwd)
+        self.assertNotIn(
+            _PRIVILEGE_GUARD_MARKER, result.stdout + result.stderr,
+            "test attempted to invoke a privileged command")
+        return result
+
+    def run_install(self, *args, timeout=30):
+        env = self._isolated_env()
         env["MG_TOOLBOX_API_BASE"] = self.server.api_base
-        return subprocess.run(
-            ["bash", INSTALL_SH, *args], env=env,
-            capture_output=True, text=True, timeout=timeout)
+        # Never ask /dev/tty and never enter install.sh's sudo branch.
+        env["MG_TOOLBOX_HELPER_ANSWER"] = "n"
+        return self._run_script_guarded(
+            INSTALL_SH, *args, env=env, timeout=timeout)
 
     def run_uninstall(self, *args, input_text=None, timeout=15):
-        env = dict(os.environ)
-        env["HOME"] = self.home
-        return subprocess.run(
-            ["bash", UNINSTALL_SH, *args], env=env,
-            capture_output=True, text=True, timeout=timeout, input=input_text)
+        env = self._isolated_env()
+        # The test HOME contains only the fake user installation.  Never
+        # inspect/remove a real host helper that happens to exist in /usr.
+        env["MG_TOOLBOX_SKIP_PRIVILEGED_CLEANUP"] = "1"
+        return self._run_script_guarded(
+            UNINSTALL_SH, *args, env=env, timeout=timeout,
+            input_text=input_text)
 
     def seed_simple_release(self, version="0.9.0-beta.1", content=b"fake appimage content" * 50):
         appimage_path = f"/assets/MG-Linux-Toolbox-{version}-x86_64.AppImage"
@@ -344,22 +391,48 @@ class IconExtractionTests(InstallScriptTestCase):
         self.server.set_asset(appimage_path, content)
         self.server.set_asset(checksum_path, _appimage_and_checksum_bytes(content, "0.9.0-beta.1"))
 
-        # Rebuild PATH without any directory that provides `file`, to
-        # reproduce the exact condition seen on the Fedora/Debian
-        # smoke-test containers.
-        file_path = shutil.which("file")
-        path_dirs = os.environ.get("PATH", "").split(os.pathsep)
-        if file_path:
-            file_dir = os.path.dirname(file_path)
-            path_dirs = [d for d in path_dirs if d != file_dir]
-        env = dict(os.environ)
-        env["PATH"] = os.pathsep.join(path_dirs)
-        env["HOME"] = self.home
-        env["MG_TOOLBOX_API_BASE"] = self.server.api_base
+        # Simulate `file` being genuinely absent WITHOUT collaterally
+        # removing every other tool from PATH. The previous approach
+        # (drop the whole directory that provides `file`) broke on a
+        # real Fedora 44 VM: that distro is usr-merged, so /bin is
+        # just a symlink to /usr/bin — the one directory holding
+        # `file` also holds `bash`, `uname`, and effectively
+        # everything else, so install.sh (and even the `bash
+        # INSTALL_SH` launch itself) failed with "comando non
+        # trovato" for tools that were never meant to be affected.
+        # Instead: a shadow directory, first on PATH, that symlinks
+        # every command actually available on this system EXCEPT
+        # `file` — every other tool still resolves normally, `file`
+        # genuinely does not.
+        bash_path = shutil.which("bash") or "/bin/bash"
+        shadow_dir = os.path.join(self.home, ".mg-test-path-without-file")
+        os.makedirs(shadow_dir, exist_ok=True)
+        for directory in dict.fromkeys(os.environ.get("PATH", "").split(os.pathsep)):
+            if not os.path.isdir(directory):
+                continue
+            try:
+                entries = os.listdir(directory)
+            except OSError:
+                continue
+            for name in entries:
+                if name == "file":
+                    continue
+                link_path = os.path.join(shadow_dir, name)
+                if os.path.exists(link_path) or os.path.islink(link_path):
+                    continue
+                try:
+                    os.symlink(os.path.join(directory, name), link_path)
+                except OSError:
+                    continue
 
-        result = subprocess.run(
-            ["bash", INSTALL_SH, "--no-deps"], env=env,
-            capture_output=True, text=True, timeout=30)
+        env = self._isolated_env()
+        env["PATH"] = shadow_dir
+        env["MG_TOOLBOX_API_BASE"] = self.server.api_base
+        env["MG_TOOLBOX_HELPER_ANSWER"] = "n"
+
+        result = self._run_script_guarded(
+            INSTALL_SH, "--no-deps", env=env, timeout=30,
+            bash_path=bash_path)
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertTrue(os.path.isfile(self.icon_path()),
@@ -391,13 +464,13 @@ class IconExtractionTests(InstallScriptTestCase):
         self.addCleanup(lambda: (os.chmod(readonly_cwd, 0o755), shutil.rmtree(readonly_cwd, ignore_errors=True)))
         os.chmod(readonly_cwd, 0o555)
 
-        env = dict(os.environ)
-        env["HOME"] = self.home
+        env = self._isolated_env()
         env["MG_TOOLBOX_API_BASE"] = self.server.api_base
+        env["MG_TOOLBOX_HELPER_ANSWER"] = "n"
 
-        result = subprocess.run(
-            ["bash", INSTALL_SH, "--no-deps"], cwd=readonly_cwd, env=env,
-            capture_output=True, text=True, timeout=30)
+        result = self._run_script_guarded(
+            INSTALL_SH, "--no-deps", cwd=readonly_cwd, env=env,
+            timeout=30)
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertTrue(os.path.isfile(self.icon_path()),

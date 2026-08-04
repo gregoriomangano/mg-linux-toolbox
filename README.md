@@ -6,7 +6,7 @@ M.G Linux Toolbox raccoglie in un'interfaccia grafica semplice funzioni Linux ch
 
 ## Stato del progetto
 
-La versione **0.9.0 Beta 4** è la prerelease corrente. L'ultimo collaudo comprende **1355 test superati**.
+La versione **0.9.0 Beta 4** è la prerelease corrente. L'ultimo collaudo comprende **1580 test superati**.
 
 Il pacchetto AppImage verificato e il relativo checksum sono associati alla [Release v0.9.0-beta.4](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.4).
 
@@ -57,6 +57,7 @@ La disponibilità cambia in base a kernel, hardware, driver e distribuzione. Una
 - **Energia e batteria:** profili energetici, sospensione, batteria e risparmio dei dispositivi.
 - **Audio:** stato di PipeWire, dispositivi, riavvio audio e opzioni di risparmio energetico.
 - **Stampanti:** servizio CUPS, supporto di base e driver rilevati.
+- **Software e repository:** stato di Flatpak e Flathub, sorgenti software rilevate e controlli sulla salute dei pacchetti, con comportamenti adattati alla distribuzione.
 - **Gaming:** stato di GameMode, Vulkan, librerie e strumenti comunemente usati per giocare; il Gaming Pack V1 esegue soltanto analisi e anteprima, senza installare o rimuovere pacchetti.
 - **Virtualizzazione:** KVM, IOMMU, VFIO, KSM e motori per container.
 - **Servizi:** stato, avvio, arresto e attivazione automatica dei servizi riconosciuti.

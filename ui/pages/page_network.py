@@ -25,6 +25,20 @@ _network_ds_strings = {
         "es": "Gestiona conexiones, compartición y protección de la red.",
         "fr": "Gérez les connexions, le partage et la protection du réseau.",
     },
+    # 2026-08-04: firewall detection fix (Peppermint/GUFW report) — the
+    # granular state now shown under the Firewall row.
+    "fw_state_ufw_active": {"en": "UFW — Active", "it": "UFW — Attivo", "es": "UFW — Activo", "fr": "UFW — Actif"},
+    "fw_state_ufw_inactive": {"en": "UFW — Inactive", "it": "UFW — Inattivo", "es": "UFW — Inactivo", "fr": "UFW — Inactif"},
+    "fw_state_ufw_not_configured": {"en": "UFW — Installed but not configured", "it": "UFW — Installato ma non configurato",
+                                      "es": "UFW — Instalado pero no configurado", "fr": "UFW — Installé mais non configuré"},
+    "fw_state_firewalld_active": {"en": "Firewalld — Active", "it": "Firewalld — Attivo", "es": "Firewalld — Activo", "fr": "Firewalld — Actif"},
+    "fw_state_firewalld_inactive": {"en": "Firewalld — Inactive", "it": "Firewalld — Inattivo", "es": "Firewalld — Inactivo", "fr": "Firewalld — Inactif"},
+    "fw_state_nftables_rules": {"en": "nftables — Rules detected", "it": "nftables — Regole rilevate",
+                                  "es": "nftables — Reglas detectadas", "fr": "nftables — Règles détectées"},
+    "fw_state_none_detected": {"en": "No supported firewall detected", "it": "Nessun firewall supportato rilevato",
+                                 "es": "No se detectó ningún firewall compatible", "fr": "Aucun pare-feu pris en charge détecté"},
+    "fw_state_undetermined": {"en": "State could not be determined", "it": "Stato non determinabile",
+                                "es": "No se pudo determinar el estado", "fr": "État impossible à déterminer"},
 }
 for _k, _v in _network_ds_strings.items():
     _i18n_mod._strings[_k] = _v
@@ -56,6 +70,7 @@ class NetworkPage(Adw.PreferencesPage):
         super().__init__()
         self.set_icon_name("network-wireless-symbolic")
         on_change(self._refresh_title)
+        on_change(self._refresh_fw_state_label)
         self._refresh_title()
         _widen_preferences_clamp(self, maximum_size=900, tightening_threshold=700)
 
@@ -111,8 +126,14 @@ class NetworkPage(Adw.PreferencesPage):
         g2 = make_group("grp_security")
         self.add(g2)
 
-        # Firewall — ufw (debian/arch) or firewalld (fedora/opensuse)
-        fw_dep_check = lambda: B._cmd_exists("ufw") or B._cmd_exists("firewall-cmd")
+        # Firewall — ufw (debian/arch) or firewalld (fedora/opensuse).
+        # dep_check no longer just checks the binary: `firewall_state()`
+        # combines the binary, the package, /etc/ufw/ufw.conf and the
+        # systemd unit (see core/firewall_detect.py) so a GUFW-only
+        # install (GUFW is just a front-end, never the firewall itself)
+        # doesn't get reported as "not installed".
+        from core.firewall_detect import STATE_NONE_DETECTED, STATE_UNDETERMINED
+        fw_dep_check = lambda: B.firewall_state() not in (STATE_NONE_DETECTED,)
         self.fw = SwitchRow("fw", B.firewall_active(), risk="medium",
                             dep_pkg="ufw / firewalld",
                             dep_check=fw_dep_check,
@@ -120,6 +141,10 @@ class NetworkPage(Adw.PreferencesPage):
         self.fw.switch.connect("notify::active", self._on_fw)
         self.fw.add_prefix(IconBadge("security-high-symbolic", category=_security_icon_category(fw_dep_check())))
         self._wire_status_pill(self.fw, fw_dep_check)
+        self._fw_state_lbl = Gtk.Label(xalign=0, wrap=True)
+        self._fw_state_lbl.add_css_class("sysinfo-value-sub")
+        self.fw.add_row(self._fw_state_lbl)
+        self._refresh_fw_state_label()
         style_kernel_feature_row_buttons(self.fw)
         g2.add(self.fw)
 
@@ -635,10 +660,26 @@ class NetworkPage(Adw.PreferencesPage):
         result = B.ipv6_set_disabled(not want_enabled)
         sw.set_active(not result.value)
         report_toggle_result(self.ipv6, "network", "network.ipv6", result.ok, result.technical_detail)
+    _FW_STATE_KEYS = {
+        "ufw_active": "fw_state_ufw_active",
+        "ufw_inactive": "fw_state_ufw_inactive",
+        "ufw_installed_not_configured": "fw_state_ufw_not_configured",
+        "firewalld_active": "fw_state_firewalld_active",
+        "firewalld_inactive": "fw_state_firewalld_inactive",
+        "nftables_rules": "fw_state_nftables_rules",
+        "none_detected": "fw_state_none_detected",
+        "undetermined": "fw_state_undetermined",
+    }
+
+    def _refresh_fw_state_label(self):
+        state = B.firewall_state()
+        self._fw_state_lbl.set_text(T(self._FW_STATE_KEYS.get(state, "fw_state_undetermined")))
+
     def _on_fw(self, sw, _):
         result = B.firewall_set(sw.get_active())
         sw.set_active(result.value)
         report_toggle_result(self.fw, "network", "network.firewall", result.ok, result.technical_detail)
+        self._refresh_fw_state_label()
     def _on_ssh(self, sw, _):
         result = B.ssh_set(sw.get_active())
         sw.set_active(result.value)

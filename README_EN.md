@@ -6,7 +6,7 @@ M.G Linux Toolbox brings together Linux features that would normally require the
 
 ## Project status
 
-Version **0.9.0 Beta 4** is the current prerelease. The latest validation includes **1355 passing tests**.
+Version **0.9.0 Beta 4** is the current prerelease. The latest validation includes **1580 passing tests**.
 
 The verified AppImage package and its checksum are associated with [Release v0.9.0-beta.4](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.4).
 
@@ -57,6 +57,7 @@ Availability changes with the kernel, hardware, drivers, and distribution. An un
 - **Power and battery:** power profiles, suspend, battery, and device power saving.
 - **Audio:** PipeWire status, devices, audio restart, and audio power-saving options.
 - **Printers:** CUPS service, basic support, and detected drivers.
+- **Software and repositories:** Flatpak and Flathub status, detected software sources, and package-health checks with distribution-aware behavior.
 - **Gaming:** GameMode, Vulkan, libraries, and tools commonly used for gaming; Gaming Pack V1 is analysis/preview only and does not install or remove packages.
 - **Virtualization:** KVM, IOMMU, VFIO, KSM, and container engines.
 - **Services:** status, start, stop, and automatic activation of recognized services.

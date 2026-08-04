@@ -46,6 +46,18 @@ class _FakeSampler:
         return self.snapshot
 
 
+class _FakeCpuIdleTracker:
+    """Always reports 'unknown' (None), same as a real tracker's first
+    sample — deterministic stand-in so a 'high' PSI bucket always stays
+    'very_elevated' (critical) here unless a test explicitly overrides
+    it, regardless of the real host machine's live CPU load."""
+    def __init__(self, idle_pct=None):
+        self.idle_pct = idle_pct
+
+    def sample(self):
+        return self.idle_pct
+
+
 def _fresh_page():
     page = DiskActivityPage(navigate_callback=lambda _t: None)
     if page._timeout_id is not None:
@@ -54,6 +66,8 @@ def _fresh_page():
     page._psi_feature = _FakePSIFeature()
     page._psi_hysteresis = PSIHysteresis()
     page._sampler = _FakeSampler()
+    page._cpu_idle_tracker = _FakeCpuIdleTracker()
+    page._blocked_proc_root = "/nonexistent-fake-proc-for-tests"
     return page
 
 
@@ -176,6 +190,35 @@ class DiskActivityPageRefreshTests(unittest.TestCase):
         self.assertTrue(page._processes_note.get_visible())
         self.assertEqual(page._processes_note.get_text(), T("da_processes_idle"))
 
+    def test_active_process_with_quiet_disks_shows_cache_coherence_note(self):
+        """2026-08-05: exact reported scenario — a VM-like process shows
+        real MB/s of its own read_bytes/write_bytes while every disk
+        this page knows about reads ~0 B/s."""
+        page = _fresh_page()
+        page._sampler.snapshot = DiskActivitySnapshot(
+            disks=[DiskSample(device_id="nvme0n1", friendly_name="NVMe", kind="NVMe",
+                                read_bps=0.0, write_bps=0.0, ops_in_progress=0)],
+            processes=[ProcessSample(pid=123, name="gnome-boxes", read_bps=6_300_000.0, write_bps=0.0)],
+        )
+        _apply_fake_sample(page)
+        self.assertTrue(page._cache_coherence_note.get_visible())
+
+    def test_no_coherence_note_when_disk_activity_matches(self):
+        page = _fresh_page()
+        page._sampler.snapshot = DiskActivitySnapshot(
+            disks=[DiskSample(device_id="nvme0n1", friendly_name="NVMe", kind="NVMe",
+                                read_bps=6_000_000.0, write_bps=0.0, ops_in_progress=1)],
+            processes=[ProcessSample(pid=123, name="gnome-boxes", read_bps=6_300_000.0, write_bps=0.0)],
+        )
+        _apply_fake_sample(page)
+        self.assertFalse(page._cache_coherence_note.get_visible())
+
+    def test_no_coherence_note_when_everything_is_quiet(self):
+        page = _fresh_page()
+        page._sampler.snapshot = DiskActivitySnapshot(processes=[])
+        _apply_fake_sample(page)
+        self.assertFalse(page._cache_coherence_note.get_visible())
+
     def test_elevated_pressure_without_dominant_process_shows_note(self):
         page = _fresh_page()
         page._psi_feature.avg10 = 2.0  # "moderate" bucket, no hysteresis gating needed
@@ -239,6 +282,35 @@ class DiskActivityPageRefreshTests(unittest.TestCase):
         page._refresh_general()
         page._refresh_general()  # 2 consecutive low samples -> exits
         self.assertEqual(page._level_chip.get_text(), T("da_level_none"))
+
+    def test_high_psi_with_lone_idle_blip_is_downgraded_to_yellow(self):
+        """2026-08-04: a confirmed-high PSI reading corroborated by a
+        single blocked process and an otherwise-idle CPU must not be
+        painted the same red as a real system-wide slowdown."""
+        page = _fresh_page()
+        page._cpu_idle_tracker = _FakeCpuIdleTracker(idle_pct=95.0)
+        with mock.patch(
+            "core.kernel_features.disk_pressure_context.count_blocked_processes",
+            return_value=1,
+        ):
+            page._psi_feature.avg10 = 77.52
+            page._psi_feature.avg60 = 72.65
+            page._refresh_general()
+            page._refresh_general()  # 2 consecutive high samples -> confirmed
+        self.assertEqual(page._level_chip.get_text(), T("da_level_elevated"))
+
+    def test_high_psi_with_many_blocked_processes_stays_red(self):
+        page = _fresh_page()
+        page._cpu_idle_tracker = _FakeCpuIdleTracker(idle_pct=95.0)
+        with mock.patch(
+            "core.kernel_features.disk_pressure_context.count_blocked_processes",
+            return_value=6,
+        ):
+            page._psi_feature.avg10 = 77.52
+            page._psi_feature.avg60 = 72.65
+            page._refresh_general()
+            page._refresh_general()
+        self.assertEqual(page._level_chip.get_text(), T("da_level_very_elevated"))
 
 
 class DominantProcessHelperTests(unittest.TestCase):

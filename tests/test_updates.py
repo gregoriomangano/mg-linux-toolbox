@@ -51,15 +51,19 @@ class FedoraDispatchTests(unittest.TestCase):
             B._service_active.assert_called_with("dnf5-automatic.timer")
 
     def test_auto_updates_set_installs_dnf5_package_when_missing(self):
+        # Real package installs go through _install_pkg -> run_pkexec_full
+        # (INSTALL_TIMEOUT=180s), not the plain run_pkexec (10s default) —
+        # see the 2026-08-04 fix for the P1 SIGKILL-mid-install bug.
         with contextlib.ExitStack() as stack:
             _distro_flags(stack, is_fedora=True)
             stack.enter_context(mock.patch.object(B, "dnf5_active", return_value=True))
             stack.enter_context(mock.patch.object(B.distro, "is_installed", return_value=False))
             stack.enter_context(mock.patch.object(B.distro, "install_cmd", return_value=["dnf5", "install", "-y", "dnf5-plugin-automatic"]))
-            mock_pkexec = stack.enter_context(mock.patch.object(B, "run_pkexec"))
+            mock_pkexec_full = stack.enter_context(mock.patch.object(B, "run_pkexec_full"))
             stack.enter_context(mock.patch.object(B, "_service_set", return_value=True))
             B.auto_updates_set(True)
-            mock_pkexec.assert_called_once_with(["dnf5", "install", "-y", "dnf5-plugin-automatic"])
+            mock_pkexec_full.assert_called_once_with(
+                ["dnf5", "install", "-y", "dnf5-plugin-automatic"], timeout=B.INSTALL_TIMEOUT, job=None)
 
 
 class OpenSuseTests(unittest.TestCase):

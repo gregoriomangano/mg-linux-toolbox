@@ -4,7 +4,7 @@ Le modifiche pubbliche di M.G Linux Toolbox saranno registrate in questo file.
 
 Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il progetto usa [Semantic Versioning](https://semver.org/lang/it/) quando viene assegnata una versione pubblica.
 
-## [0.9.0-beta.4] - 2026-08-03
+## [0.9.0-beta.4] - 2026-08-04
 
 ### Corretto
 
@@ -13,6 +13,10 @@ Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il p
 - Le modifiche a `/etc/systemd/resolved.conf` (DNS over TLS), `/etc/ssh/sshd_config` (accesso root SSH) e alla virtualizzazione annidata non usano più script generati al volo o `sh -c` come root.
 - Lo stato KSM distingue ora onestamente "Attiva adesso" (stato corrente) da "Avvio automatico configurato" (persistenza reale su file).
 - Il ripristino salva il valore reale all'inizio di ogni nuova prova e verifica la rilettura finale: se il valore richiesto non è stato applicato, l'operazione restituisce un errore e non viene registrata come riuscita.
+- Le transazioni dei repository bloccano l'applicazione quando il backup obbligatorio fallisce e dichiarano un rollback riuscito soltanto dopo un ripristino materiale.
+- Le installazioni composte, comprese le dipendenze per gaming, container, manutenzione disco e aggiornamenti automatici, usano un tempo massimo adeguato invece del limite breve destinato ai comandi di lettura.
+- Su openSUSE la rimozione automatica dei pacchetti orfani viene indicata come non supportata e non richiede privilegi né dichiara un successo inesistente.
+- Il rilevamento di IPv6 e ZRAM usa direttamente `/proc`, senza dipendere dalla presenza di `sysctl` o `swapon` nel `PATH`.
 
 ### Aggiunto
 
@@ -23,12 +27,14 @@ Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il p
 - In assenza di dispositivi adatti la schermata VFIO lo dice chiaramente, senza elenchi di codici né messaggi fuorvianti.
 - `install.sh` installa e verifica il componente amministrativo (helper + policy Polkit) mostrando prima l'elenco esatto dei file e chiedendo una sola conferma; `uninstall.sh` li rimuove in sicurezza.
 - Aggiornamento sicuro dell'helper: il candidato viene estratto da un'AppImage già verificata e installato da un'azione chiusa con controllo checksum, controllo versione, backup e rollback.
+- Pagina **Software e repository** con rilevamento della distribuzione, stato Flatpak/Flathub, inventario delle sorgenti software e controlli sulla salute dei pacchetti.
 
 ### Sicurezza e limiti
 
 - Nessun processo privilegiato esegue mai file da `/tmp/.mount_*` o da percorsi modificabili dall'utente.
 - In modalità portatile (AppImage avviata da Scaricati, Desktop, USB) le funzioni in sola lettura restano complete; le modifiche amministrative sono disabilitate con una spiegazione e l'invito a installare la versione gestita.
 - VFIO resta una funzione avanzata: dipende dall'hardware e dal gruppo IOMMU, non abilita mai ACS override e non permette il passthrough della GPU principale o del controller del disco di sistema.
+- La suite protegge i test da avvii accidentali di `sudo`, `pkexec`, `su` e `doas`; il collaudo finale comprende 1580 test superati senza processi privilegiati reali.
 
 ## [0.9.0-beta.3] - 2026-08-03
 

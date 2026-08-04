@@ -34,6 +34,13 @@ from ui.dashboard.dashboard_card import DashboardCard
 DISK_REFRESH_SECONDS = 3
 MAX_PROCESSES_SHOWN = 5
 _NONE_AVG10_CEILING = 0.1  # below this, avg10 doesn't even count as "light"
+
+# 2026-08-05: thresholds for the "process shows real throughput, every
+# physical disk reads ~0 B/s" explanatory note — both conditions must
+# hold, so a barely-active process next to a barely-idle disk never
+# triggers a note about nothing.
+_COHERENCE_NOTE_PROCESS_FLOOR_BPS = 200_000     # ~200 KB/s: a real, noticeable rate
+_COHERENCE_NOTE_DISK_CEILING_BPS = 50_000       # ~50 KB/s: disks read as "quiet"
 _DOMINANT_SHARE = 0.6      # top process needs >=60% of total activity to count as "the" one
 
 _disk_activity_strings = {
@@ -69,6 +76,12 @@ _disk_activity_strings = {
     "da_processes_idle": {"en": "The disk is quiet right now.", "it": "In questo momento il disco è tranquillo.", "es": "En este momento el disco está tranquilo.", "fr": "Le disque est calme en ce moment."},
     "da_processes_no_dominant": {"en": "Disk waits cannot be attributed with certainty to a single program.", "it": "Le attese del disco non possono essere attribuite con certezza a un singolo programma.", "es": "Las esperas del disco no pueden atribuirse con certeza a un solo programa.", "fr": "Les attentes disque ne peuvent pas être attribuées avec certitude à un seul programme."},
     "da_processes_unreadable_note": {"en": "Some system processes aren't visible with the current permissions.", "it": "Alcuni processi di sistema non sono visibili con i permessi attuali.", "es": "Algunos procesos del sistema no son visibles con los permisos actuales.", "fr": "Certains processus système ne sont pas visibles avec les autorisations actuelles."},
+    "da_cache_coherence_note": {
+        "en": "A program's activity can include data still held in cache, so it may not immediately match the physical activity shown for the disk.",
+        "it": "L'attività dei programmi può includere dati ancora in cache e quindi non coincidere immediatamente con l'attività fisica mostrata per il disco.",
+        "es": "La actividad de los programas puede incluir datos que aún están en caché, por lo que puede no coincidir de inmediato con la actividad física mostrada para el disco.",
+        "fr": "L'activité des programmes peut inclure des données encore en cache et ne pas correspondre immédiatement à l'activité physique affichée pour le disque.",
+    },
     "da_process_unnamed": {"en": "(unnamed process)", "it": "(processo senza nome)", "es": "(proceso sin nombre)", "fr": "(processus sans nom)"},
     "da_pid_label": {"en": "PID", "it": "PID", "es": "PID", "fr": "PID"},
 }
@@ -91,13 +104,26 @@ _LEVEL_CHIP_CSS = {
 }
 
 
-def _activity_level(bucket: str, avg10: float) -> str:
+def _activity_level(bucket: str, avg10: float, blocked_count: "int | None" = None,
+                      cpu_idle_pct: "float | None" = None) -> str:
     """Maps the existing 3-bucket PSI classification (low/moderate/high,
     already hysteresis-gated) onto the 4-word scale this page's spec
     asks for. "high" here always means the SAME confirmed/critical
     state as everywhere else in the app (PSIHysteresis), never a raw
-    single high sample."""
+    single high sample.
+
+    2026-08-04: a confirmed "high" bucket is only shown as the red
+    "very_elevated" when it's corroborated by real system-wide impact
+    (core.kernel_features.disk_pressure_context) — a lone background
+    process waiting on disk while the CPU is otherwise idle now shows
+    as "elevated" (yellow) instead of red. blocked_count/cpu_idle_pct
+    default to None (skip corroboration) so existing callers keep
+    behaving exactly as before."""
     if bucket == "high":
+        if blocked_count is not None or cpu_idle_pct is not None:
+            from core.kernel_features.disk_pressure_context import classify_disk_pressure, CRITICAL
+            if classify_disk_pressure(bucket, blocked_count, cpu_idle_pct) != CRITICAL:
+                return "elevated"
         return "very_elevated"
     if bucket == "moderate":
         return "elevated"
@@ -128,6 +154,9 @@ class DiskActivityPage(Gtk.ScrolledWindow):
         self._psi_feature = PSIFeature()
         self._psi_supported = self._psi_feature.probe() == SupportStatus.SUPPORTED_READ_ONLY
         self._psi_hysteresis = PSIHysteresis()
+        from core.kernel_features.disk_pressure_context import CpuIdleTracker
+        self._cpu_idle_tracker = CpuIdleTracker()
+        self._blocked_proc_root = "/proc"
 
         self._timeout_id = None
         self._paused = False
@@ -327,6 +356,16 @@ class DiskActivityPage(Gtk.ScrolledWindow):
         self._unreadable_note.set_visible(False)
         card.append(self._unreadable_note)
 
+        # 2026-08-05: explains the real, non-buggy case reported —
+        # a process (e.g. a VM) shows real MB/s of its own read_bytes/
+        # write_bytes while every physical disk reads ~0 B/s, because
+        # the process's writes are still sitting in the page cache and
+        # haven't been flushed to the physical device yet.
+        self._cache_coherence_note = Gtk.Label(label=T("da_cache_coherence_note"), xalign=0, wrap=True)
+        self._cache_coherence_note.add_css_class("desc-what")
+        self._cache_coherence_note.set_visible(False)
+        card.append(self._cache_coherence_note)
+
         columns = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16, homogeneous=True)
 
         reads_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -424,7 +463,12 @@ class DiskActivityPage(Gtk.ScrolledWindow):
         avg60 = some.get("avg60", 0.0)
         avg300 = some.get("avg300", 0.0)
         bucket = self._psi_hysteresis.update(avg10, avg60)
-        level = _activity_level(bucket, avg10)
+        blocked_count = None
+        cpu_idle_pct = self._cpu_idle_tracker.sample()
+        if bucket == "high":
+            from core.kernel_features.disk_pressure_context import count_blocked_processes
+            blocked_count = count_blocked_processes(proc_root=self._blocked_proc_root)
+        level = _activity_level(bucket, avg10, blocked_count, cpu_idle_pct)
 
         self._level_chip.set_text(T(_LEVEL_KEYS[level]))
         for css in _LEVEL_CHIP_CSS.values():
@@ -432,7 +476,7 @@ class DiskActivityPage(Gtk.ScrolledWindow):
         self._level_chip.add_css_class(_LEVEL_CHIP_CSS[level])
 
         phrase_key = "da_pressure_idle" if level == "none" else \
-            "da_pressure_high" if bucket == "high" else "da_pressure_active"
+            "da_pressure_high" if level == "very_elevated" else "da_pressure_active"
         self._general_phrase.set_text(T(phrase_key))
         self._technical_label.set_text(
             f"{T('kf_psi_avg10_current')}={avg10:.1f}, "
@@ -498,6 +542,8 @@ class DiskActivityPage(Gtk.ScrolledWindow):
         else:
             self._processes_note.set_visible(False)
 
+        self._cache_coherence_note.set_visible(_process_disk_mismatch(snapshot))
+
     def _refresh_static_labels(self):
         """Re-apply translated text for widgets that don't otherwise get
         touched by the next PSI/disk tick (labels whose text is pure
@@ -524,3 +570,19 @@ def _has_dominant_process(processes) -> bool:
     if total <= 0:
         return False
     return max(totals) >= _DOMINANT_SHARE * total
+
+
+def _process_disk_mismatch(snapshot) -> bool:
+    """True when at least one process shows a real, noticeable rate
+    (its own read_bytes/write_bytes — already the "really left the
+    process for the block layer" counter, not rchar/wchar) while every
+    physical disk this page knows about reads as quiet. Both floors
+    must be crossed, so two barely-active numbers never trigger a note
+    that has nothing to explain."""
+    if not snapshot.processes or not snapshot.disk_source_available:
+        return False
+    top_process_bps = max((p.read_bps + p.write_bps for p in snapshot.processes), default=0.0)
+    if top_process_bps < _COHERENCE_NOTE_PROCESS_FLOOR_BPS:
+        return False
+    total_disk_bps = sum(d.read_bps + d.write_bps for d in snapshot.disks)
+    return total_disk_bps < _COHERENCE_NOTE_DISK_CEILING_BPS

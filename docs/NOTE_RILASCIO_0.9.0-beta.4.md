@@ -1,9 +1,11 @@
 # M.G Linux Toolbox 0.9.0 Beta 4 — Note di rilascio
 
-Data: 3 agosto 2026
+Data: 4 agosto 2026
 Autore: Gregorio Mangano
 
-La Beta 4 è un hotfix concentrato su tre problemi reali della Beta 3.
+La Beta 4 corregge i problemi amministrativi individuati nella Beta 3 e
+completa la gestione di software, repository e salute dei pacchetti con
+comportamenti prudenti e specifici per distribuzione.
 
 ## Corretto il problema delle modifiche amministrative nell'AppImage
 
@@ -55,6 +57,20 @@ passaggio fallisce, la versione in uso resta intatta e il backup non
 viene eliminato. È disponibile anche "Ripristina versione precedente"
 con conferma esplicita.
 
+## Software e repository
+
+La nuova pagina **Software e repository** riunisce in un solo punto:
+
+- rilevamento della distribuzione e del gestore pacchetti;
+- stato di Flatpak, Flathub e integrazione desktop;
+- inventario delle sorgenti software già configurate;
+- controllo della salute dei pacchetti e azioni supportate dal sistema.
+
+Le operazioni composte usano un tempo massimo di 180 secondi. Su
+openSUSE la rimozione automatica dei pacchetti orfani non viene simulata:
+l'interfaccia indica che non è supportata, senza chiedere privilegi e
+senza dichiarare un successo inesistente.
+
 ## Procedura VFIO migliorata
 
 - I dispositivi sono mostrati con nomi comprensibili ("Scheda video…",
@@ -89,6 +105,13 @@ con conferma esplicita.
 - Nuova card "Componente amministrativo" nella Panoramica con il
   pulsante "Verifica funzionamento" (sola diagnostica, non modifica
   nulla).
+- Le transazioni dei repository interrompono l'applicazione se il backup
+  obbligatorio fallisce. Un rollback viene dichiarato riuscito soltanto
+  se un file è stato realmente ripristinato o rimosso; in assenza di
+  modifiche materiali lo stato resta "nulla da ripristinare".
+- Il rilevamento di IPv6 e ZRAM legge direttamente `/proc`, evitando
+  avvisi errati quando `sysctl` o `swapon` non sono disponibili nel
+  `PATH` dell'applicazione.
 
 ## Compatibilità e limiti
 
@@ -123,4 +146,8 @@ completo qui descritto.
 ## File e collaudo
 
 - File: `MG-Linux-Toolbox-0.9.0-beta.4-x86_64.AppImage`
-- Suite completa: **1355 test superati**.
+- SHA-256: `aee6d454d3c48c146cf3087ee6dbd45dbf221871b02be5a73f6e3f08768bbd50`
+- Suite completa: **1580 test superati**, 0 failure, 0 errori e 0 test saltati.
+- L'AppImage validata è stata avviata su Pop!_OS 24.04 LTS: Panoramica
+  e Software e repository si aprono correttamente, senza crash o
+  traceback Python e senza processi residui dopo la chiusura.

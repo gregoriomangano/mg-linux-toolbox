@@ -15,6 +15,7 @@ from ui.pages.page_disk_activity import DiskActivityPage
 from ui.pages.page_network     import NetworkPage
 from ui.pages.page_system      import SystemPage
 from ui.pages.page_performance import PerformancePage
+from ui.pages.page_software_repos import SoftwareRepositoriesPage
 from ui.pages.page_gaming      import GamingPage
 from ui.pages.page_audio       import AudioPage
 from ui.pages.page_virt        import VirtPage
@@ -45,6 +46,7 @@ PAGES = [
     ("tab_network",     NetworkPage,     "network",     "network-wireless-symbolic"),
     ("tab_system",      SystemPage,      "system",      "drive-harddisk-symbolic"),
     ("tab_performance", PerformancePage, "performance", "battery-good-symbolic"),
+    ("tab_software_repos", SoftwareRepositoriesPage, "software_repos", "system-software-install-symbolic"),
     ("tab_gaming",      GamingPage,      "gaming",      "input-gaming-symbolic"),
     ("tab_audio",       AudioPage,       "audio",       "audio-speakers-symbolic"),
     ("tab_printers",    PrintersPage,    "printers",    "printer-symbolic"),

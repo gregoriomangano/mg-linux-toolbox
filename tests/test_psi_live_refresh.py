@@ -17,6 +17,7 @@ window to trigger it.
 import os
 import sys
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -50,6 +51,18 @@ class _FakePSIFeature:
         return OpResult(True, value=value)
 
 
+class _FakeCpuIdleTracker:
+    """Always reports 'unknown' (None) unless a test overrides it —
+    deterministic stand-in so a confirmed-high io bucket always stays
+    'high' here (classify_disk_pressure never downgrades on missing
+    corroboration data), regardless of the real host's live CPU load."""
+    def __init__(self, idle_pct=None):
+        self.idle_pct = idle_pct
+
+    def sample(self):
+        return self.idle_pct
+
+
 def _fresh_overview_page():
     page = OverviewPage()
     # The real construction may have started a real timer against the
@@ -60,6 +73,7 @@ def _fresh_overview_page():
     page._psi_supported = True
     page._psi_feature = _FakePSIFeature()
     page._psi_hysteresis = {r: PSIHysteresis() for r in ("cpu", "memory", "io")}
+    page._cpu_idle_tracker = _FakeCpuIdleTracker()
     return page
 
 
@@ -129,6 +143,49 @@ class OverviewPagePSIRefreshTests(unittest.TestCase):
         page._on_psi_timeout()
         self.assertEqual(page._state_badge.get_text(), T("ov2_state_low"))
 
+    def test_lone_idle_blip_does_not_trigger_the_red_general_banner(self):
+        """2026-08-05: the exact reported scenario — avg10/avg60 high on
+        'io' (a VM doing virtual-disk I/O) while the CPU sits at ~3%
+        (97% idle) and only one process is actually blocked. The red
+        "Una risorsa è temporaneamente sotto pressione" banner must not
+        fire; the io sub-card should read as the softer 'moderate'
+        state instead."""
+        page = _fresh_overview_page()
+        page._cpu_idle_tracker = _FakeCpuIdleTracker(idle_pct=97.0)
+        with mock.patch(
+            "core.kernel_features.disk_pressure_context.count_blocked_processes",
+            return_value=1,
+        ):
+            page._psi_feature.avg10["io"] = 77.52
+            page._psi_feature.avg60["io"] = 72.65
+            page._on_psi_timeout()
+            page._on_psi_timeout()
+        # Downgraded to the softer "moderate" state (still visible,
+        # never the "sotto pressione" red banner) — not silently
+        # dropped to "low", since avg10/avg60 genuinely are elevated.
+        self.assertEqual(page._state_badge.get_text(), T("ov2_state_moderate"))
+        self.assertFalse(page._state_badge.has_css_class("high"))
+        self.assertTrue(page._psi_chip_labels["io"].has_css_class("mgv2-chip-moderate"))
+        self.assertEqual(page._psi_phrase_labels["io"].get_text(), T("kf_psi_io_moderate"))
+
+    def test_real_system_wide_pressure_still_shows_the_red_banner(self):
+        """Corroborating signals both point at a genuine, broader
+        slowdown (several blocked processes, CPU not idle) — must stay
+        red, never softened."""
+        page = _fresh_overview_page()
+        page._cpu_idle_tracker = _FakeCpuIdleTracker(idle_pct=15.0)
+        with mock.patch(
+            "core.kernel_features.disk_pressure_context.count_blocked_processes",
+            return_value=6,
+        ):
+            page._psi_feature.avg10["io"] = 77.52
+            page._psi_feature.avg60["io"] = 72.65
+            page._on_psi_timeout()
+            page._on_psi_timeout()
+        self.assertEqual(page._state_badge.get_text(), T("ov2_state_high"))
+        self.assertTrue(page._state_badge.has_css_class("high"))
+        self.assertTrue(page._psi_chip_labels["io"].has_css_class("mgv2-chip-high"))
+
 
 def _fresh_psi_row():
     row = PSIRow()
@@ -146,6 +203,7 @@ def _fresh_psi_row():
     row.feature._fake = fake  # convenience handle for the test body
     row._hysteresis = {r: PSIHysteresis() for r in ("cpu", "memory", "io")}
     row._io_was_critical = False
+    row._cpu_idle_tracker = _FakeCpuIdleTracker()
     return row
 
 

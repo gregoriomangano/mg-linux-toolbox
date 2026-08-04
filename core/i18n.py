@@ -16,6 +16,19 @@ _strings = {
     "advantage":            {"en": "✓ Advantage", "it": "✓ Vantaggio", "es": "✓ Ventaja", "fr": "✓ Avantage"},
     "when_avoid":           {"en": "✗ When to avoid", "it": "✗ Quando evitare", "es": "✗ Cuándo evitar", "fr": "✗ Quand éviter"},
     "install_btn":          {"en": "Install", "it": "Installa", "es": "Instalar", "fr": "Installer"},
+    # 2026-08-05: three DepBanner strings found hardcoded in Italian
+    # only (ui/widgets.py) during the "Software e repository" audit —
+    # this is the real, confirmed source of "some text stays in
+    # Italian when French is selected", found across every page that
+    # shows a missing-dependency install banner.
+    "dep_banner_requires":  {"en": "Requires: {pkg}", "it": "Richiede: {pkg}", "es": "Requiere: {pkg}", "fr": "Nécessite : {pkg}"},
+    "dep_banner_install_now_btn": {"en": "Install now", "it": "Installa ora", "es": "Instalar ahora", "fr": "Installer maintenant"},
+    "dep_banner_installed_restart_note": {
+        "en": "Installed — restart the app to activate it",
+        "it": "Installato — riavvia l'app per attivare",
+        "es": "Instalado — reinicia la aplicación para activarlo",
+        "fr": "Installé — redémarrez l'application pour l'activer",
+    },
     "installed_badge":      {"en": "Installed ✓", "it": "Installato ✓", "es": "Instalado ✓", "fr": "Installé ✓"},
     "not_available_badge":  {"en": "Not available", "it": "Non disponibile", "es": "No disponible", "fr": "Non disponible"},
     "install_in_progress":  {"en": "Installing…", "it": "Installazione…", "es": "Instalando…", "fr": "Installation…"},
@@ -29,7 +42,7 @@ _strings = {
     "requires_reboot":      {"en": "⚠ Requires reboot", "it": "⚠ Richiede riavvio", "es": "⚠ Requiere reinicio", "fr": "⚠ Nécessite un redémarrage"},
     "risk_low":             {"en": "🟢 Risk: Low", "it": "🟢 Rischio: Basso", "es": "🟢 Riesgo: Bajo", "fr": "🟢 Risque: Faible"},
     "risk_medium":          {"en": "🟡 Risk: Medium", "it": "🟡 Rischio: Medio", "es": "🟡 Riesgo: Medio", "fr": "🟡 Risque: Moyen"},
-    "risk_high":            {"en": "🔴 Risk: High", "it": "🔴 Rischio: Alto", "es": "🔴 Riesgo: Alto", "fr": "🔴 Risque: Alto"},
+    "risk_high":            {"en": "🔴 Risk: High", "it": "🔴 Rischio: Alto", "es": "🔴 Riesgo: Alto", "fr": "🔴 Risque : Élevé"},
 
     # ─── Tab Labels ───────────────────────────────────────────────
     "tab_network":          {"en": "Network & Security", "it": "Rete e sicurezza", "es": "Red y Seguridad", "fr": "Réseau et Sécurité"},

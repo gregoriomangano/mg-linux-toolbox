@@ -74,6 +74,8 @@ class PSIRow(KernelFeatureRow):
         # displayed bucket on its own — see PSIHysteresis for the rules.
         self._hysteresis = {r: PSIHysteresis() for r in ("cpu", "memory", "io")}
         self._io_was_critical = False
+        from core.kernel_features.disk_pressure_context import CpuIdleTracker
+        self._cpu_idle_tracker = CpuIdleTracker()
 
         self._resource_labels = {}
         for resource in ("cpu", "memory", "io"):
@@ -153,6 +155,7 @@ class PSIRow(KernelFeatureRow):
         per_resource = result.value
         io_is_critical = False
         elevated_labels = []
+        cpu_idle_pct = self._cpu_idle_tracker.sample()
         for resource in ("cpu", "memory", "io"):
             data = per_resource.get(resource, {})
             some = data.get("some", {})
@@ -163,6 +166,18 @@ class PSIRow(KernelFeatureRow):
             # consecutive readings with avg10 AND avg60 both back down
             # to leave it — avg300 never enters this decision at all.
             bucket = self._hysteresis[resource].update(avg10, avg60)
+            if resource == "io" and bucket == "high":
+                # 2026-08-05: same corroboration as the Panoramica badge
+                # and "Attività del disco" — a confirmed-high io bucket
+                # explained by one blocked process on an otherwise idle
+                # CPU reads as "moderate" here too, so this row and the
+                # Panoramica can never disagree about the same machine.
+                from core.kernel_features.disk_pressure_context import (
+                    count_blocked_processes, classify_disk_pressure, CRITICAL,
+                )
+                blocked = count_blocked_processes()
+                if classify_disk_pressure("high", blocked, cpu_idle_pct) != CRITICAL:
+                    bucket = "moderate"
             label = T(f"kf_psi_{resource}")
             # Gender-correct plain-language phrase per resource — never
             # just "Bassa/Moderata/Alta" on their own. Full per-resource

@@ -104,29 +104,34 @@ if app_installed; then
     say "potrebbero servire ad altri programmi."
 
     # ── Root-owned privileged component (helper + Polkit policy) ──────
-    ROOT_FILES_TO_REMOVE=()
-    for candidate in "${HELPER_CANDIDATE_PATHS[@]}"; do
-        # Never follow an unexpected symlink: only a regular file at the
-        # exact known path is ever considered ours.
-        [ -f "$candidate" ] && [ ! -L "$candidate" ] && ROOT_FILES_TO_REMOVE+=("$candidate")
-    done
-    [ -f "$POLKIT_POLICY_PATH" ] && [ ! -L "$POLKIT_POLICY_PATH" ] && ROOT_FILES_TO_REMOVE+=("$POLKIT_POLICY_PATH")
-
-    if [ "${#ROOT_FILES_TO_REMOVE[@]}" -gt 0 ]; then
-        say ""
-        say "Il componente amministrativo installato da M.G Linux Toolbox verrà rimosso"
-        say "con la tua password. Verranno eliminati SOLTANTO questi file di sistema:"
-        for f in "${ROOT_FILES_TO_REMOVE[@]}"; do
-            say "  - $f"
+    # Safe automation/test hook: it can only OMIT privileged cleanup,
+    # never redirect it to another path or broaden what may be deleted.
+    # The normal interactive uninstaller keeps the default behaviour.
+    if [ "${MG_TOOLBOX_SKIP_PRIVILEGED_CLEANUP:-0}" != "1" ]; then
+        ROOT_FILES_TO_REMOVE=()
+        for candidate in "${HELPER_CANDIDATE_PATHS[@]}"; do
+            # Never follow an unexpected symlink: only a regular file at the
+            # exact known path is ever considered ours.
+            [ -f "$candidate" ] && [ ! -L "$candidate" ] && ROOT_FILES_TO_REMOVE+=("$candidate")
         done
-        if sudo rm -f -- "${ROOT_FILES_TO_REMOVE[@]}"; then
-            for d in /usr/libexec/mg-linux-toolbox /usr/lib/mg-linux-toolbox; do
-                sudo rmdir --ignore-fail-on-non-empty "$d" 2>/dev/null || true
+        [ -f "$POLKIT_POLICY_PATH" ] && [ ! -L "$POLKIT_POLICY_PATH" ] && ROOT_FILES_TO_REMOVE+=("$POLKIT_POLICY_PATH")
+
+        if [ "${#ROOT_FILES_TO_REMOVE[@]}" -gt 0 ]; then
+            say ""
+            say "Il componente amministrativo installato da M.G Linux Toolbox verrà rimosso"
+            say "con la tua password. Verranno eliminati SOLTANTO questi file di sistema:"
+            for f in "${ROOT_FILES_TO_REMOVE[@]}"; do
+                say "  - $f"
             done
-            say "Componente amministrativo rimosso."
-        else
-            say "Attenzione: il componente amministrativo non è stato rimosso (password annullata?)."
-            say "Puoi rimuoverlo in seguito rieseguendo questo script."
+            if sudo rm -f -- "${ROOT_FILES_TO_REMOVE[@]}"; then
+                for d in /usr/libexec/mg-linux-toolbox /usr/lib/mg-linux-toolbox; do
+                    sudo rmdir --ignore-fail-on-non-empty "$d" 2>/dev/null || true
+                done
+                say "Componente amministrativo rimosso."
+            else
+                say "Attenzione: il componente amministrativo non è stato rimosso (password annullata?)."
+                say "Puoi rimuoverlo in seguito rieseguendo questo script."
+            fi
         fi
     fi
 else

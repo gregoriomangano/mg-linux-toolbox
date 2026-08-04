@@ -1403,6 +1403,7 @@ button.mgv2-quick-action:hover {
 @define-color ds_cat_energy     #E0C94A; /* yellow */
 @define-color ds_cat_audio      #C08CE0; /* violet */
 @define-color ds_cat_virt       #6FA0E0; /* blue */
+@define-color ds_cat_software   #4FBFA8; /* teal — Software e repository, 2026-08-04 */
 
 /* ── IconBadge ────────────────────────────────────────────────── */
 .ds-icon-badge {
@@ -1474,6 +1475,12 @@ button.mgv2-quick-action:hover {
   background: alpha(@ds_cat_virt, 0.16);
   border: 1px solid alpha(@ds_cat_virt, 0.35);
   color: @ds_cat_virt;
+}
+
+.ds-icon-badge-software {
+  background: alpha(@ds_cat_software, 0.16);
+  border: 1px solid alpha(@ds_cat_software, 0.35);
+  color: @ds_cat_software;
 }
 
 .ds-icon-badge-neutral {

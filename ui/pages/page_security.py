@@ -38,6 +38,19 @@ _security_ds_strings = {
     "ds_state_active": {"en": "Active", "it": "Attivo", "es": "Activo", "fr": "Actif"},
     "ds_state_inactive": {"en": "Inactive", "it": "Disattivato", "es": "Inactivo", "fr": "Inactif"},
     "ds_state_unknown": {"en": "Unknown status", "it": "Stato sconosciuto", "es": "Estado desconocido", "fr": "État inconnu"},
+    # 2026-08-04: SSH/root-login consistency fix — the toggle is now
+    # gated on the same real state shown here, never clickable against
+    # a config that doesn't exist or can't be read.
+    "rootssh_state_not_installed": {"en": "Not applicable — SSH server not installed",
+                                      "it": "Non applicabile — Server SSH non installato",
+                                      "es": "No aplicable — Servidor SSH no instalado",
+                                      "fr": "Non applicable — Serveur SSH non installé"},
+    "rootssh_state_undetermined": {"en": "State could not be determined", "it": "Stato non determinabile",
+                                     "es": "No se pudo determinar el estado", "fr": "État impossible à déterminer"},
+    "rootssh_state_disabled": {"en": "Root login is currently disabled.", "it": "L'accesso root è attualmente disattivato.",
+                                 "es": "El acceso root está actualmente desactivado.", "fr": "La connexion root est actuellement désactivée."},
+    "rootssh_state_allowed": {"en": "Root login is currently allowed.", "it": "L'accesso root è attualmente consentito.",
+                                "es": "El acceso root está actualmente permitido.", "fr": "La connexion root est actuellement autorisée."},
 }
 for _k, _v in _security_ds_strings.items():
     _i18n_mod._strings[_k] = _v
@@ -210,6 +223,7 @@ class SecurityPage(Adw.PreferencesPage):
         super().__init__()
         self.set_icon_name("security-high-symbolic")
         on_change(self._refresh_title)
+        on_change(lambda: self._refresh_rootssh_state(B.root_ssh_state()))
         self._refresh_title()
 
         header = PageHeader(
@@ -230,13 +244,24 @@ class SecurityPage(Adw.PreferencesPage):
 
         # Switch ON must mean "root login via SSH is allowed" (title is
         # "Root Login via SSH", not "Disable Root SSH Login"), so negate
-        # the underlying disabled-flag.
-        self.rootssh = SwitchRow("rootssh", not B.root_ssh_disabled(), risk="low",
+        # the underlying disabled-flag. Beta 4 fix: this used to stay
+        # clickable even when SSH wasn't installed at all, because
+        # root_ssh_disabled() silently read a missing sshd_config as
+        # "not disabled" — now gated on the same root_ssh_state() every
+        # other page agrees on (not_installed / undetermined / disabled
+        # / allowed), so it's never toggled against a file that doesn't
+        # exist or can't be verified.
+        rootssh_state = B.root_ssh_state()
+        self.rootssh = SwitchRow("rootssh", rootssh_state == "allowed", risk="low",
                                  dep_pkg="openssh",
-                                 dep_check=lambda: B._cmd_exists("sshd"),
+                                 dep_check=lambda: B.ssh_server_installed(),
                                  dep_install=None)
         self.rootssh.switch.connect("notify::active", self._on_rootssh)
         self.rootssh.add_prefix(IconBadge("security-high-symbolic", category="security-ok"))
+        self._rootssh_state_lbl = Gtk.Label(xalign=0, wrap=True)
+        self._rootssh_state_lbl.add_css_class("sysinfo-value-sub")
+        self.rootssh.add_row(self._rootssh_state_lbl)
+        self._refresh_rootssh_state(rootssh_state)
         style_kernel_feature_row_buttons(self.rootssh)
         g2.add(self.rootssh)
 
@@ -296,11 +321,24 @@ class SecurityPage(Adw.PreferencesPage):
     def _refresh_title(self):
         self.set_title(T("tab_security"))
 
+    _ROOTSSH_STATE_KEYS = {
+        "not_installed": "rootssh_state_not_installed",
+        "undetermined": "rootssh_state_undetermined",
+        "disabled": "rootssh_state_disabled",
+        "allowed": "rootssh_state_allowed",
+    }
+
+    def _refresh_rootssh_state(self, state: str):
+        actionable = state in ("disabled", "allowed")
+        self.rootssh.switch.set_sensitive(actionable)
+        self._rootssh_state_lbl.set_text(T(self._ROOTSSH_STATE_KEYS.get(state, "rootssh_state_undetermined")))
+
     def _on_rootssh(self, sw, _):
         want_allowed = sw.get_active()
         result = B.root_ssh_set_disabled(not want_allowed)
         sw.set_active(not result.value)
         report_toggle_result(self.rootssh, "security", "security.root_ssh", result.ok,
                              result.technical_detail, friendly_key=result.friendly_message or "kf_err_generic")
+        self._refresh_rootssh_state(B.root_ssh_state())
     def _on_autoupd(self, sw, _):
         sw.set_active(B.auto_updates_set(sw.get_active()))

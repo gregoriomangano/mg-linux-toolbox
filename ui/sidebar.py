@@ -21,7 +21,7 @@ _sidebar_strings = {
     "nav_group_overview": {"en": "OVERVIEW", "it": "PANORAMICA", "es": "RESUMEN", "fr": "APERÇU"},
     "nav_group_system":   {"en": "SYSTEM", "it": "SISTEMA", "es": "SISTEMA", "fr": "SYSTÈME"},
     "nav_group_network":  {"en": "NETWORK & DEVICES", "it": "RETE E DISPOSITIVI", "es": "RED Y DISPOSITIVOS", "fr": "RÉSEAU ET PÉRIPHÉRIQUES"},
-    "nav_group_usage":    {"en": "USAGE & SOFTWARE", "it": "UTILIZZO E SOFTWARE", "es": "USO Y SOFTWARE", "fr": "USAGE ET LOGICIELS"},
+    "nav_group_usage":    {"en": "SOFTWARE & SERVICES", "it": "SOFTWARE E SERVIZI", "es": "SOFTWARE Y SERVICIOS", "fr": "LOGICIELS ET SERVICES"},
     "nav_group_protection": {"en": "PROTECTION", "it": "PROTEZIONE", "es": "PROTECCIÓN", "fr": "PROTECTION"},
     "nav_overview_item":  {"en": "Overview", "it": "Panoramica", "es": "Resumen", "fr": "Aperçu"},
     "sidebar_subtitle":   {"en": "Linux control center", "it": "Centro di controllo Linux", "es": "Centro de control Linux", "fr": "Centre de contrôle Linux"},
@@ -48,6 +48,7 @@ SIDEBAR_GROUPS = [
         ("tab_printers", "printers", "printer-symbolic"),
     ]),
     ("nav_group_usage", [
+        ("tab_software_repos", "software_repos", "system-software-install-symbolic"),
         ("tab_gaming", "gaming", "input-gaming-symbolic"),
         ("tab_virt", "virt", "computer-symbolic"),
         ("tab_services", "services", "system-run-symbolic"),
@@ -59,7 +60,11 @@ SIDEBAR_GROUPS = [
 ]
 
 # Give each entry enough height and padding to remain readable.
-SIDEBAR_WIDE_WIDTH = 280
+# 2026-08-04: trimmed from 280 -> 256 (~8.6%) to give the content area a
+# little more room, per spec (max ~8-10%, never so narrow a label wraps
+# or an icon shrinks — font/icon sizes and row padding are untouched,
+# this only reduces the empty margin either side of them).
+SIDEBAR_WIDE_WIDTH = 256
 SIDEBAR_COMPACT_WIDTH = 72
 
 

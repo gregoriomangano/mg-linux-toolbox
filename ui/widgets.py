@@ -166,12 +166,12 @@ class DepBanner(Gtk.Box):
         top_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         icon = Gtk.Label(label="📦")
         msg  = Gtk.Label(
-            label=f"Richiede: {pkg_label}",
+            label=T("dep_banner_requires").format(pkg=pkg_label),
             xalign=0, hexpand=True, wrap=True
         )
         msg.add_css_class("install-banner")
 
-        btn = Gtk.Button(label=T("install_btn") + " ora")
+        btn = Gtk.Button(label=T("dep_banner_install_now_btn"))
         btn.add_css_class("lt-action-btn")
         btn.connect("clicked", lambda _: self._do_install(install_callback))
 
@@ -269,7 +269,7 @@ class DepBanner(Gtk.Box):
             else:
                 success = bool(result)
             if success:
-                self._msg.set_label("✅ Installato — riavvia l'app per attivare")
+                self._msg.set_label(f"✅ {T('dep_banner_installed_restart_note')}")
                 self._btn.set_visible(False)
                 self._hide_details()
                 if self._control is not None:

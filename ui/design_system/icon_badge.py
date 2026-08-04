@@ -24,6 +24,7 @@ CATEGORY_CSS = {
     "security-risk": "ds-icon-badge-security-risk",  # red
     "audio":   "ds-icon-badge-audio",    # violet
     "virt":    "ds-icon-badge-virt",     # blue
+    "software": "ds-icon-badge-software",  # teal — Software e repository
     "neutral": "ds-icon-badge-neutral",  # grey
 }
 

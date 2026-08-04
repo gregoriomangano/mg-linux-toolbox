@@ -212,9 +212,20 @@ def bluetooth_pair(mac: str) -> bool:
     ok, _, _ = run_command(["bluetoothctl", "connect", mac])
     return ok
 
+IPV6_DISABLE_PATH = "/proc/sys/net/ipv6/conf/all/disable_ipv6"
+
+
 def ipv6_disabled() -> bool:
-    ok, out, _ = run_command(["sysctl", "-n", "net.ipv6.conf.all.disable_ipv6"])
-    return out == "1"
+    """Reads /proc directly rather than shelling out to `sysctl` — on
+    openSUSE (and any distro that keeps /usr/sbin out of a regular
+    user's $PATH) the bare `sysctl` call silently failed with "command
+    not found", which made this always return False and left the IPv6
+    switch showing "enabled" even when it was actually disabled."""
+    try:
+        with open(IPV6_DISABLE_PATH) as f:
+            return f.read().strip() == "1"
+    except OSError:
+        return False
 
 def ipv6_set_disabled(disabled: bool) -> OpResult:
     val = "1" if disabled else "0"
@@ -227,12 +238,17 @@ def ipv6_set_disabled(disabled: bool) -> OpResult:
     detail = "" if ok else "\n".join(r.technical_detail() for r in results if not r.ok)
     return OpResult(ok, value=active, technical_detail=detail)
 
+def firewall_state() -> str:
+    """One of firewall_detect.STATE_* — see that module for why this
+    can no longer just shell out to `ufw status` (needs root, so it
+    used to fail silently as a normal user and get misreported as
+    'not installed')."""
+    from core.firewall_detect import detect_firewall
+    return detect_firewall().state
+
 def firewall_active() -> bool:
-    # Try ufw first, then firewalld
-    ok, out, _ = run_command(["ufw", "status"])
-    if ok:
-        return "Status: active" in out
-    return _service_active("firewalld")
+    from core.firewall_detect import STATE_UFW_ACTIVE, STATE_FIREWALLD_ACTIVE, STATE_NFTABLES_RULES
+    return firewall_state() in (STATE_UFW_ACTIVE, STATE_FIREWALLD_ACTIVE, STATE_NFTABLES_RULES)
 
 def firewall_set(on: bool) -> OpResult:
     # firewalld is the default on Fedora AND openSUSE; ufw elsewhere
@@ -302,7 +318,7 @@ def smart_set(on: bool) -> bool:
     pkg = {"debian": "smartmontools", "arch": "smartmontools", "fedora": "smartmontools",
            "opensuse": "smartmontools", "default": "smartmontools"}
     if on and not distro.is_installed(pkg):
-        run_pkexec(distro.install_cmd(pkg))
+        _install_pkg(pkg)
     return _service_set("smartd", on)
 
 
@@ -363,9 +379,19 @@ def clean_cache() -> bool:
 
 
 # ─── Performance ─────────────────────────────────────────────────
+SWAPS_PATH = "/proc/swaps"
+
+
 def zram_active() -> bool:
-    ok, out, _ = run_command(["swapon", "--show"])
-    return "zram" in out
+    """Reads /proc/swaps directly rather than shelling out to `swapon`
+    — same PATH issue and same fix as ipv6_disabled() above. Mirrors
+    core.priv_writer's own zram detection (_active_devices())."""
+    try:
+        with open(SWAPS_PATH) as f:
+            lines = f.read().splitlines()
+    except OSError:
+        return False
+    return any("zram" in line.split()[0] for line in lines[1:] if line.split())
 
 # ZRAM enable/disable, Turbo Boost, THP and CPU Governor now live in
 # core/kernel_features/ (cpu.py, memory.py) + core/priv_writer.py, as
@@ -412,8 +438,14 @@ def gamemode_installed() -> bool:
     return distro.is_installed({"default": "gamemode"})
 
 def gamemode_install(job=None):
+    # Real package installs go through _install_pkg (INSTALL_TIMEOUT=180s)
+    # rather than the plain run_pkexec default of 10s — a real dependency
+    # resolution + download routinely takes longer than that, and the old
+    # 10s timeout used to SIGKILL the whole apt/dnf/pacman process group
+    # mid-transaction, potentially leaving the package manager needing a
+    # manual repair.
     pkg = {"debian": "gamemode", "arch": "gamemode", "fedora": "gamemode", "default": "gamemode"}
-    run_pkexec(distro.install_cmd(pkg), job=job)
+    _install_pkg(pkg, job=job)
     return gamemode_installed()
 
 def mangohud_installed() -> bool:
@@ -421,7 +453,7 @@ def mangohud_installed() -> bool:
 
 def mangohud_install(job=None):
     pkg = {"debian": "mangohud", "arch": "mangohud", "fedora": "mangohud", "default": "mangohud"}
-    run_pkexec(distro.install_cmd(pkg), job=job)
+    _install_pkg(pkg, job=job)
     return mangohud_installed()
 
 def lib32_installed() -> bool:
@@ -446,14 +478,18 @@ def lib32_install(job=None):
     # than guess and possibly pull in the wrong packages, this stays
     # unsupported there (probe()/dep_check reports it unavailable instead
     # of silently doing nothing on click).
+    # run_pkexec_full(..., timeout=INSTALL_TIMEOUT, ...) here, not the
+    # bare run_pkexec (10s default) — same reasoning as gamemode_install
+    # above: these are real multi-package installs (plus an apt update),
+    # not a quick sysctl/systemctl toggle.
     if distro.is_debian:
-        run_pkexec(["dpkg", "--add-architecture", "i386"], job=job)
-        run_pkexec(["apt-get", "update"], job=job)
-        run_pkexec(["apt-get", "install", "-y", "libgl1-mesa-dri:i386", "libvulkan1:i386"], job=job)
+        run_pkexec_full(["dpkg", "--add-architecture", "i386"], timeout=INSTALL_TIMEOUT, job=job)
+        run_pkexec_full(["apt-get", "update"], timeout=INSTALL_TIMEOUT, job=job)
+        run_pkexec_full(["apt-get", "install", "-y", "libgl1-mesa-dri:i386", "libvulkan1:i386"], timeout=INSTALL_TIMEOUT, job=job)
     elif distro.is_arch:
-        run_pkexec(["pacman", "-S", "--noconfirm", "lib32-mesa", "lib32-vulkan-icd-loader"], job=job)
+        run_pkexec_full(["pacman", "-S", "--noconfirm", "lib32-mesa", "lib32-vulkan-icd-loader"], timeout=INSTALL_TIMEOUT, job=job)
     elif distro.is_fedora:
-        run_pkexec(["dnf", "install", "-y", "mesa-libGL.i686", "vulkan-loader.i686"], job=job)
+        run_pkexec_full(["dnf", "install", "-y", "mesa-libGL.i686", "vulkan-loader.i686"], timeout=INSTALL_TIMEOUT, job=job)
     return lib32_installed()
 
 def lib32_supported() -> bool:
@@ -465,15 +501,15 @@ def vulkan_installed() -> bool:
 
 def vulkan_install(job=None):
     if distro.is_debian:
-        run_pkexec(["apt-get", "install", "-y", "libvulkan1", "mesa-vulkan-drivers", "vulkan-tools"], job=job)
+        run_pkexec_full(["apt-get", "install", "-y", "libvulkan1", "mesa-vulkan-drivers", "vulkan-tools"], timeout=INSTALL_TIMEOUT, job=job)
     elif distro.is_arch:
-        run_pkexec(["pacman", "-S", "--noconfirm", "vulkan-icd-loader", "vulkan-tools"], job=job)
+        run_pkexec_full(["pacman", "-S", "--noconfirm", "vulkan-icd-loader", "vulkan-tools"], timeout=INSTALL_TIMEOUT, job=job)
     elif distro.is_fedora:
-        run_pkexec(["dnf", "install", "-y", "vulkan-loader", "vulkan-tools"], job=job)
+        run_pkexec_full(["dnf", "install", "-y", "vulkan-loader", "vulkan-tools"], timeout=INSTALL_TIMEOUT, job=job)
     elif distro.is_opensuse:
         # NOTE: package names are the openSUSE-documented ones but this
         # path is unverified on a real openSUSE machine.
-        run_pkexec(["zypper", "--non-interactive", "install", "libvulkan1", "vulkan-tools"], job=job)
+        run_pkexec_full(["zypper", "--non-interactive", "install", "libvulkan1", "vulkan-tools"], timeout=INSTALL_TIMEOUT, job=job)
     return vulkan_installed()
 
 
@@ -486,12 +522,13 @@ def easyeffects_installed() -> bool:
     return _cmd_exists("easyeffects")
 
 def easyeffects_install(job=None):
-    if distro.is_debian:
-        run_pkexec(["apt-get", "install", "-y", "easyeffects"], job=job)
-    elif distro.is_arch:
-        run_pkexec(["pacman", "-S", "--noconfirm", "easyeffects"], job=job)
-    elif distro.is_fedora:
-        run_pkexec(["dnf", "install", "-y", "easyeffects"], job=job)
+    # 2026-08-05: was missing an openSUSE branch entirely — on that
+    # family this used to silently do nothing at all (no command ever
+    # ran) and still report "installation failed" afterwards. Routed
+    # through distro.install_cmd() like every other single-package
+    # install, so a new family only ever needs adding once, centrally.
+    _install_pkg({"debian": "easyeffects", "arch": "easyeffects",
+                  "fedora": "easyeffects", "opensuse": "easyeffects"}, job=job)
     return easyeffects_installed()
 
 
@@ -536,12 +573,11 @@ def docker_installed() -> bool:
     return _cmd_exists("docker")
 
 def docker_install(job=None):
-    if distro.is_debian:
-        run_pkexec(["apt-get", "install", "-y", "docker.io"], job=job)
-    elif distro.is_arch:
-        run_pkexec(["pacman", "-S", "--noconfirm", "docker"], job=job)
-    elif distro.is_fedora:
-        run_pkexec(["dnf", "install", "-y", "docker"], job=job)
+    # 2026-08-05: was missing an openSUSE branch — on that family no
+    # install command ever ran (only the doomed "enable a service that
+    # was never installed" call below), always reporting failure.
+    _install_pkg({"debian": "docker.io", "arch": "docker",
+                  "fedora": "docker", "opensuse": "docker"}, job=job)
     run_pkexec(["systemctl", "enable", "--now", "docker"], job=job)
     return docker_installed()
 
@@ -550,7 +586,7 @@ def podman_installed() -> bool:
 
 def podman_install(job=None):
     pkg = {"default": "podman"}
-    run_pkexec(distro.install_cmd(pkg), job=job)
+    _install_pkg(pkg, job=job)
     return podman_installed()
 
 def distrobox_installed() -> bool:
@@ -558,7 +594,7 @@ def distrobox_installed() -> bool:
 
 def distrobox_install(job=None):
     pkg = {"debian": "distrobox", "arch": "distrobox", "fedora": "distrobox", "default": "distrobox"}
-    run_pkexec(distro.install_cmd(pkg), job=job)
+    _install_pkg(pkg, job=job)
     return distrobox_installed()
 
 
@@ -674,7 +710,7 @@ def auto_updates_set(on: bool) -> bool:
         pkg = _fedora_automatic_package()
         unit = _fedora_automatic_unit()
         if on and not distro.is_installed(pkg):
-            run_pkexec(distro.install_cmd(pkg))
+            _install_pkg(pkg)
         return _service_set(unit, on)
 
     elif distro.is_arch:
@@ -686,7 +722,7 @@ def auto_updates_set(on: bool) -> bool:
         pkg = {"arch": "pacman-contrib", "default": "pacman-contrib"}
         if on:
             if not distro.is_installed(pkg):
-                run_pkexec(distro.install_cmd(pkg))
+                _install_pkg(pkg)
             _write_user_unit(f"{_ARCH_UPDATE_UNIT_NAME}.service", _ARCH_UPDATE_CHECK_SERVICE)
             _write_user_unit(f"{_ARCH_UPDATE_UNIT_NAME}.timer", _ARCH_UPDATE_CHECK_TIMER)
             run_command(["systemctl", "--user", "daemon-reload"])
@@ -702,19 +738,23 @@ def auto_updates_set(on: bool) -> bool:
     else:
         pkg = {"debian": "unattended-upgrades", "default": "unattended-upgrades"}
         if on and not distro.is_installed(pkg):
-            run_pkexec(distro.install_cmd(pkg))
+            _install_pkg(pkg)
         return _service_set("unattended-upgrades", on)
 
+def ssh_server_installed() -> bool:
+    from core.ssh_detect import openssh_server_installed
+    return openssh_server_installed()
+
+def root_ssh_state() -> str:
+    """One of core.ssh_detect.STATE_* — 'not_installed' and
+    'undetermined' are both distinct from 'allowed', so the UI never
+    has to guess at a config that doesn't exist or can't be read."""
+    from core.ssh_detect import root_ssh_state as _state
+    return _state()
+
 def root_ssh_disabled() -> bool:
-    try:
-        with open("/etc/ssh/sshd_config") as f:
-            for line in f:
-                line = line.strip()
-                if line.startswith("PermitRootLogin"):
-                    return "no" in line
-    except Exception:
-        pass
-    return False
+    from core.ssh_detect import STATE_DISABLED
+    return root_ssh_state() == STATE_DISABLED
 
 def root_ssh_set_disabled(disabled: bool) -> OpResult:
     # Through the privileged helper (feature security.root_ssh) — fixed

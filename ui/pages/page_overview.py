@@ -230,6 +230,8 @@ class OverviewPage(Gtk.ScrolledWindow):
         self._psi_feature = PSIFeature()
         self._psi_supported = self._psi_feature.probe() == SupportStatus.SUPPORTED_READ_ONLY
         self._psi_hysteresis = {r: PSIHysteresis() for r in ("cpu", "memory", "io")}
+        from core.kernel_features.disk_pressure_context import CpuIdleTracker
+        self._cpu_idle_tracker = CpuIdleTracker()
         self._psi_timeout_id = None
         self._psi_chip_labels = {}
         self._psi_phrase_labels = {}
@@ -293,8 +295,19 @@ class OverviewPage(Gtk.ScrolledWindow):
         """Single read of /proc/pressure/*, run through each resource's
         hysteresis tracker once, then apply the result to both the
         header badge and the pressure card — one source of truth per
-        tick, so they can never disagree."""
+        tick, so they can never disagree.
+
+        2026-08-05: a confirmed-high "io" bucket is corroborated the
+        same way the "Attività del disco" page already does (blocked-
+        process count + CPU idle — core.kernel_features.disk_pressure_
+        context) before it's allowed to drive the red general banner.
+        Real report this fixes: GNOME Boxes doing virtual-disk I/O kept
+        avg10 elevated for io while the CPU sat at ~3% and every real
+        disk showed 0 B/s — genuinely a background task waiting on
+        disk, not the "system might be slowed down" the red banner and
+        "Attesa del disco elevata" wording promise."""
         result = self._psi_feature.read_current()
+        cpu_idle_pct = self._cpu_idle_tracker.sample()
         if not result.ok:
             for tracker in self._psi_hysteresis.values():
                 tracker.reset_pending()
@@ -306,6 +319,15 @@ class OverviewPage(Gtk.ScrolledWindow):
             buckets[resource] = self._psi_hysteresis[resource].update(
                 some.get("avg10", 0.0), some.get("avg60", 0.0)
             )
+
+        if buckets["io"] == "high":
+            from core.kernel_features.disk_pressure_context import (
+                count_blocked_processes, classify_disk_pressure, CRITICAL,
+            )
+            blocked = count_blocked_processes()
+            if classify_disk_pressure("high", blocked, cpu_idle_pct) != CRITICAL:
+                buckets["io"] = "moderate"
+
         order = {"low": 0, "moderate": 1, "high": 2}
         worst = max(buckets.values(), key=lambda b: order.get(b, 0))
         self._apply_state_badge(worst)
