@@ -437,6 +437,12 @@ radiobutton radio:checked {
   font-size: 12px;
 }
 
+.status-warn {
+  color: @lt_warning;
+  font-weight: 600;
+  font-size: 12px;
+}
+
 .status-inactive {
   color: alpha(@lt_text_secondary, 0.75);
   font-size: 12px;

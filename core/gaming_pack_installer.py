@@ -171,57 +171,73 @@ def install_selected(
 
     install_command = command_builder(packages)
     result = run_pkexec_full(install_command, timeout=INSTALL_TIMEOUT, job=job)
-    if not result.ok:
+
+    # The transaction's own exit code is never the final word: a package
+    # manager can exit non-zero because of an unrelated problem (e.g. a
+    # third-party repository with a broken signature) while still
+    # completing the requested transaction. What is really on disk —
+    # re-checked against the package database, exactly like the
+    # pre-flight probe above — decides the outcome. The exit code, and
+    # the transaction's stdout/stderr, are never discarded: they stay
+    # in technical_detail either as the failure reason or as the
+    # explanation for a "succeeded with a warning" result.
+    verified = [pkg for pkg in packages if gp._is_installed(family, pkg, job=job)]
+    verified_set = set(verified)
+    missing = [pkg for pkg in packages if pkg not in verified_set]
+    transaction_detail = _command_result_text(result, family, "install-transaction")
+
+    if not verified:
         return InstallSelectionResult(
             False,
             installed_packages=[],
+            verified_packages=[],
             skipped_component_ids=skipped,
             friendly_message="gaming_pack_install_failed",
-            technical_detail=_command_result_text(result, family, "install-transaction"),
+            technical_detail=transaction_detail,
             command=install_command,
         )
 
-    verified = []
-    verification_failures = []
-    for package in packages:
-        if gp._is_installed(family, package, job=job):
-            verified.append(package)
-        else:
-            verification_failures.append(package)
+    # Register Toolbox ownership for every component whose full set of
+    # packages is verified installed — including a partial run — so it
+    # can be removed safely later. A component with only some of its
+    # packages installed is intentionally left unregistered: the
+    # Toolbox never claims ownership (and therefore future removal
+    # rights) over a component it can't confirm is fully in place.
+    if hasattr(profile, "family"):
+        for component_id, wanted_packages in installed_by_component.items():
+            if all(pkg in verified_set for pkg in wanted_packages):
+                gps.record_install(
+                    profile,
+                    component_id,
+                    wanted_packages,
+                    preexisting_by_component.get(component_id, []),
+                    install_command,
+                )
 
-    if verification_failures:
+    if missing:
         return InstallSelectionResult(
             False,
-            installed_packages=[],
+            installed_packages=verified,
             verified_packages=verified,
             skipped_component_ids=skipped,
-            friendly_message="gaming_pack_install_verification_failed",
+            friendly_message="gaming_pack_install_partial",
             technical_detail="\n\n".join([
-                _command_result_text(result, family, "install-transaction"),
+                transaction_detail,
                 "step: post-install verification",
                 f"package manager: {family}",
-                "missing after successful transaction: " + ", ".join(verification_failures),
+                "installed: " + ", ".join(verified),
+                "still missing: " + ", ".join(missing),
             ]),
             command=install_command,
         )
-
-    if hasattr(profile, "family"):
-        for component_id, installed_packages in installed_by_component.items():
-            gps.record_install(
-                profile,
-                component_id,
-                installed_packages,
-                preexisting_by_component.get(component_id, []),
-                install_command,
-            )
 
     return InstallSelectionResult(
         True,
         installed_packages=packages,
         verified_packages=verified,
         skipped_component_ids=skipped,
-        friendly_message="gaming_pack_install_done",
-        technical_detail="",
+        friendly_message="gaming_pack_install_done" if result.ok else "gaming_pack_install_done_with_warning",
+        technical_detail="" if result.ok else transaction_detail,
         command=install_command,
     )
 
@@ -250,6 +266,7 @@ def remove_selected(component_ids: list, profile, previews: list, job: Optional[
 
     by_id = {p.component_id: p for p in previews}
     removable_ids = []
+    packages_by_component = {}
     packages = []
     for component_id in component_ids:
         preview = by_id.get(component_id)
@@ -272,6 +289,7 @@ def remove_selected(component_ids: list, profile, previews: list, job: Optional[
                 ]),
             )
         removable_ids.append(component_id)
+        packages_by_component[component_id] = installed_packages
         packages.extend(installed_packages)
     packages = _dedupe(packages)
     if not packages:
@@ -279,33 +297,53 @@ def remove_selected(component_ids: list, profile, previews: list, job: Optional[
 
     remove_command = command_builder(packages)
     result = run_pkexec_full(remove_command, timeout=INSTALL_TIMEOUT, job=job)
-    if not result.ok:
+
+    # Same principle as install_selected: the real post-removal package
+    # state decides the outcome, never the exit code alone. The exit
+    # code and transaction output stay available in technical_detail.
+    still_installed = {pkg for pkg in packages if gp._is_installed(family, pkg, job=job)}
+    removed = [pkg for pkg in packages if pkg not in still_installed]
+    transaction_detail = _command_result_text(result, family, "remove-transaction")
+
+    if not removed:
         return InstallSelectionResult(
             False,
             friendly_message="gaming_pack_remove_failed",
-            technical_detail=_command_result_text(result, family, "remove-transaction"),
+            technical_detail=transaction_detail,
             command=remove_command,
         )
 
-    still_installed = [pkg for pkg in packages if gp._is_installed(family, pkg, job=job)]
+    # Only clear the local record for a component whose packages are
+    # ALL confirmed gone — a component still partly installed keeps its
+    # record, so it can be retried or completed later instead of being
+    # silently forgotten by the Toolbox.
+    fully_cleared = [
+        component_id for component_id in removable_ids
+        if all(pkg not in still_installed for pkg in packages_by_component[component_id])
+    ]
+    if fully_cleared:
+        gps.clear_records(fully_cleared)
+
     if still_installed:
         return InstallSelectionResult(
             False,
-            friendly_message="gaming_pack_remove_verification_failed",
+            installed_packages=removed,
+            friendly_message="gaming_pack_remove_partial",
             technical_detail="\n\n".join([
-                _command_result_text(result, family, "remove-transaction"),
+                transaction_detail,
                 "step: post-remove verification",
                 f"package manager: {family}",
-                "still installed after successful transaction: " + ", ".join(still_installed),
+                "removed: " + ", ".join(removed),
+                "still installed: " + ", ".join(sorted(still_installed)),
             ]),
             command=remove_command,
         )
 
-    gps.clear_records(removable_ids)
     return InstallSelectionResult(
         True,
         installed_packages=packages,
         verified_packages=packages,
-        friendly_message="gaming_pack_remove_done",
+        friendly_message="gaming_pack_remove_done" if result.ok else "gaming_pack_remove_done_with_warning",
+        technical_detail="" if result.ok else transaction_detail,
         command=remove_command,
     )

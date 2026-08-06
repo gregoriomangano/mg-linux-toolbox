@@ -20,6 +20,21 @@ from ui.design_system.icon_badge import IconBadge
 
 logger = logging.getLogger(__name__)
 
+# Messages for an operation that verified as fully successful on disk,
+# but whose underlying transaction exited with a non-zero code (e.g. an
+# unrelated repository problem) — shown as a warning, not a failure.
+_WARNING_RESULT_MESSAGES = {"gaming_pack_install_done_with_warning", "gaming_pack_remove_done_with_warning"}
+# Messages for an operation where only some of the requested packages
+# were verified installed/removed — neither a clean success nor a
+# total failure.
+_PARTIAL_RESULT_MESSAGES = {"gaming_pack_install_partial", "gaming_pack_remove_partial"}
+
+
+def _result_css_class(result) -> str:
+    if result.friendly_message in _WARNING_RESULT_MESSAGES or result.friendly_message in _PARTIAL_RESULT_MESSAGES:
+        return "status-warn"
+    return "status-active" if result.ok else "desc-con"
+
 _gaming_ds_strings = {
     "ds_gaming_header_desc": {
         "en": "Check readiness and install common gaming tools.",
@@ -99,6 +114,12 @@ _gaming_pack_strings = {
         "en": "Selected components installed.", "it": "Componenti selezionati installati.",
         "es": "Componentes seleccionados instalados.", "fr": "Composants sélectionnés installés.",
     },
+    "gaming_pack_install_done_with_warning": {
+        "en": "Components installed and verified, but a repository reported a problem during the transaction — see details.",
+        "it": "Componenti installati e verificati, ma un repository ha segnalato un problema durante l'operazione — vedi dettagli.",
+        "es": "Componentes instalados y verificados, pero un repositorio informó un problema durante la operación — ver detalles.",
+        "fr": "Composants installés et vérifiés, mais un dépôt a signalé un problème pendant l'opération — voir les détails.",
+    },
     "gaming_pack_install_precheck_failed": {
         "en": "One component is no longer available in the configured repositories.",
         "it": "Un componente non è più disponibile nei repository attualmente configurati.",
@@ -109,9 +130,11 @@ _gaming_pack_strings = {
         "en": "Installation failed.", "it": "Installazione non riuscita.",
         "es": "La instalación ha fallado.", "fr": "Échec de l'installation.",
     },
-    "gaming_pack_install_verification_failed": {
-        "en": "Installation ended, but package verification failed.", "it": "Installazione terminata, ma la verifica dei pacchetti è fallita.",
-        "es": "La instalación terminó, pero la verificación de paquetes falló.", "fr": "L'installation s'est terminée, mais la vérification des paquets a échoué.",
+    "gaming_pack_install_partial": {
+        "en": "Partial installation: some packages were verified installed, others were not — see details.",
+        "it": "Installazione parziale: alcuni pacchetti risultano installati e verificati, altri no — vedi dettagli.",
+        "es": "Instalación parcial: algunos paquetes se instalaron y verificaron, otros no — ver detalles.",
+        "fr": "Installation partielle : certains paquets ont été installés et vérifiés, d'autres non — voir les détails.",
     },
     "gaming_pack_remove_selected_btn": {
         "en": "Remove components installed by the Toolbox", "it": "Rimuovi i componenti installati dal Toolbox",
@@ -121,13 +144,21 @@ _gaming_pack_strings = {
         "en": "Selected components removed.", "it": "Componenti selezionati rimossi.",
         "es": "Componentes seleccionados eliminados.", "fr": "Composants sélectionnés supprimés.",
     },
+    "gaming_pack_remove_done_with_warning": {
+        "en": "Components removed and verified, but a repository reported a problem during the transaction — see details.",
+        "it": "Componenti rimossi e verificati, ma un repository ha segnalato un problema durante l'operazione — vedi dettagli.",
+        "es": "Componentes eliminados y verificados, pero un repositorio informó un problema durante la operación — ver detalles.",
+        "fr": "Composants supprimés et vérifiés, mais un dépôt a signalé un problème pendant l'opération — voir les détails.",
+    },
     "gaming_pack_remove_failed": {
         "en": "Removal failed.", "it": "Rimozione non riuscita.",
         "es": "La eliminación ha fallado.", "fr": "Échec de la suppression.",
     },
-    "gaming_pack_remove_verification_failed": {
-        "en": "Removal ended, but package verification failed.", "it": "Rimozione terminata, ma la verifica dei pacchetti è fallita.",
-        "es": "La eliminación terminó, pero la verificación de paquetes falló.", "fr": "La suppression s'est terminée, mais la vérification des paquets a échoué.",
+    "gaming_pack_remove_partial": {
+        "en": "Partial removal: some packages were confirmed removed, others are still installed — see details.",
+        "it": "Rimozione parziale: alcuni pacchetti risultano rimossi e verificati, altri sono ancora installati — vedi dettagli.",
+        "es": "Eliminación parcial: algunos paquetes se confirmaron eliminados, otros siguen instalados — ver detalles.",
+        "fr": "Suppression partielle : certains paquets ont été supprimés et vérifiés, d'autres sont encore installés — voir les détails.",
     },
     "gaming_pack_remove_precheck_failed": {
         "en": "Removal was blocked because the recorded state no longer matches the system.",
@@ -722,13 +753,16 @@ class GamingPackRow(FeatureRow):
         self._result_lbl.set_text(T(result.friendly_message) if result.friendly_message else "")
         self._result_lbl.remove_css_class("desc-con")
         self._result_lbl.remove_css_class("status-active")
-        self._result_lbl.add_css_class("status-active" if result.ok else "desc-con")
+        self._result_lbl.remove_css_class("status-warn")
+        self._result_lbl.add_css_class(_result_css_class(result))
         self._result_lbl.set_visible(bool(result.friendly_message))
         self._detail_lbl.set_text(result.technical_detail or "")
         self._detail_lbl.set_visible(bool(result.technical_detail))
-        if result.ok and not self._destroyed:
-            # Re-scan so installed/available state reflects reality
-            # instead of the stale pre-install preview.
+        # Re-scan whenever something really landed on disk — including a
+        # partial install — so installed/available state reflects
+        # reality instead of the stale pre-install preview.
+        should_rescan = result.ok or result.friendly_message == "gaming_pack_install_partial"
+        if should_rescan and not self._destroyed:
             self._on_scan_button_clicked(None)
         else:
             self._install_btn.set_sensitive(bool(self._selected_ids))
@@ -800,11 +834,13 @@ class GamingPackRow(FeatureRow):
         self._result_lbl.set_text(T(result.friendly_message) if result.friendly_message else "")
         self._result_lbl.remove_css_class("desc-con")
         self._result_lbl.remove_css_class("status-active")
-        self._result_lbl.add_css_class("status-active" if result.ok else "desc-con")
+        self._result_lbl.remove_css_class("status-warn")
+        self._result_lbl.add_css_class(_result_css_class(result))
         self._result_lbl.set_visible(bool(result.friendly_message))
         self._detail_lbl.set_text(result.technical_detail or "")
         self._detail_lbl.set_visible(bool(result.technical_detail))
-        if result.ok and not self._destroyed:
+        should_rescan = result.ok or result.friendly_message == "gaming_pack_remove_partial"
+        if should_rescan and not self._destroyed:
             self._on_scan_button_clicked(None)
         else:
             self._install_btn.set_sensitive(bool(self._selected_ids))
