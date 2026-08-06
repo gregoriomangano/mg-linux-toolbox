@@ -207,6 +207,10 @@ _gaming_pack_strings = {
     "gaming_pack_state_not_suitable": {"en": "Not suited to this hardware", "it": "Non adatto all'hardware", "es": "No adecuado para este hardware", "fr": "Non adapté à ce matériel"},
     "gaming_pack_state_not_verifiable": {"en": "Not verifiable yet", "it": "Non verificabile", "es": "No verificable todavía", "fr": "Non vérifiable"},
     "gaming_pack_optional_tag": {"en": "optional", "it": "facoltativo", "es": "opcional", "fr": "facultatif"},
+    "gaming_pack_select_checkbox_tooltip": {
+        "en": "Select to install this component", "it": "Seleziona per installare questo componente",
+        "es": "Selecciona para instalar este componente", "fr": "Sélectionner pour installer ce composant",
+    },
     "gaming_pack_optional_note": {
         "en": "An optional component isn't available in the configured repositories. The remaining preview is still valid.",
         "it": "Un componente facoltativo non è disponibile nei repository configurati. Il resto dell'anteprima rimane valido.",
@@ -657,6 +661,8 @@ class GamingPackRow(FeatureRow):
 
         if preview.state == gp.AVAILABLE and preview.suggested_packages:
             check = Gtk.CheckButton()
+            check.set_valign(Gtk.Align.CENTER)
+            check.set_tooltip_text(T("gaming_pack_select_checkbox_tooltip"))
             check.connect("toggled", self._on_component_toggled, preview.component_id)
             row.append(check)
 

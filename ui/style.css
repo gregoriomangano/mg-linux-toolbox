@@ -342,11 +342,40 @@ selection {
   color: @lt_text;
 }
 
+/* Unchecked state was left to the bare default theme, which reads as
+   a near-invisible thin square on this app's dark background — real
+   bug report: on the Gaming Pack page, users couldn't tell the empty
+   boxes next to installable components were checkboxes at all. A
+   clearly visible, filled outline at rest (not just on :checked) is
+   what actually communicates "this is a selectable control". This is
+   a single global rule, not a per-page fix, because every checkbox
+   and radio button in the app shared the exact same invisible-when-
+   empty problem. */
+checkbutton check,
+radiobutton radio {
+  min-width: 18px;
+  min-height: 18px;
+  border: 2px solid @lt_text_secondary;
+  background: alpha(@lt_text_secondary, 0.10);
+}
+
+checkbutton check:hover,
+radiobutton radio:hover {
+  border-color: @lt_accent;
+  background: alpha(@lt_accent, 0.16);
+}
+
 checkbutton check:checked,
 radiobutton radio:checked {
   background: @lt_accent_bg;
   border-color: @lt_accent_bg;
   color: @lt_accent_fg;
+}
+
+checkbutton check:checked:hover,
+radiobutton radio:checked:hover {
+  background: @lt_accent;
+  border-color: @lt_accent;
 }
 
 /* No focus ring: GTK draws it as a hard-edged rectangle even around
