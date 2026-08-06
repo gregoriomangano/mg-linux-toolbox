@@ -96,13 +96,24 @@ def _work_dir() -> str:
 def perform_managed_update(release: ReleaseInfo, current_version: str,
                             on_progress=None, cancel_token=None) -> InstallResult:
     global LAST_PENDING_BACKUP_PATH, LAST_UPDATE_VERSION
+    LAST_PENDING_BACKUP_PATH = ""
+    LAST_UPDATE_VERSION = ""
     work_dir = _work_dir()
+    staged_path = ""
     try:
         try:
             verified_path = _download_and_verify(release, work_dir, on_progress, cancel_token)
         except UpdateError as e:
             return InstallResult(False, friendly_message=e.friendly_message,
                                   technical_detail=e.technical_detail)
+
+        # Never rename a /tmp download into $HOME: stage and verify a copy
+        # in the managed directory first, then replace files on one filesystem.
+        staged_path, stage_error = installer.stage_verified_copy(
+            verified_path, installer.MANAGED_APPIMAGE_PATH)
+        if stage_error:
+            return InstallResult(False, friendly_message="updater_replace_failed",
+                                 technical_detail=stage_error)
 
         # Backup BEFORE any replacement; keep exactly one previous version.
         try:
@@ -114,15 +125,10 @@ def perform_managed_update(release: ReleaseInfo, current_version: str,
             return InstallResult(False, friendly_message="updater_backup_failed",
                                   technical_detail=str(e))
 
-        # Only now, after verification, the file becomes executable.
-        try:
-            os.chmod(verified_path, 0o755)
-        except OSError as e:
-            return InstallResult(False, friendly_message="updater_replace_failed",
-                                  technical_detail=str(e))
-        result = installer.replace_atomically(verified_path, installer.MANAGED_APPIMAGE_PATH)
+        result = installer.replace_atomically(staged_path, installer.MANAGED_APPIMAGE_PATH)
         if not result.ok:
             return result
+        staged_path = ""
 
         try:
             with open(VERSION_FILE, "w") as f:
@@ -131,6 +137,11 @@ def perform_managed_update(release: ReleaseInfo, current_version: str,
             pass  # non-fatal: the AppImage itself knows its version
         return InstallResult(True)
     finally:
+        if staged_path:
+            try:
+                os.unlink(staged_path)
+            except OSError:
+                pass
         shutil.rmtree(work_dir, ignore_errors=True)
 
 

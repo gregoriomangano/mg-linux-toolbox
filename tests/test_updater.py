@@ -450,6 +450,53 @@ class InstallerTests(unittest.TestCase):
                 desktop_entry_path=os.path.join(self.tmp, "applications", "app.desktop"))
         self.assertFalse(result.ok)
 
+    def test_stage_from_tmp_is_verified_beside_managed_destination(self):
+        source = os.path.join(tempfile.gettempdir(), f"mg-toolbox-stage-{os.getpid()}.AppImage")
+        self.addCleanup(lambda: os.path.exists(source) and os.unlink(source))
+        with open(source, "wb") as stream:
+            stream.write(b"candidate from tmp")
+        target = os.path.join(self.tmp, "managed", installer.MANAGED_APPIMAGE_NAME)
+        staged, error = installer.stage_verified_copy(source, target)
+        self.addCleanup(lambda: os.path.exists(staged) and os.unlink(staged))
+        self.assertEqual(error, "")
+        self.assertEqual(os.path.dirname(staged), os.path.dirname(target))
+        self.assertTrue(os.path.isfile(staged))
+        self.assertTrue(os.access(staged, os.X_OK))
+        self.assertEqual(installer._sha256(source), installer._sha256(staged))
+        self.assertEqual(os.stat(staged).st_dev, os.stat(os.path.dirname(target)).st_dev)
+
+    def test_stage_copy_error_leaves_no_candidate(self):
+        source = os.path.join(self.tmp, "source.AppImage")
+        target = os.path.join(self.tmp, "managed", installer.MANAGED_APPIMAGE_NAME)
+        with open(source, "wb") as stream:
+            stream.write(b"candidate")
+        with mock.patch.object(installer.shutil, "copy2", side_effect=OSError("disk full")):
+            staged, error = installer.stage_verified_copy(source, target)
+        self.assertEqual(staged, "")
+        self.assertIn("disk full", error)
+        self.assertFalse(os.path.exists(target))
+        self.assertEqual(os.listdir(os.path.dirname(target)), [])
+
+    def test_stage_rejects_empty_or_corrupted_copy(self):
+        source = os.path.join(self.tmp, "source.AppImage")
+        target = os.path.join(self.tmp, "managed", installer.MANAGED_APPIMAGE_NAME)
+        with open(source, "wb") as stream:
+            stream.write(b"candidate")
+
+        def corrupt_copy(_source, destination):
+            with open(destination, "wb") as stream:
+                stream.write(b"corrupted")
+            return destination
+
+        with mock.patch.object(installer.shutil, "copy2", side_effect=corrupt_copy):
+            staged, error = installer.stage_verified_copy(source, target)
+        self.assertEqual(staged, "")
+        self.assertIn("checksum", error)
+        open(source, "wb").close()
+        staged, error = installer.stage_verified_copy(source, target)
+        self.assertEqual(staged, "")
+        self.assertIn("empty", error)
+
     def test_backup_creates_copy_and_none_when_nothing_to_back_up(self):
         managed_path = os.path.join(self.tmp, "MG-Linux-Toolbox.AppImage")
         backup_dir = os.path.join(self.tmp, "backup")
@@ -482,6 +529,28 @@ class InstallerTests(unittest.TestCase):
         self.assertTrue(rollback.ok)
         with open(target, "rb") as f:
             self.assertEqual(f.read(), b"old version")
+
+    def test_replace_refuses_cross_filesystem_candidate_without_touching_target(self):
+        target = os.path.join(self.tmp, "MG-Linux-Toolbox.AppImage")
+        source = os.path.join(self.tmp, "candidate.AppImage")
+        with open(target, "wb") as stream:
+            stream.write(b"old version")
+        with open(source, "wb") as stream:
+            stream.write(b"new version")
+
+        real_stat = installer.os.stat
+
+        class ForeignStat:
+            st_dev = real_stat(os.path.dirname(target)).st_dev + 1
+
+        def foreign_source_stat(path):
+            return ForeignStat() if path == source else real_stat(path)
+
+        with mock.patch.object(installer.os, "stat", side_effect=foreign_source_stat):
+            result = installer.replace_atomically(source, target)
+        self.assertFalse(result.ok)
+        with open(target, "rb") as stream:
+            self.assertEqual(stream.read(), b"old version")
 
     def test_rollback_without_backup_fails_cleanly(self):
         target = os.path.join(self.tmp, "MG-Linux-Toolbox.AppImage")

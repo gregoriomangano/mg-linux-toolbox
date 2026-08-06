@@ -197,6 +197,56 @@ def _sha256(path: str) -> str:
     return digest.hexdigest()
 
 
+def _fsync_file(path: str) -> None:
+    with open(path, "rb") as stream:
+        os.fsync(stream.fileno())
+
+
+def _fsync_directory(path: str) -> None:
+    descriptor = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def stage_verified_copy(source_path: str, target_path: str) -> tuple[str, str]:
+    """Copy a verified download beside its final destination.
+
+    Downloads live under /tmp, which may be another filesystem.  The
+    temporary replacement must therefore be created in the managed
+    directory before os.replace is used.
+    """
+    target_dir = os.path.dirname(os.path.abspath(target_path))
+    temporary = ""
+    try:
+        source_stat = os.stat(source_path)
+        if not os.path.isfile(source_path) or source_stat.st_size == 0:
+            raise OSError("the verified AppImage is missing or empty")
+        os.makedirs(target_dir, exist_ok=True)
+        descriptor, temporary = tempfile.mkstemp(
+            prefix=f".{os.path.basename(target_path)}.new-", dir=target_dir)
+        os.close(descriptor)
+        shutil.copy2(source_path, temporary)
+        os.chmod(temporary, 0o755)
+        if not os.path.isfile(temporary) or os.path.getsize(temporary) != source_stat.st_size:
+            raise OSError("the staged AppImage is incomplete")
+        if not os.access(temporary, os.X_OK):
+            raise OSError("the staged AppImage is not executable")
+        if _sha256(source_path) != _sha256(temporary):
+            raise OSError("the staged AppImage failed checksum verification")
+        _fsync_file(temporary)
+        _fsync_directory(target_dir)
+        return temporary, ""
+    except OSError as exc:
+        if temporary:
+            try:
+                os.unlink(temporary)
+            except OSError:
+                pass
+        return "", str(exc)
+
+
 def pending_backup_current(managed_path: str, backup_dir: str, version_label: str) -> "str | None":
     """Create a verified backup kept until the new startup is confirmed."""
     if not os.path.isfile(managed_path) or os.path.getsize(managed_path) == 0:
@@ -212,7 +262,9 @@ def pending_backup_current(managed_path: str, backup_dir: str, version_label: st
             raise OSError("pending backup is incomplete")
         if _sha256(managed_path) != _sha256(temporary):
             raise OSError("pending backup checksum verification failed")
+        _fsync_file(temporary)
         os.replace(temporary, path)
+        _fsync_directory(backup_dir)
         return path
     except OSError:
         try:
@@ -230,11 +282,15 @@ def replace_atomically(new_verified_path: str, target_path: str) -> InstallResul
     half-written file.
     """
     try:
-        os.makedirs(os.path.dirname(target_path), exist_ok=True)
-        with open(new_verified_path, "rb") as f:
-            os.fsync(f.fileno())
+        target_dir = os.path.dirname(os.path.abspath(target_path))
+        os.makedirs(target_dir, exist_ok=True)
+        if os.stat(new_verified_path).st_dev != os.stat(target_dir).st_dev:
+            raise OSError("replacement candidate is not on the managed filesystem")
+        _fsync_file(new_verified_path)
         os.replace(new_verified_path, target_path)
         os.chmod(target_path, 0o755)
+        _fsync_file(target_path)
+        _fsync_directory(target_dir)
     except OSError as e:
         return InstallResult(False, friendly_message="updater_replace_failed", technical_detail=str(e))
     return InstallResult(True)
@@ -244,8 +300,13 @@ def restore_previous(backup_path: str, target_path: str) -> InstallResult:
     if not os.path.isfile(backup_path):
         return InstallResult(False, friendly_message="updater_no_backup_available")
     try:
-        os.replace(backup_path, target_path)
-        os.chmod(target_path, 0o755)
+        staged_path, error = stage_verified_copy(backup_path, target_path)
+        if error:
+            raise OSError(error)
+        result = replace_atomically(staged_path, target_path)
+        if not result.ok:
+            return InstallResult(False, friendly_message="updater_restore_failed",
+                                 technical_detail=result.technical_detail)
     except OSError as e:
         return InstallResult(False, friendly_message="updater_restore_failed", technical_detail=str(e))
     return InstallResult(True)

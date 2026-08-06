@@ -11,6 +11,12 @@ Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il p
 - Repository e Virtualizzazione: riallineati i controlli pubblici per Packman, Flatpak, Docker, Podman e Distrobox alle implementazioni validate.
 - Test: la suite protegge anche la discovery standard da `sudo`, `pkexec`, `su` e `doas`, senza modificare il comportamento runtime dell'applicazione.
 
+## [0.9.0-beta.6] - 2026-08-06
+
+### Corretto
+
+- L'aggiornamento gestito copia e verifica l'AppImage scaricata nella directory di destinazione prima della sostituzione atomica. Il flusso ora funziona anche quando la directory temporanea e la Home risiedono su filesystem differenti.
+
 ## [0.9.0-beta.5] - 2026-08-06
 
 ### Corretto

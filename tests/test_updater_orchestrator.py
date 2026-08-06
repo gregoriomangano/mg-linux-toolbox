@@ -148,6 +148,30 @@ class ManagedUpdateTests(unittest.TestCase):
         # The pre-replacement backup must still exist for manual recovery.
         self.assertTrue(os.listdir(self.backup_dir))
 
+    def test_staging_failure_keeps_current_version_and_does_not_create_backup(self):
+        with mock.patch.object(installer, "stage_verified_copy", return_value=("", "disk full")):
+            result = self._run()
+        self.assertFalse(result.ok)
+        self.assertEqual(result.friendly_message, "updater_replace_failed")
+        with open(self.managed_path, "rb") as stream:
+            self.assertEqual(stream.read(), b"old appimage")
+        self.assertFalse(os.path.exists(self.backup_dir))
+
+    def test_replace_receives_candidate_staged_in_managed_directory(self):
+        calls = []
+        real_replace = installer.replace_atomically
+
+        def check_replace(source, target):
+            calls.append((source, target))
+            self.assertEqual(os.path.dirname(source), os.path.dirname(target))
+            self.assertEqual(os.stat(source).st_dev, os.stat(os.path.dirname(target)).st_dev)
+            return real_replace(source, target)
+
+        with mock.patch.object(installer, "replace_atomically", side_effect=check_replace):
+            result = self._run()
+        self.assertTrue(result.ok)
+        self.assertEqual(len(calls), 1)
+
     def test_temp_work_dir_is_always_cleaned_up(self):
         captured = {}
         real_mkdtemp = tempfile.mkdtemp
