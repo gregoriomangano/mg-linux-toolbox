@@ -71,6 +71,7 @@ class RepoEntry:
     components: str = ""
     warnings: list = field(default_factory=list)
     duplicate_files: list = field(default_factory=list)
+    is_obs: bool = False   # True only for a real openSUSE Build Service project repo
 
     def to_dict(self) -> dict:
         return dict(self.__dict__)
@@ -406,6 +407,27 @@ def scan_pacman(conf_path: str = "/etc/pacman.conf") -> list:
 
 _OFFICIAL_ZYPPER_HOSTS = ("download.opensuse.org", "codecs.opensuse.org", "download.nvidia.com")
 
+# openSUSE Build Service (OBS) serves every project's built packages —
+# official openSUSE ones included — from this SAME download host, under
+# a fixed, documented path: /repositories/<project>/<repo-name>/ (e.g.
+# "/repositories/home:/someuser/openSUSE_Tumbleweed/"). The base distro
+# repos (OSS/NON-OSS/update/source/debug) live under different,
+# unrelated paths on that host ("/tumbleweed/...", "/update/...", ...).
+# This is a precise, documented signal — not a guess — and it must be
+# checked BEFORE the generic official-host check above, otherwise a
+# personal/community OBS project would be wrongly shown as "Ufficiale"
+# purely because it happens to share openSUSE's own download host.
+_OBS_HOST = "download.opensuse.org"
+_OBS_PATH_PREFIX = "/repositories/"
+
+
+def _is_obs_project_repo(uri: str) -> bool:
+    if not uri:
+        return False
+    parts = urlsplit(uri)
+    host = parts.netloc.split("@")[-1]
+    return host == _OBS_HOST and parts.path.startswith(_OBS_PATH_PREFIX)
+
 
 def scan_zypper(repos_d: str = "/etc/zypp/repos.d") -> list:
     entries = []
@@ -426,6 +448,7 @@ def scan_zypper(repos_d: str = "/etc/zypp/repos.d") -> list:
             warnings = []
             lname = section.lower()
             host = urlsplit(uri).netloc.split("@")[-1] if uri else ""
+            is_obs = _is_obs_project_repo(uri)
             # 2026-08-05: real bug found on a Tumbleweed KDE VM — the
             # alias for the official "Main Update Repository" is
             # "download.opensuse.org-tumbleweed" (no "update"
@@ -434,7 +457,13 @@ def scan_zypper(repos_d: str = "/etc/zypp/repos.d") -> list:
             # based detection (same approach already used for APT)
             # doesn't depend on what any particular alias happens to
             # spell out.
-            if host in _OFFICIAL_ZYPPER_HOSTS:
+            if is_obs:
+                # Checked first: an OBS project repo shares its host
+                # with the official base repos (see _is_obs_project_repo)
+                # but is third-party, project-owner-signed content, not
+                # part of the base distribution.
+                kind = KIND_COMMUNITY
+            elif host in _OFFICIAL_ZYPPER_HOSTS:
                 kind = KIND_OFFICIAL
             elif "oss" in lname or "non-oss" in lname or "update" in lname:
                 kind = KIND_OFFICIAL
@@ -450,7 +479,7 @@ def scan_zypper(repos_d: str = "/etc/zypp/repos.d") -> list:
             entries.append(RepoEntry(
                 name=fields.get("name", section), family="opensuse", kind=kind,
                 enabled=enabled, source_file=path, uri=redact_credentials(uri),
-                alias=section, signed=gpgcheck, warnings=warnings,
+                alias=section, signed=gpgcheck, warnings=warnings, is_obs=is_obs,
             ))
     return entries
 

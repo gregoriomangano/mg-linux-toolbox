@@ -466,6 +466,14 @@ _page_strings = {
     "sr_repo_action_disable_btn": {"en": "Disable", "it": "Disabilita", "es": "Deshabilitar", "fr": "Désactiver"},
     "sr_repo_action_remove_btn": {"en": "Remove repository", "it": "Rimuovi repository", "es": "Eliminar repositorio", "fr": "Supprimer le dépôt"},
     "sr_repo_action_remove_remote_btn": {"en": "Remove remote", "it": "Rimuovi remoto", "es": "Eliminar remoto", "fr": "Supprimer le dépôt distant"},
+    "sr_repo_action_details_btn": {"en": "Details", "it": "Dettagli", "es": "Detalles", "fr": "Détails"},
+    "sr_close_btn": {"en": "Close", "it": "Chiudi", "es": "Cerrar", "fr": "Fermer"},
+    "sr_repo_management_not_available_family": {
+        "en": "Direct enable/disable/remove isn't implemented yet for this distribution — shown for information only.",
+        "it": "L'attivazione/disattivazione/rimozione diretta non è ancora implementata per questa distribuzione — mostrato solo a titolo informativo.",
+        "es": "Activar/desactivar/eliminar directamente aún no está implementado para esta distribución — se muestra solo a título informativo.",
+        "fr": "L'activation/désactivation/suppression directe n'est pas encore implémentée pour cette distribution — affiché à titre informatif uniquement.",
+    },
     "sr_repo_official_warning_title": {"en": "Warning", "it": "Attenzione", "es": "Advertencia", "fr": "Avertissement"},
     "sr_repo_official_warning_body": {
         "en": "Disabling an official repository may prevent security updates and correct software installation.",
@@ -496,7 +504,6 @@ _page_strings = {
     "sr_repo_remove_failed": {"en": "Could not remove repository.", "it": "Impossibile rimuovere il repository.",
                                "es": "No se pudo eliminar el repositorio.", "fr": "Impossible de supprimer le dépôt."},
     "sr_packman_already_active": {"en": "Already active", "it": "Già attivo", "es": "Ya activo", "fr": "Déjà actif"},
-    "sr_packman_disabled_reactivate_btn": {"en": "Reactivate Packman", "it": "Riattiva Packman", "es": "Reactivar Packman", "fr": "Réactiver Packman"},
     "sr_packman_activate_btn": {"en": "Activate Packman", "it": "Attiva Packman", "es": "Activar Packman", "fr": "Activer Packman"},
 
     # ── Dialog buttons (shared) ────────────────────────────────────────
@@ -517,6 +524,12 @@ _page_strings = {
         "it": "OBS non è un singolo repository. Ogni progetto dispone di un repository separato che deve essere verificato individualmente.",
         "es": "OBS no es un único repositorio. Cada proyecto tiene su propio repositorio independiente que debe verificarse individualmente.",
         "fr": "OBS n'est pas un dépôt unique. Chaque projet dispose de son propre dépôt distinct qui doit être vérifié individuellement.",
+    },
+    "sr_obs_none_configured": {
+        "en": "No OBS repository is currently configured on this system.",
+        "it": "Nessun repository OBS configurato al momento su questo sistema.",
+        "es": "Actualmente no hay ningún repositorio OBS configurado en este sistema.",
+        "fr": "Aucun dépôt OBS n'est actuellement configuré sur ce système.",
     },
 
     # ── Packman activation flow (2026-08-05) ───────────────────────────
@@ -1203,13 +1216,10 @@ class _SectionC:
             row.append(Gtk.Label(label=str(summary[key]), xalign=1))
             self._summary_box.append(row)
 
-        self._repo_row_widgets = {}
         if not entries:
             self._list_box.append(Gtk.Label(label=T("sr_no_repos_found"), xalign=0, wrap=True))
         for entry in entries:
-            row_widget = self._build_repo_row(entry)
-            self._repo_row_widgets[self._repo_row_key(entry)] = row_widget
-            self._list_box.append(row_widget)
+            self._list_box.append(self._build_repo_row(entry))
 
         self._build_additional_section(profile, entries)
 
@@ -1222,48 +1232,54 @@ class _SectionC:
         rsc.WARNING_DUPLICATE_CONFIG: "sr_warning_duplicate_config",
     }
 
-    def _build_repo_row(self, entry: dict) -> Gtk.Widget:
-        expander = Adw.ExpanderRow(title=entry["name"] or entry["uri"] or "—")
-        pill = StatusPill(T(_RECIPE_KIND_KEYS.get(entry["kind"], "sr_kind_unknown")),
-                            variant=_KIND_PILL_VARIANT.get(entry["kind"], "neutral"))
-        expander.add_suffix(pill)
-        if not entry["enabled"]:
-            expander.add_suffix(StatusPill(T("sr_repo_disabled"), variant="neutral"))
+    # Families the backend engine can really toggle/remove today (see
+    # package_engine._op_toggle_repo / _op_remove_repo). Debian and Arch
+    # have no operation wired at all, and Fedora's repo_toggle function
+    # exists but isn't connected — see the 2026-08-06 report for why
+    # that gap is left for a dedicated follow-up rather than guessed at
+    # here. No button for those families is ever shown: a button that
+    # would always come back "unknown family" is worse than no button.
+    _MANAGEABLE_FAMILIES = {"opensuse", "flatpak"}
 
-        detail = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        detail.set_margin_top(6)
-        detail.set_margin_bottom(10)
-        detail.set_margin_start(14)
-        detail.set_margin_end(14)
+    @staticmethod
+    def _repo_detail_widgets(entry: dict, warning_keys: dict) -> list:
+        """Shared with the Packman/OBS 'Dettagli' dialog, so the exact
+        same real information is shown everywhere, not a second,
+        possibly-drifting copy."""
+        widgets = []
         if entry.get("uri"):
-            detail.append(Gtk.Label(label=f"{T('sr_repo_address')}: {entry['uri']}", xalign=0, wrap=True))
+            widgets.append(Gtk.Label(label=f"{T('sr_repo_address')}: {entry['uri']}", xalign=0, wrap=True))
         suites = entry.get("suites") or []
         if suites:
-            detail.append(Gtk.Label(label=f"{T('sr_repo_suites')}: {', '.join(suites)}", xalign=0, wrap=True))
+            widgets.append(Gtk.Label(label=f"{T('sr_repo_suites')}: {', '.join(suites)}", xalign=0, wrap=True))
         if entry.get("components"):
-            detail.append(Gtk.Label(label=f"{T('sr_repo_components')}: {entry['components']}", xalign=0, wrap=True))
-        detail.append(Gtk.Label(label=f"{T('sr_repo_source_file')}: {entry['source_file']}", xalign=0, wrap=True))
+            widgets.append(Gtk.Label(label=f"{T('sr_repo_components')}: {entry['components']}", xalign=0, wrap=True))
+        widgets.append(Gtk.Label(label=f"{T('sr_repo_source_file')}: {entry['source_file']}", xalign=0, wrap=True))
         if entry.get("signed") is not None:
             sig_lbl = Gtk.Label(label=T("sr_repo_signed_yes") if entry["signed"] else T("sr_repo_signed_no"),
                                   xalign=0, wrap=True)
             if not entry["signed"]:
                 sig_lbl.add_css_class("desc-con")
-            detail.append(sig_lbl)
+            widgets.append(sig_lbl)
         for warning in entry.get("warnings", []):
             # Never render the raw internal code — an unmapped one
             # still gets a real, generic translated sentence instead.
-            warn_key = self._WARNING_KEYS.get(warning, "sr_warning_unknown")
+            warn_key = warning_keys.get(warning, "sr_warning_unknown")
             warn_lbl = Gtk.Label(label=T(warn_key), xalign=0, wrap=True)
             warn_lbl.add_css_class("desc-con")
-            detail.append(warn_lbl)
+            widgets.append(warn_lbl)
         if entry.get("duplicate_files"):
             dup_lbl = Gtk.Label(label=f"{T('sr_repo_duplicate_files')}: {', '.join(entry['duplicate_files'])}",
                                   xalign=0, wrap=True)
             dup_lbl.add_css_class("desc-con")
-            detail.append(dup_lbl)
+            widgets.append(dup_lbl)
+        return widgets
 
+    def _build_repo_action_buttons(self, entry: dict) -> Gtk.Widget:
+        """Real Disattiva/Riattiva + Rimuovi, shared by the main list
+        and by the Packman/OBS curated rows — one implementation, one
+        set of confirmation dialogs, one path to the engine."""
         button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        button_box.set_margin_top(10)
         is_official = entry["kind"] == rsc.KIND_OFFICIAL
         is_flatpak = entry["family"] == "flatpak"
 
@@ -1282,8 +1298,71 @@ class _SectionC:
             remove_btn.connect("clicked", lambda _b, e=entry: self._on_repo_remove(e))
             button_box.append(remove_btn)
 
-        if button_box.get_first_child() is not None:
-            detail.append(button_box)
+        details_btn = Gtk.Button(label=T("sr_repo_action_details_btn"))
+        details_btn.connect("clicked", lambda _b, e=entry: self._show_repo_details_dialog(e))
+        button_box.append(details_btn)
+        return button_box
+
+    def _show_repo_details_dialog(self, entry: dict):
+        body_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        for widget in self._repo_detail_widgets(entry, self._WARNING_KEYS):
+            body_box.append(widget)
+        dialog = Adw.MessageDialog(transient_for=self.page.get_root(),
+                                    heading=entry["name"] or entry.get("uri") or "—")
+        dialog.set_extra_child(body_box)
+        dialog.add_response("close", T("sr_close_btn"))
+        dialog.present()
+
+    def _build_repo_row(self, entry: dict) -> Gtk.Widget:
+        expander = Adw.ExpanderRow(title=entry["name"] or entry["uri"] or "—")
+        pill = StatusPill(T(_RECIPE_KIND_KEYS.get(entry["kind"], "sr_kind_unknown")),
+                            variant=_KIND_PILL_VARIANT.get(entry["kind"], "neutral"))
+        expander.add_suffix(pill)
+        if not entry["enabled"]:
+            expander.add_suffix(StatusPill(T("sr_repo_disabled"), variant="neutral"))
+
+        detail = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        detail.set_margin_top(6)
+        detail.set_margin_bottom(10)
+        detail.set_margin_start(14)
+        detail.set_margin_end(14)
+        for widget in self._repo_detail_widgets(entry, self._WARNING_KEYS):
+            detail.append(widget)
+
+        if entry["family"] in self._MANAGEABLE_FAMILIES:
+            button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            button_box.set_margin_top(10)
+            is_official = entry["kind"] == rsc.KIND_OFFICIAL
+            is_flatpak = entry["family"] == "flatpak"
+
+            if entry["enabled"]:
+                disable_btn = Gtk.Button(label=T("sr_repo_action_disable_btn"))
+                disable_btn.connect("clicked", lambda _b, e=entry: self._on_repo_toggle(e, False))
+                button_box.append(disable_btn)
+            else:
+                enable_btn = Gtk.Button(label=T("sr_repo_action_enable_btn"))
+                enable_btn.connect("clicked", lambda _b, e=entry: self._on_repo_toggle(e, True))
+                button_box.append(enable_btn)
+
+            if not is_official:
+                remove_label = T("sr_repo_action_remove_remote_btn") if is_flatpak else T("sr_repo_action_remove_btn")
+                remove_btn = Gtk.Button(label=remove_label)
+                remove_btn.connect("clicked", lambda _b, e=entry: self._on_repo_remove(e))
+                button_box.append(remove_btn)
+
+            # Note: the main list's own row already expands to show every
+            # technical detail inline (right below), so it deliberately
+            # doesn't add its own "Dettagli" button here — that button is
+            # for the curated Packman/OBS rows below, which have no
+            # expander of their own. See _build_repo_action_buttons.
+            if button_box.get_first_child() is not None:
+                detail.append(button_box)
+        else:
+            note = Gtk.Label(label=T("sr_repo_management_not_available_family"), xalign=0, wrap=True)
+            note.add_css_class("dim-label")
+            note.set_margin_top(10)
+            detail.append(note)
+
         expander.add_row(detail)
         return expander
 
@@ -1352,21 +1431,6 @@ class _SectionC:
         self.refresh()
         return False
 
-    @staticmethod
-    def _repo_row_key(entry: dict):
-        return (entry["family"], entry["source_file"], entry.get("alias") or entry["name"])
-
-    def _highlight_repo_row(self, entry: dict):
-        """"Open or highlight" the Packman row in the main list — expands
-        it and applies a temporary accent so the user's eye finds it,
-        without needing a generic scroll-to-widget implementation."""
-        widget = self._repo_row_widgets.get(self._repo_row_key(entry))
-        if widget is None:
-            return
-        widget.set_expanded(True)
-        widget.add_css_class("accent")
-        GLib.timeout_add(1500, lambda w=widget: (w.remove_css_class("accent"), False)[1])
-
     def _find_packman_repo_entry(self, entries: list) -> "dict | None":
         """Find Packman repository among scanned entries by alias or URL pattern."""
         for entry in entries:
@@ -1415,6 +1479,7 @@ class _SectionC:
 
     def _build_additional_section(self, profile, entries: list):
         packman_entry = self._find_packman_repo_entry(entries)
+        obs_entries = [e for e in entries if e.get("is_obs")]
 
         self._additional_box.append(Gtk.Label(label=T("sr_additional_title"), xalign=0))
         self._additional_box.get_first_child().add_css_class("heading")
@@ -1435,47 +1500,50 @@ class _SectionC:
             if recipe.id == "packman":
                 self._additional_box.append(self._build_packman_row(recipe, packman_entry, profile))
             elif recipe.id == "opensuse_obs":
-                self._additional_box.append(self._build_obs_row(recipe))
+                self._additional_box.append(self._build_obs_row(recipe, obs_entries))
             else:
                 self._additional_box.append(self._build_advanced_state_row(recipe, entries))
 
     def _build_packman_row(self, recipe, packman_entry: "dict | None", profile) -> Gtk.Widget:
         """Packman is always linked to the real scanned repository —
         never a second, duplicate activation entry:
-        - present + enabled  -> "Già attivo", click opens/highlights the row
-        - present + disabled -> "Riattiva Packman"
+        - present + enabled  -> status pill + real Disattiva/Rimuovi/Dettagli
+        - present + disabled -> status pill + real Riattiva/Rimuovi/Dettagli
         - absent, Tumbleweed -> "Attiva Packman" (real add-repo flow)
         - absent, Leap       -> "Non compatibile"
-        - absent, unresolved -> "Stato non verificabile" """
-        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        - absent, unresolved -> "Stato non verificabile"
+
+        The action buttons are the exact same ones the main repository
+        list uses (_build_repo_action_buttons -> _on_repo_toggle /
+        _on_repo_remove -> the real engine call) — never a second,
+        parallel implementation, and never just a link that depends on
+        the user finding another row somewhere else on the page."""
+        row = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         name_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True)
         name_box.append(Gtk.Label(label=_recipe_text(recipe.name_key), xalign=0))
         desc_lbl = Gtk.Label(label=_recipe_text(recipe.description_key), xalign=0, wrap=True)
         desc_lbl.add_css_class("dim-label")
         name_box.append(desc_lbl)
-        row.append(name_box)
+        header.append(name_box)
 
         if packman_entry is not None:
-            if packman_entry["enabled"]:
-                active_btn = Gtk.Button()
-                active_btn.set_child(StatusPill(T("sr_packman_already_active"), variant="success"))
-                active_btn.add_css_class("flat")
-                active_btn.connect("clicked", lambda _b, e=packman_entry: self._highlight_repo_row(e))
-                row.append(active_btn)
-            else:
-                reactivate_btn = Gtk.Button(label=T("sr_packman_disabled_reactivate_btn"))
-                reactivate_btn.connect("clicked", lambda _b, e=packman_entry: self._on_repo_toggle(e, True))
-                row.append(reactivate_btn)
+            pill_text = T("sr_packman_already_active") if packman_entry["enabled"] else T("sr_repo_disabled")
+            pill_variant = "success" if packman_entry["enabled"] else "neutral"
+            header.append(StatusPill(pill_text, variant=pill_variant))
+            row.append(header)
+            row.append(self._build_repo_action_buttons(packman_entry))
         else:
             compat = self._packman_compatibility(profile)
             if compat == "compatible":
                 activate_btn = Gtk.Button(label=T("sr_packman_activate_btn"))
                 activate_btn.connect("clicked", lambda _b: self._on_activate_packman())
-                row.append(activate_btn)
+                header.append(activate_btn)
             elif compat == "incompatible":
-                row.append(StatusPill(T("sr_state_not_compatible"), variant="absent"))
+                header.append(StatusPill(T("sr_state_not_compatible"), variant="absent"))
             else:
-                row.append(StatusPill(T("sr_state_unverifiable"), variant="neutral"))
+                header.append(StatusPill(T("sr_state_unverifiable"), variant="neutral"))
+            row.append(header)
         return row
 
     def _on_activate_packman(self):
@@ -1507,12 +1575,16 @@ class _SectionC:
 
         threading.Thread(target=run, daemon=True).start()
 
-    def _build_obs_row(self, recipe) -> Gtk.Widget:
-        """OBS is never a single activatable repository — each project
-        has its own separate repo that must be checked individually,
-        so this always stays "Solo informativo" with no generic
-        activation button."""
-        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    def _build_obs_row(self, recipe, obs_entries: list) -> Gtk.Widget:
+        """OBS is never a single activatable repository — there is no
+        generic "Attiva OBS" button here, and there never will be. But
+        every REAL OBS project repository the scanner finds (see
+        repo_scanner._is_obs_project_repo) gets its own row below the
+        general explanation, with the same real Disattiva/Riattiva/
+        Rimuovi/Dettagli actions as any other openSUSE repository —
+        never just a generic "Esterno" line lost in the main list."""
+        container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+
         name_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True)
         name_box.append(Gtk.Label(label=_recipe_text(recipe.name_key), xalign=0))
         desc_lbl = Gtk.Label(label=_recipe_text(recipe.description_key), xalign=0, wrap=True)
@@ -1521,9 +1593,29 @@ class _SectionC:
         explain_lbl = Gtk.Label(label=T("sr_obs_info_explanation"), xalign=0, wrap=True)
         explain_lbl.add_css_class("dim-label")
         name_box.append(explain_lbl)
-        row.append(name_box)
-        row.append(StatusPill(T("sr_state_info_only"), variant="neutral"))
-        return row
+        container.append(name_box)
+
+        if not obs_entries:
+            none_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            none_row.append(Gtk.Label(label=T("sr_obs_none_configured"), xalign=0, hexpand=True, wrap=True))
+            none_row.append(StatusPill(T("sr_state_info_only"), variant="neutral"))
+            container.append(none_row)
+            return container
+
+        for entry in obs_entries:
+            entry_row = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+            header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            header.append(Gtk.Label(label=entry["name"] or entry.get("alias") or "—", xalign=0, hexpand=True))
+            pill_text = T("sr_packman_already_active") if entry["enabled"] else T("sr_repo_disabled")
+            pill_variant = "success" if entry["enabled"] else "neutral"
+            header.append(StatusPill(pill_text, variant=pill_variant))
+            entry_row.append(header)
+            entry_row.append(self._build_repo_action_buttons(entry))
+            entry_row.add_css_class("card")
+            entry_row.set_margin_top(4)
+            container.append(entry_row)
+
+        return container
 
     def _build_advanced_state_row(self, recipe, entries: list) -> Gtk.Widget:
         """Every advanced recipe other than Packman/OBS: shows real

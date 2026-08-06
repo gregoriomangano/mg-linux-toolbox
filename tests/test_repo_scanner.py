@@ -365,6 +365,45 @@ class ZypperTests(unittest.TestCase):
             entries = rs.scan_zypper(tmp)
         self.assertEqual(entries[0].alias, "repo-oss")
 
+    def test_obs_project_repo_is_recognized_and_not_official(self):
+        """A real OBS project repo (e.g. added from build.opensuse.org)
+        is served from the SAME host as the official base repos, under
+        /repositories/<project>/<repo>/ — it must be flagged is_obs and
+        must NOT be classified as official, since it's third-party,
+        project-owner-signed content."""
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(os.path.join(tmp, "home_someuser.repo"), "w") as f:
+                f.write(
+                    "[home_someuser]\nname=home:someuser\n"
+                    "baseurl=https://download.opensuse.org/repositories/home:/someuser/openSUSE_Tumbleweed/\n"
+                    "enabled=1\ngpgcheck=1\n"
+                )
+            entries = rs.scan_zypper(tmp)
+        self.assertEqual(len(entries), 1)
+        self.assertTrue(entries[0].is_obs)
+        self.assertEqual(entries[0].kind, rs.KIND_COMMUNITY)
+
+    def test_base_distro_repo_on_the_obs_host_is_still_official_and_not_obs(self):
+        """The official OSS repo lives on the same host as OBS projects
+        but under a different path — it must stay official and must
+        NOT be flagged as an OBS project repo."""
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(os.path.join(tmp, "oss.repo"), "w") as f:
+                f.write(
+                    "[repo-oss]\nname=Main Repository\n"
+                    "baseurl=http://download.opensuse.org/tumbleweed/repo/oss/\nenabled=1\ngpgcheck=1\n"
+                )
+            entries = rs.scan_zypper(tmp)
+        self.assertEqual(entries[0].kind, rs.KIND_OFFICIAL)
+        self.assertFalse(entries[0].is_obs)
+
+    def test_non_obs_repo_defaults_is_obs_false(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(os.path.join(tmp, "packman.repo"), "w") as f:
+                f.write("[packman]\nname=Packman\nbaseurl=https://ftp.gwdg.de/packman\nenabled=1\ngpgcheck=1\n")
+            entries = rs.scan_zypper(tmp)
+        self.assertFalse(entries[0].is_obs)
+
 
 class ScanAllTests(unittest.TestCase):
     def test_summary_counts_are_consistent(self):

@@ -237,21 +237,52 @@ class RecipeStateVocabularyTests(unittest.TestCase):
         self.assertNotIn(T("sr_kind_needs_review"), texts)
         self.assertNotIn("Da controllare", texts)
 
-    def test_obs_row_always_shows_info_only_and_no_button(self):
+    def test_obs_row_with_no_real_repo_shows_none_configured_and_no_button(self):
         from core.i18n import T
         from core.software_repo import repo_recipes as rr
         page = self._build_page()
         recipe = rr.RECIPES_BY_ID["opensuse_obs"]
-        row = page._section_c._build_obs_row(recipe)
+        row = page._section_c._build_obs_row(recipe, [])
 
         texts = []
         self._collect_labels(row, texts)
         self.assertIn(T("sr_state_info_only"), texts)
         self.assertIn(T("sr_obs_info_explanation"), texts)
+        self.assertIn(T("sr_obs_none_configured"), texts)
 
         buttons = []
         self._collect_widgets(row, Gtk.Button, buttons)
         self.assertEqual(buttons, [], "OBS must never show a generic activation button")
+
+    def test_obs_row_with_a_real_repo_shows_its_own_real_actions(self):
+        """Point 3 of the 2026-08-06 report: a real, individually
+        configured OBS project repo must get its own row with real
+        Disattiva/Rimuovi/Dettagli actions — never just folded into a
+        generic 'external' line, and never a second fake activation
+        button."""
+        from core.i18n import T
+        from core.software_repo import repo_recipes as rr
+        page = self._build_page()
+        recipe = rr.RECIPES_BY_ID["opensuse_obs"]
+        obs_entry = {
+            "family": "opensuse", "kind": "community", "name": "home:someuser",
+            "alias": "home_someuser", "enabled": True, "is_obs": True,
+            "source_file": "/etc/zypp/repos.d/home_someuser.repo",
+            "uri": "https://download.opensuse.org/repositories/home:/someuser/openSUSE_Tumbleweed/",
+        }
+        row = page._section_c._build_obs_row(recipe, [obs_entry])
+
+        texts = []
+        self._collect_labels(row, texts)
+        self.assertIn("home:someuser", texts)
+        self.assertNotIn(T("sr_obs_none_configured"), texts)
+
+        buttons = []
+        self._collect_widgets(row, Gtk.Button, buttons)
+        labels = [b.get_label() for b in buttons if b.get_label()]
+        self.assertIn(T("sr_repo_action_disable_btn"), labels)
+        self.assertIn(T("sr_repo_action_remove_btn"), labels)
+        self.assertIn(T("sr_repo_action_details_btn"), labels)
 
     @staticmethod
     def _collect_widgets(widget, cls, out):
@@ -295,7 +326,7 @@ class PackmanLinkageTests(unittest.TestCase):
     def test_packman_active_shows_already_active_no_duplicate_activate_button(self):
         from core.i18n import T
         page = self._build_page()
-        entry = {"family": "opensuse", "name": "Packman", "alias": "packman",
+        entry = {"family": "opensuse", "kind": "community", "name": "Packman", "alias": "packman",
                  "source_file": "/etc/zypp/repos.d/packman.repo", "enabled": True}
         row = page._section_c._build_packman_row(self._recipe(), entry, page.profile)
 
@@ -310,13 +341,19 @@ class PackmanLinkageTests(unittest.TestCase):
     def test_packman_disabled_shows_reactivate_button(self):
         from core.i18n import T
         page = self._build_page()
-        entry = {"family": "opensuse", "name": "Packman", "alias": "packman",
+        entry = {"family": "opensuse", "kind": "community", "name": "Packman", "alias": "packman",
                  "source_file": "/etc/zypp/repos.d/packman.repo", "enabled": False}
         row = page._section_c._build_packman_row(self._recipe(), entry, page.profile)
         buttons = []
         self._collect(row, Gtk.Button, buttons)
         labels = [b.get_label() for b in buttons if b.get_label()]
-        self.assertIn(T("sr_packman_disabled_reactivate_btn"), labels)
+        self.assertIn(T("sr_repo_action_enable_btn"), labels)
+        self.assertIn(T("sr_repo_disabled"), [l.get_label() for l in self._labels_of(row)])
+
+    def _labels_of(self, widget):
+        out = []
+        self._collect(widget, Gtk.Label, out)
+        return out
 
     def test_packman_absent_on_tumbleweed_shows_activate_button(self):
         from core.i18n import T
@@ -351,24 +388,49 @@ class PackmanLinkageTests(unittest.TestCase):
         texts = [l.get_label() for l in labels if l.get_label()]
         self.assertIn(T("sr_state_unverifiable"), texts)
 
-    def test_clicking_already_active_opens_or_highlights_the_main_row(self):
+    def test_active_packman_shows_real_disable_remove_and_details_actions(self):
+        """2026-08-06 fix: an active Packman must expose its real
+        Disattiva/Rimuovi/Dettagli actions directly in this card — not
+        just a badge that (invisibly, off-screen) points somewhere
+        else on the page."""
+        from core.i18n import T
         page = self._build_page()
         section = page._section_c
-        entry = {"family": "opensuse", "name": "Packman", "alias": "packman",
-                 "source_file": "/etc/zypp/repos.d/packman.repo", "enabled": True}
-
-        dummy_expander = Adw.ExpanderRow(title="Packman")
-        dummy_expander.set_expanded(False)
-        section._repo_row_widgets[section._repo_row_key(entry)] = dummy_expander
+        entry = {"family": "opensuse", "kind": "community", "name": "Packman", "alias": "packman",
+                 "source_file": "/etc/zypp/repos.d/packman.repo", "enabled": True,
+                 "uri": "https://ftp.gwdg.de/packman"}
 
         row = section._build_packman_row(self._recipe(), entry, page.profile)
         buttons = []
         self._collect(row, Gtk.Button, buttons)
-        self.assertEqual(len(buttons), 1)
-        buttons[0].emit("clicked")
+        labels = [b.get_label() for b in buttons if b.get_label()]
+        self.assertIn(T("sr_repo_action_disable_btn"), labels)
+        self.assertIn(T("sr_repo_action_remove_btn"), labels)
+        self.assertIn(T("sr_repo_action_details_btn"), labels)
 
-        self.assertTrue(dummy_expander.get_expanded())
-        self.assertTrue(dummy_expander.has_css_class("accent"))
+    def test_packman_details_button_opens_a_dialog_with_real_repo_info(self):
+        from ui.pages import page_software_repos as page_mod
+        page = self._build_page()
+        section = page._section_c
+        entry = {"family": "opensuse", "kind": "community", "name": "Packman", "alias": "packman",
+                 "source_file": "/etc/zypp/repos.d/packman.repo", "enabled": True,
+                 "uri": "https://ftp.gwdg.de/packman"}
+
+        presented = {}
+
+        class _FakeDialog:
+            def __init__(self, **kwargs):
+                presented["heading"] = kwargs.get("heading")
+            def set_extra_child(self, *_a, **_kw): pass
+            def add_response(self, *_a, **_kw): pass
+            def present(self):
+                presented["shown"] = True
+
+        with mock.patch.object(page_mod.Adw, "MessageDialog", _FakeDialog):
+            section._show_repo_details_dialog(entry)
+
+        self.assertTrue(presented.get("shown"))
+        self.assertEqual(presented.get("heading"), "Packman")
 
 
 @unittest.skipUnless(_HAS_DISPLAY, _SKIP_REASON)
@@ -426,6 +488,27 @@ class FlatpakRowButtonsTests(unittest.TestCase):
         labels = [b.get_label() for b in buttons if b.get_label()]
         self.assertIn(T("sr_repo_action_enable_btn"), labels)
         self.assertIn(T("sr_repo_action_remove_remote_btn"), labels)
+
+    def test_debian_repo_row_shows_no_action_button(self):
+        """2026-08-06 fix, point 4 of the report: Debian/Arch (and
+        Fedora, whose repo_toggle function exists but isn't wired into
+        the engine) have no real toggle/remove operation behind them —
+        the row must never show a button that would always fail with
+        'famiglia sconosciuta'."""
+        from core.i18n import T
+        page = self._build_page()
+        entry = {"name": "Debian Security", "family": "debian", "kind": "official",
+                  "enabled": True, "source_file": "/etc/apt/sources.list", "uri": "http://deb.debian.org/debian",
+                  "alias": "", "signed": True, "suites": ["bookworm"], "components": "main",
+                  "warnings": [], "duplicate_files": []}
+        expander = page._section_c._build_repo_row(entry)
+        buttons = []
+        self._collect(expander, Gtk.Button, buttons)
+        self.assertEqual(buttons, [])
+        labels = []
+        self._collect(expander, Gtk.Label, labels)
+        texts = [l.get_label() for l in labels if l.get_label()]
+        self.assertIn(T("sr_repo_management_not_available_family"), texts)
 
     def test_flatpak_toggle_scope_uses_bare_remote_name_and_real_scope(self):
         """The exact bug fixed in this round: remote_name must be the
