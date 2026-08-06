@@ -115,12 +115,21 @@ class KvmRow(FeatureRow):
             f"{T('kvm_device_label')}: {T(_bool_key(status['device_exists']))}",
             f"{T('kvm_group_label')}: {T(_bool_key(status['in_kvm_group'] or status['device_writable']))}",
         ]
+        if status.get("virtual_machine") is not None:
+            lines.append(
+                f"{T('kvm_vm_label')}: {T('kvm_vm_yes' if status['virtual_machine'] else 'kvm_vm_no')}"
+            )
         if status["nested_active"] is not None:
             lines.append(f"{T('kvm_nested_label')}: {T(_bool_key(status['nested_active']))}")
         for line in lines:
             lbl = Gtk.Label(label=line, xalign=0, wrap=True)
             lbl.add_css_class("sysinfo-value-sub")
             self._detail_box.append(lbl)
+
+        if status.get("virtual_machine") and status["state"] != "ready":
+            note = Gtk.Label(label=T("kvm_vm_note"), xalign=0, wrap=True)
+            note.add_css_class("desc-con")
+            self._detail_box.append(note)
 
         show_fix = status["state"] == "missing_permissions"
         self._fix_btn.set_visible(show_fix)
@@ -317,10 +326,19 @@ class IommuRow(FeatureRow):
             lines.append(f"{T('iommu_technology_label')}: {status['technology']}")
         if status["active"]:
             lines.append(f"{T('iommu_groups_label')}: {status['group_count']}")
+        if status.get("virtual_machine") is not None:
+            lines.append(
+                f"{T('kvm_vm_label')}: {T('kvm_vm_yes' if status['virtual_machine'] else 'kvm_vm_no')}"
+            )
         for line in lines:
             lbl = Gtk.Label(label=line, xalign=0, wrap=True)
             lbl.add_css_class("sysinfo-value-sub")
             self._detail_box.append(lbl)
+
+        if status.get("virtual_machine"):
+            note = Gtk.Label(label=T("iommu_vm_note"), xalign=0, wrap=True)
+            note.add_css_class("desc-con" if not status["active"] else "sysinfo-value-sub")
+            self._detail_box.append(note)
 
         self._configure_btn.set_visible(not status["active"])
         self._deactivate_btn.set_visible(status["active"])

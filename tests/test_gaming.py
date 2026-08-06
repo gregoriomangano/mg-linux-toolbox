@@ -60,6 +60,12 @@ class GamemodeRealStatusTests(unittest.TestCase):
         with mock.patch("shutil.which", return_value=None):
             self.assertEqual(gr.gamemode_real_status(), "not_installed")
 
+    def test_installed_and_wrapper_succeeds_without_a_daemon_status_check(self):
+        ok = mock.Mock(returncode=0)
+        with mock.patch("shutil.which", side_effect=lambda cmd, path=None: "/usr/bin/gamemoderun" if cmd in ("gamemoded", "gamemoderun") else None), \
+             mock.patch("subprocess.run", return_value=ok):
+            self.assertEqual(gr.gamemode_real_status(), "ready")
+
     def test_installed_and_real_test_succeeds(self):
         ok = mock.Mock(returncode=0)
         with mock.patch("shutil.which", return_value="/usr/bin/gamemoded"), \

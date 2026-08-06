@@ -14,9 +14,9 @@ it — never a fabricated default.
 """
 import os
 import re
-import shutil
 
 from core.executor import run_command, run_pkexec
+from core.executor import command_exists
 from core.persistence import history_store as hs
 from core.persistence.atomic_io import read_json, write_json_atomic
 
@@ -43,7 +43,7 @@ def state_path() -> str:
 
 
 def is_installed() -> bool:
-    return shutil.which("aa-status") is not None
+    return command_exists("aa-status")
 
 
 def service_active() -> bool:

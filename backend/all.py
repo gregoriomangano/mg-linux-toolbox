@@ -3,26 +3,16 @@ Complete backend module — all features from the PDF.
 Kernel-first: every feature operates via sysfs/procfs/modprobe where possible.
 Fallback to userspace tools when unavoidable, with dep-check helpers.
 """
-from core.executor import run_command, run_command_full, run_pkexec, run_pkexec_full, INSTALL_TIMEOUT
+from core.executor import command_exists, run_command, run_command_full, run_pkexec, run_pkexec_full, INSTALL_TIMEOUT
 from core.distro import distro
 from core.kernel_features.base import OpResult
 from core import gpu_vendor
 import os
-import shutil
 
 
 # ─── Universal Helper Functions ───────────────────────────────────────────────
 def _cmd_exists(cmd: str) -> bool:
-    """
-    Check if a command/binary is available on PATH.
-    Uses Python's own shutil.which() rather than shelling out to the
-    `which` binary — found via a real test in a minimal Arch distrobox
-    container that doesn't ship `which` by default (it's a separate,
-    not-always-installed package there), which used to make every single
-    dependency check in the app silently report "not installed" even when
-    the actual tool was present.
-    """
-    return shutil.which(cmd) is not None
+    return command_exists(cmd)
 
 def _module_loaded(name: str) -> bool:
     """Check if a kernel module is currently loaded."""
@@ -315,12 +305,21 @@ def trim_set(on: bool) -> bool:
 def smart_active() -> bool:
     return _service_active("smartd")
 
+def smart_installed() -> bool:
+    pkg = {"debian": "smartmontools", "arch": "smartmontools", "fedora": "smartmontools",
+           "opensuse": "smartmontools", "default": "smartmontools"}
+    return distro.is_installed(pkg)
+
 def smart_set(on: bool) -> bool:
     pkg = {"debian": "smartmontools", "arch": "smartmontools", "fedora": "smartmontools",
            "opensuse": "smartmontools", "default": "smartmontools"}
     if on and not distro.is_installed(pkg):
         _install_pkg(pkg)
     return _service_set("smartd", on)
+
+def samba_installed() -> bool:
+    pkg = {"debian": "samba", "arch": "samba", "fedora": "samba", "opensuse": "samba", "default": "samba"}
+    return distro.is_installed(pkg)
 
 
 def _dir_size_bytes(path: str) -> int:

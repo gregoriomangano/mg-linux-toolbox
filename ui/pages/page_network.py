@@ -161,7 +161,7 @@ class NetworkPage(Adw.PreferencesPage):
         g2.add(self.ssh)
 
         # Samba
-        samba_dep_check = lambda: B._cmd_exists("smbd")
+        samba_dep_check = B.samba_installed
         self.samba = SwitchRow("samba", B.samba_active(), risk="medium",
                                dep_pkg="samba",
                                dep_check=samba_dep_check,

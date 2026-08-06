@@ -26,10 +26,20 @@ import subprocess
 import threading
 import time
 import logging
+import shutil
 from dataclasses import dataclass, field
 
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
+
+_DEFAULT_COMMAND_PATHS = (
+    "/usr/local/sbin",
+    "/usr/local/bin",
+    "/usr/sbin",
+    "/usr/bin",
+    "/sbin",
+    "/bin",
+)
 
 DEFAULT_TIMEOUT = 10
 # Package installs legitimately can take longer than a quick sysctl/systemctl
@@ -178,3 +188,24 @@ def run_pkexec_full(cmd_list, timeout=INSTALL_TIMEOUT, job: "Job | None" = None)
     cancellation — used by the installer flow, which needs to show real
     error detail and a working "Annulla" button instead of hanging."""
     return run_command_full(["pkexec"] + cmd_list, timeout=timeout, job=job)
+
+
+def command_exists(cmd: str, extra_paths: "tuple | list | None" = None) -> bool:
+    """Checks PATH plus the standard system sbin/bin locations.
+
+    Debian keeps several admin tools in /usr/sbin, which normal user
+    sessions often do not include in PATH. Using the real search path
+    here avoids false "not installed" reports for tools that are
+    present but not on the user's login PATH."""
+    if os.path.sep in cmd:
+        return os.path.isfile(cmd) and os.access(cmd, os.X_OK)
+    paths = []
+    seen = set()
+    for path in (os.environ.get("PATH", "").split(os.pathsep)
+                 + list(extra_paths or ())
+                 + list(_DEFAULT_COMMAND_PATHS)):
+        if not path or path in seen:
+            continue
+        seen.add(path)
+        paths.append(path)
+    return shutil.which(cmd, path=os.pathsep.join(paths)) is not None

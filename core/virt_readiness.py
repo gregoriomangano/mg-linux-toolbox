@@ -10,7 +10,7 @@ import os
 import pwd
 import grp
 
-from core.executor import run_command
+from core.executor import command_exists, run_command
 
 _KVM_DEV = "/dev/kvm"
 
@@ -39,6 +39,20 @@ def _cpu_virt_flag_present() -> bool:
         if line.startswith("flags") or line.startswith("Features"):
             flags.update(line.split(":", 1)[1].split())
     return "vmx" in flags or "svm" in flags
+
+
+def _running_in_vm() -> bool | None:
+    if os.path.exists("/.dockerenv"):
+        return False
+    if not command_exists("systemd-detect-virt"):
+        return None
+    try:
+        ok, out, _ = run_command(["systemd-detect-virt", "--vm"])
+    except OSError:
+        return None
+    if ok:
+        return bool(out.strip())
+    return None
 
 
 def kvm_module_loaded() -> str:
@@ -88,6 +102,7 @@ def check_kvm() -> dict:
     dev_writable = os.access(_KVM_DEV, os.W_OK) if dev_exists else False
     in_kvm_group = _user_in_group("kvm")
     nested = kvm_nested_active()
+    virtual_machine = _running_in_vm()
 
     if not cpu_ok:
         state = "unavailable"
@@ -106,6 +121,7 @@ def check_kvm() -> dict:
         "device_writable": dev_writable,
         "in_kvm_group": in_kvm_group,
         "nested_active": nested,
+        "virtual_machine": virtual_machine,
         "state": state,
     }
 
@@ -127,6 +143,7 @@ _AMD_IOMMU_MARKER = "/sys/class/iommu/ivhd0"
 
 def check_iommu() -> dict:
     vendor = _cpu_vendor()
+    virtual_machine = _running_in_vm()
     groups = []
     if os.path.isdir(_IOMMU_GROUPS_DIR):
         try:
@@ -147,6 +164,7 @@ def check_iommu() -> dict:
         "active": active,
         "technology": tech,
         "group_count": len(groups),
+        "virtual_machine": virtual_machine,
     }
 
 

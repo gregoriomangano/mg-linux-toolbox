@@ -9,6 +9,8 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 
+from core.executor import command_exists
+
 READY = "ready"
 ALMOST_READY = "almost_ready"
 MISSING_COMPONENTS = "missing_components"
@@ -67,23 +69,19 @@ def check_lib32() -> ReadinessItem:
 
 
 def gamemode_real_status() -> str:
-    """"installed" | "installed_not_ready" | "ready" — actually runs
+    """"not_installed" | "installed_not_ready" | "ready" — actually runs
     `gamemoderun true` (a real, harmless no-op command) rather than
-    trusting the package database, and confirms the D-Bus service
-    actually registers."""
-    if not shutil.which("gamemoded") or not shutil.which("gamemoderun"):
+    trusting the package database. GameMode is a daemon/lib combo, but
+    the daemon is normally request-driven: we only require that the
+    wrapper and daemon binaries exist and that a harmless request can be
+    completed, not that a long-lived service is already active."""
+    if not command_exists("gamemoded") or not command_exists("gamemoderun"):
         return "not_installed"
     try:
         r = subprocess.run(["gamemoderun", "true"], capture_output=True, text=True, timeout=8)
     except (OSError, subprocess.TimeoutExpired):
         return "installed_not_ready"
     if r.returncode != 0:
-        return "installed_not_ready"
-    try:
-        status = subprocess.run(["gamemoded", "-s"], capture_output=True, text=True, timeout=5)
-    except (OSError, subprocess.TimeoutExpired):
-        return "installed_not_ready"
-    if status.returncode != 0:
         return "installed_not_ready"
     return "ready"
 

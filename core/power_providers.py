@@ -19,7 +19,7 @@ there and prefer it — matching the required order:
   4. never remove anything automatically on conflict;
   5. explain clearly which provider is already in charge.
 """
-from core.executor import run_command
+from core.executor import command_exists, run_command
 
 # Checked in priority order. Pop!_OS ships system76-power by default, so it
 # must win over power-profiles-daemon whenever both happen to be present.
@@ -35,8 +35,7 @@ PROVIDER_LABELS = {
 
 
 def _cmd_exists(cmd: str) -> bool:
-    ok, _, _ = run_command(["which", cmd])
-    return ok
+    return command_exists(cmd)
 
 
 def _service_active(name: str) -> bool:

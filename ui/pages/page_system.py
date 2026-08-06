@@ -57,7 +57,7 @@ class SystemPage(Adw.PreferencesPage):
         # SMART — needs smartmontools
         self.smart = SwitchRow("smart", B.smart_active(), risk="low",
                                dep_pkg="smartmontools",
-                               dep_check=lambda: B._cmd_exists("smartctl"),
+                               dep_check=B.smart_installed,
                                dep_install=lambda job=None: B._install_pkg({"default": "smartmontools"}, job=job))
         self.smart.switch.connect("notify::active", self._on_smart)
         self.smart.add_prefix(IconBadge("drive-harddisk-symbolic", category="disk"))
