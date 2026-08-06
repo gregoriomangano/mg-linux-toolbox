@@ -11,6 +11,8 @@ import threading
 
 from core import gaming_readiness as gr
 from core import gaming_pack as gp
+from core import gaming_pack_installer as gpi
+from core import gaming_pack_state as gps
 from core.executor import Job
 
 from ui.design_system.page_header import PageHeader, wrap_in_preferences_group
@@ -25,6 +27,18 @@ _gaming_ds_strings = {
         "es": "Comprueba la preparación e instala las herramientas de juego más comunes.",
         "fr": "Vérifiez la préparation et installez les outils de jeu courants.",
     },
+    "lib32_blocked_nvidia_proprietary": {
+        "en": "32-bit Vulkan needs the proprietary NVIDIA driver's own 32-bit package, which lives in a repository this app never enables automatically. Add it yourself first, then this becomes available.",
+        "it": "Il Vulkan a 32 bit richiede il pacchetto 32 bit del driver proprietario NVIDIA, che si trova in un repository che questa app non abilita mai automaticamente. Aggiungilo tu stesso, poi questa opzione diventerà disponibile.",
+        "es": "Vulkan de 32 bits necesita el paquete de 32 bits propio del controlador propietario de NVIDIA, que está en un repositorio que esta aplicación nunca habilita automáticamente. Añádelo tú primero y esta opción estará disponible.",
+        "fr": "Vulkan 32 bits nécessite le paquet 32 bits propre au pilote propriétaire NVIDIA, situé dans un dépôt que cette application n'active jamais automatiquement. Ajoutez-le vous-même, puis cette option deviendra disponible.",
+    },
+    "lib32_blocked_unknown_gpu": {
+        "en": "The graphics card driver could not be identified, so the correct 32-bit Vulkan driver package can't be determined safely. Nothing was guessed or installed.",
+        "it": "Non è stato possibile identificare il driver della scheda grafica, quindi non si può determinare in modo sicuro il pacchetto giusto del driver Vulkan a 32 bit. Non è stato indovinato né installato nulla.",
+        "es": "No se pudo identificar el controlador de la tarjeta gráfica, por lo que no se puede determinar con seguridad el paquete correcto del controlador Vulkan de 32 bits. No se ha adivinado ni instalado nada.",
+        "fr": "Le pilote de la carte graphique n'a pas pu être identifié ; le bon paquet de pilote Vulkan 32 bits ne peut donc pas être déterminé en toute sécurité. Rien n'a été deviné ni installé.",
+    },
 }
 for _k, _v in _gaming_ds_strings.items():
     _i18n_mod._strings[_k] = _v
@@ -33,36 +47,121 @@ for _k, _v in _gaming_ds_strings.items():
 _gaming_pack_strings = {
     "gaming_pack_title": {"en": "Gaming Pack", "it": "Gaming Pack", "es": "Gaming Pack", "fr": "Gaming Pack"},
     "gaming_pack_desc": {
-        "en": "Analyses gaming readiness and previews packages that may be useful. It doesn't install anything.",
-        "it": "Analizza la preparazione al gaming e mostra un'anteprima dei pacchetti eventualmente utili. Non installa nulla.",
-        "es": "Analiza la preparación para jugar y muestra una vista previa de los paquetes que podrían ser útiles. No instala nada.",
-        "fr": "Analyse la préparation au jeu et affiche un aperçu des paquets éventuellement utiles. N'installe rien.",
+        "en": "Checks which gaming components are already present and which can be installed from the configured repositories.",
+        "it": "Controlla quali componenti per il gaming sono già presenti e quali possono essere installati dai repository configurati.",
+        "es": "Analiza la preparación para jugar y muestra una vista previa de los paquetes que podrían ser útiles. La comprobación en sí no instala nada; tú eliges qué instalar después.",
+        "fr": "Analyse la préparation au jeu et affiche un aperçu des paquets éventuellement utiles. La vérification elle-même n'installe rien ; vous choisissez ensuite quoi installer.",
     },
     "gaming_pack_pro": {
-        "en": "Detects the distribution, GPU and package status using read-only checks.",
-        "it": "Rileva distribuzione, GPU e stato dei pacchetti con controlli in sola lettura.",
+        "en": "Shows only components that are actually available for the current distribution.",
+        "it": "Mostra soltanto componenti realmente disponibili per la distribuzione in uso.",
         "es": "Detecta la distribución, la GPU y el estado de los paquetes con comprobaciones de solo lectura.",
         "fr": "Détecte la distribution, le GPU et l'état des paquets avec des vérifications en lecture seule.",
     },
     "gaming_pack_con": {
-        "en": "This first version is analysis/preview only and makes no system changes.",
-        "it": "Questa prima versione offre soltanto analisi e anteprima e non modifica il sistema.",
-        "es": "Esta primera versión solo ofrece análisis y vista previa y no modifica el sistema.",
-        "fr": "Cette première version propose uniquement une analyse et un aperçu, sans modifier le système.",
+        "en": "Some programs may require extra repositories. The Toolbox never enables them automatically.",
+        "it": "Alcuni programmi potrebbero non essere disponibili senza repository aggiuntivi. Il Toolbox non li attiva automaticamente.",
+        "es": "Solo se pueden instalar los paquetes que esta comprobación encontró ya disponibles en tus repositorios configurados, con una selección explícita.",
+        "fr": "Seuls les paquets que cette vérification a trouvés déjà disponibles dans vos dépôts configurés peuvent être installés, via une sélection explicite.",
     },
     "gaming_pack_scan_btn": {"en": "Check the system", "it": "Controlla il sistema", "es": "Comprobar el sistema", "fr": "Vérifier le système"},
     "gaming_pack_scanning": {"en": "Checking…", "it": "Controllo in corso…", "es": "Comprobando…", "fr": "Vérification…"},
     "gaming_pack_scan_note": {
-        "en": "Read-only check: no password, installation, removal, repository, driver, kernel or full-system update operation is performed.",
+        "en": "Read-only check: no password, installation, removal, repository, driver, kernel or full-system update operation is performed here.",
         "it": "Controllo in sola lettura: non esegue operazioni su password, installazioni, rimozioni, repository, driver, kernel o aggiornamenti completi del sistema.",
         "es": "Esta comprobación no modifica nada y no pide contraseña.",
         "fr": "Cette vérification ne modifie rien et ne demande jamais de mot de passe.",
     },
+    "gaming_pack_select_hint": {
+        "en": "Tick the components you want, then install only those.",
+        "it": "Seleziona i componenti desiderati, poi installa solo quelli.",
+        "es": "Marca los componentes que quieres y luego instala solo esos.",
+        "fr": "Cochez les composants souhaités, puis installez uniquement ceux-ci.",
+    },
+    "gaming_pack_install_selected_btn": {
+        "en": "Install selected components", "it": "Installa i componenti selezionati",
+        "es": "Instalar los componentes seleccionados", "fr": "Installer les composants sélectionnés",
+    },
+    "gaming_pack_installing": {"en": "Installing…", "it": "Installazione in corso…", "es": "Instalando…", "fr": "Installation en cours…"},
+    "gaming_pack_install_nothing_selected": {
+        "en": "No selected component is actually installable right now.",
+        "it": "Nessun componente selezionato è realmente installabile in questo momento.",
+        "es": "Ningún componente seleccionado se puede instalar ahora mismo.",
+        "fr": "Aucun composant sélectionné n'est réellement installable pour le moment.",
+    },
+    "gaming_pack_install_unsupported_family": {
+        "en": "Installation isn't implemented for this distribution yet.",
+        "it": "L'installazione non è ancora implementata per questa distribuzione.",
+        "es": "La instalación aún no está implementada para esta distribución.",
+        "fr": "L'installation n'est pas encore implémentée pour cette distribution.",
+    },
+    "gaming_pack_install_done": {
+        "en": "Selected components installed.", "it": "Componenti selezionati installati.",
+        "es": "Componentes seleccionados instalados.", "fr": "Composants sélectionnés installés.",
+    },
+    "gaming_pack_install_precheck_failed": {
+        "en": "One component is no longer available in the configured repositories.",
+        "it": "Un componente non è più disponibile nei repository attualmente configurati.",
+        "es": "Un componente ya no está disponible en los repositorios configurados.",
+        "fr": "Un composant n'est plus disponible dans les dépôts configurés.",
+    },
+    "gaming_pack_install_failed": {
+        "en": "Installation failed.", "it": "Installazione non riuscita.",
+        "es": "La instalación ha fallado.", "fr": "Échec de l'installation.",
+    },
+    "gaming_pack_install_verification_failed": {
+        "en": "Installation ended, but package verification failed.", "it": "Installazione terminata, ma la verifica dei pacchetti è fallita.",
+        "es": "La instalación terminó, pero la verificación de paquetes falló.", "fr": "L'installation s'est terminée, mais la vérification des paquets a échoué.",
+    },
+    "gaming_pack_remove_selected_btn": {
+        "en": "Remove components installed by the Toolbox", "it": "Rimuovi i componenti installati dal Toolbox",
+        "es": "Eliminar componentes instalados por Toolbox", "fr": "Supprimer les composants installés par Toolbox",
+    },
+    "gaming_pack_remove_done": {
+        "en": "Selected components removed.", "it": "Componenti selezionati rimossi.",
+        "es": "Componentes seleccionados eliminados.", "fr": "Composants sélectionnés supprimés.",
+    },
+    "gaming_pack_remove_failed": {
+        "en": "Removal failed.", "it": "Rimozione non riuscita.",
+        "es": "La eliminación ha fallado.", "fr": "Échec de la suppression.",
+    },
+    "gaming_pack_remove_verification_failed": {
+        "en": "Removal ended, but package verification failed.", "it": "Rimozione terminata, ma la verifica dei pacchetti è fallita.",
+        "es": "La eliminación terminó, pero la verificación de paquetes falló.", "fr": "La suppression s'est terminée, mais la vérification des paquets a échoué.",
+    },
+    "gaming_pack_remove_precheck_failed": {
+        "en": "Removal was blocked because the recorded state no longer matches the system.",
+        "it": "La rimozione è stata bloccata perché lo stato registrato non corrisponde più al sistema.",
+        "es": "La eliminación se bloqueó porque el estado registrado ya no coincide con el sistema.",
+        "fr": "La suppression a été bloquée, car l'état enregistré ne correspond plus au système.",
+    },
+    "gaming_pack_remove_nothing_selected": {
+        "en": "No removable component is selected.", "it": "Nessun componente rimovibile è selezionato.",
+        "es": "No hay ningún componente extraíble seleccionado.", "fr": "Aucun composant supprimable n'est sélectionné.",
+    },
+    "gaming_pack_remove_unsupported_family": {
+        "en": "Removal isn't implemented for this distribution yet.", "it": "La rimozione non è ancora implementata per questa distribuzione.",
+        "es": "La eliminación aún no está implementada para esta distribución.", "fr": "La suppression n'est pas encore implémentée pour cette distribution.",
+    },
+    "gaming_pack_install_confirm_title": {
+        "en": "Install selected components", "it": "Installa i componenti selezionati",
+        "es": "Instalar componentes seleccionados", "fr": "Installer les composants sélectionnés",
+    },
+    "gaming_pack_remove_confirm_title": {
+        "en": "Remove selected components", "it": "Rimuovi i componenti selezionati",
+        "es": "Eliminar componentes seleccionados", "fr": "Supprimer les composants sélectionnés",
+    },
+    "gaming_pack_confirm_body": {
+        "en": "Components: {components}\nPackages: {packages}\n\nOnly one package-manager transaction will be started.",
+        "it": "Componenti: {components}\nPacchetti: {packages}\n\nVerrà avviata una sola transazione del gestore pacchetti.",
+        "es": "Componentes: {components}\nPaquetes: {packages}\n\nSolo se iniciará una transacción del gestor de paquetes.",
+        "fr": "Composants: {components}\nPaquets: {packages}\n\nUne seule transaction du gestionnaire de paquets sera lancée.",
+    },
     "gaming_pack_testing_note": {
-        "en": "The Debian-family mapping was tested on this Pop!_OS machine. Fedora, Arch-family and openSUSE still require testing on real machines.",
-        "it": "La mappatura Debian è stata provata su questa macchina Pop!_OS. Fedora, famiglia Arch e openSUSE richiedono ancora prove su macchine reali.",
-        "es": "La asignación Debian se probó en esta máquina Pop!_OS. Fedora, la familia Arch y openSUSE aún requieren pruebas en máquinas reales.",
-        "fr": "Le mappage Debian a été testé sur cette machine Pop!_OS. Fedora, la famille Arch et openSUSE doivent encore être testés sur des machines réelles.",
+        "en": "Selectable components are shown only after a live package-manager probe on the current system.",
+        "it": "I componenti selezionabili vengono mostrati solo dopo una verifica reale del package manager sul sistema corrente.",
+        "es": "Los componentes seleccionables solo se muestran tras una comprobación real del gestor de paquetes en el sistema actual.",
+        "fr": "Les composants sélectionnables ne sont affichés qu'après une vérification réelle du gestionnaire de paquets sur le système actuel.",
     },
     "gaming_pack_gpu_blocked": {
         "en": "The graphics driver could not be verified. Package analysis remains informational and no change is made.",
@@ -72,7 +171,7 @@ _gaming_pack_strings = {
     },
     "gaming_pack_state_already_installed": {"en": "Already installed", "it": "Già installato", "es": "Ya instalado", "fr": "Déjà installé"},
     "gaming_pack_state_available": {"en": "Available", "it": "Disponibile", "es": "Disponible", "fr": "Disponible"},
-    "gaming_pack_state_not_available": {"en": "Not available", "it": "Non disponibile", "es": "No disponible", "fr": "Non disponible"},
+    "gaming_pack_state_not_available": {"en": "Not available in the currently configured repositories", "it": "Non disponibile nei repository attualmente configurati", "es": "No disponible en los repositorios configurados actualmente", "fr": "Non disponible dans les dépôts actuellement configurés"},
     "gaming_pack_state_repo_needed": {"en": "Repository needed", "it": "Repository necessario", "es": "Repositorio necesario", "fr": "Dépôt nécessaire"},
     "gaming_pack_state_not_suitable": {"en": "Not suited to this hardware", "it": "Non adatto all'hardware", "es": "No adecuado para este hardware", "fr": "Non adapté à ce matériel"},
     "gaming_pack_state_not_verifiable": {"en": "Not verifiable yet", "it": "Non verificabile", "es": "No verificable todavía", "fr": "Non vérifiable"},
@@ -98,12 +197,14 @@ _gaming_pack_strings = {
     "gaming_pack_cancel_btn": {"en": "Cancel check", "it": "Annulla controllo", "es": "Cancelar comprobación", "fr": "Annuler la vérification"},
     "gaming_pack_scan_failed": {"en": "The analysis could not be completed.", "it": "Non è stato possibile completare l'analisi.", "es": "No se pudo completar el análisis.", "fr": "L'analyse n'a pas pu être terminée."},
     "gaming_pack_present_packages": {"en": "Present: {packages}", "it": "Presenti: {packages}", "es": "Presentes: {packages}", "fr": "Présents : {packages}"},
-    "gaming_pack_suggested_packages": {"en": "Preview only, for manual evaluation: {packages}", "it": "Solo anteprima, da valutare manualmente: {packages}", "es": "Solo vista previa, para evaluación manual: {packages}", "fr": "Aperçu uniquement, à évaluer manuellement : {packages}"},
+    "gaming_pack_suggested_packages": {"en": "Installable now: {packages}", "it": "Installabili ora: {packages}", "es": "Instalables ahora: {packages}", "fr": "Installables maintenant : {packages}"},
     "gaming_pack_unavailable_packages": {"en": "Not found in configured repositories: {packages}", "it": "Non trovati nei repository configurati: {packages}", "es": "No encontrados en los repositorios configurados: {packages}", "fr": "Introuvables dans les dépôts configurés : {packages}"},
+    "gaming_pack_remove_component_btn": {"en": "Remove", "it": "Rimuovi", "es": "Eliminar", "fr": "Supprimer"},
 
     "gaming_pack_comp_steam": {"en": "Steam", "it": "Steam", "es": "Steam", "fr": "Steam"},
     "gaming_pack_comp_gamemode": {"en": "GameMode", "it": "GameMode", "es": "GameMode", "fr": "GameMode"},
     "gaming_pack_comp_mangohud": {"en": "MangoHud", "it": "MangoHud", "es": "MangoHud", "fr": "MangoHud"},
+    "gaming_pack_comp_mangohud_32": {"en": "MangoHud (32-bit)", "it": "MangoHud (32 bit)", "es": "MangoHud (32 bits)", "fr": "MangoHud (32 bits)"},
     "gaming_pack_comp_gamescope": {"en": "Gamescope", "it": "Gamescope", "es": "Gamescope", "fr": "Gamescope"},
     "gaming_pack_comp_goverlay": {"en": "GOverlay", "it": "GOverlay", "es": "GOverlay", "fr": "GOverlay"},
     "gaming_pack_comp_lutris": {"en": "Lutris", "it": "Lutris", "es": "Lutris", "fr": "Lutris"},
@@ -114,6 +215,9 @@ _gaming_pack_strings = {
     "gaming_pack_comp_vulkan_32": {"en": "Vulkan (32-bit)", "it": "Vulkan (32 bit)", "es": "Vulkan (32 bits)", "fr": "Vulkan (32 bits)"},
     "gaming_pack_comp_opengl_32": {"en": "OpenGL (32-bit)", "it": "OpenGL (32 bit)", "es": "OpenGL (32 bits)", "fr": "OpenGL (32 bits)"},
     "gaming_pack_comp_audio_32": {"en": "Audio (32-bit)", "it": "Audio (32 bit)", "es": "Audio (32 bits)", "fr": "Audio (32 bits)"},
+    "gaming_pack_common_header": {"en": "Common package", "it": "Pacchetto comune", "es": "Paquete común", "fr": "Paquet commun"},
+    "gaming_pack_extra_header": {"en": "Distribution extras", "it": "Extra della distribuzione", "es": "Extras de la distribución", "fr": "Extras de la distribution"},
+    "gaming_pack_repositories": {"en": "Repositories: {packages}", "it": "Repository: {packages}", "es": "Repositorios: {packages}", "fr": "Dépôts : {packages}"},
 }
 for _k, _v in _gaming_pack_strings.items():
     _i18n_mod._strings[_k] = _v
@@ -328,6 +432,11 @@ class GamingPackRow(FeatureRow):
         self._scan_generation = 0
         self._scan_cancel_event = None
         self._scan_job = None
+        self._install_running = False
+        self._install_job = None
+        self._remove_running = False
+        self._selected_ids = set()
+        self._removable_ids = set()
         self._destroyed = False
 
         self._scan_btn = Gtk.Button(label=T("gaming_pack_scan_btn"))
@@ -348,11 +457,29 @@ class GamingPackRow(FeatureRow):
         self._system_lbl.add_css_class("sysinfo-value-sub")
         self._system_lbl.set_visible(False)
 
+        self._select_hint_lbl = Gtk.Label(label=T("gaming_pack_select_hint"), xalign=0, wrap=True)
+        self._select_hint_lbl.add_css_class("sysinfo-value-sub")
+        self._select_hint_lbl.set_visible(False)
+
         self._results_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+
+        self._install_btn = Gtk.Button(label=T("gaming_pack_install_selected_btn"))
+        self._install_btn.add_css_class("lt-action-btn")
+        self._install_btn.set_visible(False)
+        self._install_btn.set_sensitive(False)
+        self._install_btn.connect("clicked", self._on_install_selected_clicked)
+        self._remove_btn = Gtk.Button(label=T("gaming_pack_remove_selected_btn"))
+        self._remove_btn.add_css_class("destructive-action")
+        self._remove_btn.set_visible(False)
+        self._remove_btn.set_sensitive(False)
+        self._remove_btn.connect("clicked", self._on_remove_selected_clicked)
 
         self._result_lbl = Gtk.Label(wrap=True, xalign=0)
         self._result_lbl.add_css_class("desc-con")
         self._result_lbl.set_visible(False)
+        self._detail_lbl = Gtk.Label(wrap=True, xalign=0, selectable=True)
+        self._detail_lbl.add_css_class("sysinfo-value-sub")
+        self._detail_lbl.set_visible(False)
 
         super().__init__("gaming_pack", None, risk="low")
         self.connect("destroy", self._on_destroy)
@@ -364,8 +491,12 @@ class GamingPackRow(FeatureRow):
         body.append(self._testing_note)
         body.append(self._blocked_lbl)
         body.append(self._system_lbl)
+        body.append(self._select_hint_lbl)
         body.append(self._results_box)
+        body.append(self._install_btn)
+        body.append(self._remove_btn)
         body.append(self._result_lbl)
+        body.append(self._detail_lbl)
 
         self.add_row(body)
 
@@ -385,6 +516,7 @@ class GamingPackRow(FeatureRow):
         self._scan_btn.set_label(T("gaming_pack_cancel_btn"))
         self._result_lbl.set_visible(False)
         self._blocked_lbl.set_visible(False)
+        self._detail_lbl.set_visible(False)
 
         def run():
             try:
@@ -414,6 +546,8 @@ class GamingPackRow(FeatureRow):
             self._scan_cancel_event.set()
         if self._scan_job is not None:
             self._scan_job.cancel()
+        if self._install_job is not None:
+            self._install_job.cancel()
 
     def _reset_scan_button(self):
         self._scan_running = False
@@ -433,6 +567,8 @@ class GamingPackRow(FeatureRow):
 
         self._last_profile = profile
         self._last_previews = previews
+        self._selected_ids = set()
+        self._removable_ids = gpi.removable_component_ids(profile, previews)
 
         self._system_lbl.set_text(
             f"{profile.distro_pretty_name} — {profile.package_manager} — "
@@ -446,20 +582,52 @@ class GamingPackRow(FeatureRow):
 
         _clear_box(self._results_box)
         has_optional_gap = False
-        for preview in previews:
+        any_installable = False
+        common_previews = [p for p in previews if p.common]
+        extra_previews = [p for p in previews if not p.common]
+
+        if common_previews:
+            self._results_box.append(self._section_label("gaming_pack_common_header"))
+        for preview in common_previews:
             self._results_box.append(self._preview_row(preview))
             if preview.optional and preview.state in (gp.NOT_AVAILABLE, gp.NOT_VERIFIABLE):
                 has_optional_gap = True
+            if preview.state == gp.AVAILABLE and preview.suggested_packages:
+                any_installable = True
+        if extra_previews:
+            self._results_box.append(self._section_label("gaming_pack_extra_header"))
+        for preview in extra_previews:
+            self._results_box.append(self._preview_row(preview))
+            if preview.optional and preview.state in (gp.NOT_AVAILABLE, gp.NOT_VERIFIABLE):
+                has_optional_gap = True
+            if preview.state == gp.AVAILABLE and preview.suggested_packages:
+                any_installable = True
 
         if has_optional_gap:
             note = Gtk.Label(label=T("gaming_pack_optional_note"), xalign=0, wrap=True)
             note.add_css_class("sysinfo-value-sub")
             self._results_box.append(note)
 
+        self._select_hint_lbl.set_visible(any_installable)
+        self._install_btn.set_visible(any_installable)
+        self._install_btn.set_sensitive(False)
+        self._remove_btn.set_visible(bool(self._removable_ids))
+        self._remove_btn.set_sensitive(False)
+
         return False
+
+    def _section_label(self, key):
+        lbl = Gtk.Label(label=T(key), xalign=0, wrap=True)
+        lbl.add_css_class("sysinfo-value")
+        return lbl
 
     def _preview_row(self, preview) -> Gtk.Widget:
         row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+
+        if preview.state == gp.AVAILABLE and preview.suggested_packages:
+            check = Gtk.CheckButton()
+            check.connect("toggled", self._on_component_toggled, preview.component_id)
+            row.append(check)
 
         name_key = f"gaming_pack_comp_{preview.component_id}"
         label_text = T(name_key)
@@ -471,6 +639,11 @@ class GamingPackRow(FeatureRow):
         state_lbl = Gtk.Label(label=T(_STATE_LABEL_KEYS.get(preview.state, preview.state)), xalign=1)
         state_lbl.add_css_class(_STATE_CSS.get(preview.state, "sysinfo-value-sub"))
         row.append(state_lbl)
+        if preview.component_id in self._removable_ids:
+            remove_btn = Gtk.Button(label=T("gaming_pack_remove_component_btn"))
+            remove_btn.add_css_class("destructive-action")
+            remove_btn.connect("clicked", self._on_remove_single_clicked, preview.component_id)
+            row.append(remove_btn)
 
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         box.append(row)
@@ -489,6 +662,7 @@ class GamingPackRow(FeatureRow):
             (preview.installed_packages, "gaming_pack_present_packages"),
             (preview.suggested_packages, "gaming_pack_suggested_packages"),
             (preview.unavailable_packages, "gaming_pack_unavailable_packages"),
+            (preview.repositories, "gaming_pack_repositories"),
         )
         for packages, key in package_details:
             if packages:
@@ -500,6 +674,142 @@ class GamingPackRow(FeatureRow):
                 box.append(label)
 
         return box
+
+    # ── Selective install ───────────────────────────────────────────
+    def _on_component_toggled(self, check, component_id):
+        if check.get_active():
+            self._selected_ids.add(component_id)
+        else:
+            self._selected_ids.discard(component_id)
+        self._install_btn.set_sensitive(bool(self._selected_ids) and not self._install_running)
+        self._remove_btn.set_sensitive(bool(self._selected_ids & self._removable_ids) and not self._remove_running)
+
+    def _on_install_selected_clicked(self, _btn):
+        if self._install_running or not self._selected_ids:
+            return
+        self._confirm_operation(
+            "gaming_pack_install_confirm_title",
+            list(self._selected_ids),
+            lambda: self._run_install(list(self._selected_ids)),
+        )
+
+    def _run_install(self, component_ids):
+        self._install_running = True
+        self._install_btn.set_sensitive(False)
+        self._remove_btn.set_sensitive(False)
+        self._install_btn.set_label(T("gaming_pack_installing"))
+        self._result_lbl.set_visible(False)
+        self._detail_lbl.set_visible(False)
+
+        previews = self._last_previews
+        self._install_job = Job()
+
+        def run():
+            try:
+                result = gpi.install_selected(component_ids, self._last_profile, previews, job=self._install_job)
+            except Exception as exc:
+                logger.warning("Gaming Pack install failed", exc_info=True)
+                result = gpi.InstallSelectionResult(False, friendly_message="gaming_pack_install_failed",
+                                                     technical_detail=str(exc))
+            GLib.idle_add(self._on_install_done, result)
+
+        threading.Thread(target=run, name="mg-gaming-pack-install", daemon=True).start()
+
+    def _on_install_done(self, result):
+        self._install_running = False
+        self._install_job = None
+        self._install_btn.set_label(T("gaming_pack_install_selected_btn"))
+        self._result_lbl.set_text(T(result.friendly_message) if result.friendly_message else "")
+        self._result_lbl.remove_css_class("desc-con")
+        self._result_lbl.remove_css_class("status-active")
+        self._result_lbl.add_css_class("status-active" if result.ok else "desc-con")
+        self._result_lbl.set_visible(bool(result.friendly_message))
+        self._detail_lbl.set_text(result.technical_detail or "")
+        self._detail_lbl.set_visible(bool(result.technical_detail))
+        if result.ok and not self._destroyed:
+            # Re-scan so installed/available state reflects reality
+            # instead of the stale pre-install preview.
+            self._on_scan_button_clicked(None)
+        else:
+            self._install_btn.set_sensitive(bool(self._selected_ids))
+            self._remove_btn.set_sensitive(bool(self._selected_ids & self._removable_ids))
+        return False
+
+    def _on_remove_single_clicked(self, _btn, component_id):
+        self._confirm_operation(
+            "gaming_pack_remove_confirm_title",
+            [component_id],
+            lambda: self._run_remove([component_id]),
+        )
+
+    def _on_remove_selected_clicked(self, _btn):
+        removable_selection = sorted(self._selected_ids & self._removable_ids)
+        if not removable_selection:
+            return
+        self._confirm_operation(
+            "gaming_pack_remove_confirm_title",
+            removable_selection,
+            lambda: self._run_remove(removable_selection),
+        )
+
+    def _confirm_operation(self, title_key, component_ids, on_confirm):
+        component_names = []
+        packages = []
+        for preview in self._last_previews:
+            if preview.component_id not in component_ids:
+                continue
+            component_names.append(T(f"gaming_pack_comp_{preview.component_id}"))
+            record = gps.get_record(preview.component_id)
+            if record and record.get("installed_packages"):
+                packages.extend(record["installed_packages"])
+            else:
+                packages.extend(preview.suggested_packages)
+        dialog = Adw.MessageDialog(transient_for=self.get_root(), heading=T(title_key))
+        dialog.set_body(T("gaming_pack_confirm_body").format(
+            components=", ".join(component_names) or "—",
+            packages=", ".join(sorted(dict.fromkeys(packages))) or "—",
+        ))
+        dialog.add_response("cancel", T("sr_cancel_btn"))
+        dialog.add_response("confirm", T("sr_confirm_btn"))
+        dialog.set_response_appearance("confirm", Adw.ResponseAppearance.SUGGESTED)
+        dialog.connect("response", lambda _d, response: on_confirm() if response == "confirm" else None)
+        dialog.present()
+
+    def _run_remove(self, component_ids):
+        self._remove_running = True
+        self._install_btn.set_sensitive(False)
+        self._remove_btn.set_sensitive(False)
+        self._result_lbl.set_visible(False)
+        self._detail_lbl.set_visible(False)
+        self._install_job = Job()
+
+        def run():
+            try:
+                result = gpi.remove_selected(component_ids, self._last_profile, self._last_previews, job=self._install_job)
+            except Exception as exc:
+                logger.warning("Gaming Pack remove failed", exc_info=True)
+                result = gpi.InstallSelectionResult(False, friendly_message="gaming_pack_remove_failed",
+                                                     technical_detail=str(exc))
+            GLib.idle_add(self._on_remove_done, result)
+
+        threading.Thread(target=run, name="mg-gaming-pack-remove", daemon=True).start()
+
+    def _on_remove_done(self, result):
+        self._remove_running = False
+        self._install_job = None
+        self._result_lbl.set_text(T(result.friendly_message) if result.friendly_message else "")
+        self._result_lbl.remove_css_class("desc-con")
+        self._result_lbl.remove_css_class("status-active")
+        self._result_lbl.add_css_class("status-active" if result.ok else "desc-con")
+        self._result_lbl.set_visible(bool(result.friendly_message))
+        self._detail_lbl.set_text(result.technical_detail or "")
+        self._detail_lbl.set_visible(bool(result.technical_detail))
+        if result.ok and not self._destroyed:
+            self._on_scan_button_clicked(None)
+        else:
+            self._install_btn.set_sensitive(bool(self._selected_ids))
+            self._remove_btn.set_sensitive(bool(self._selected_ids & self._removable_ids))
+        return False
 
 def _clear_box(box: Gtk.Box):
     child = box.get_first_child()
@@ -549,12 +859,22 @@ class GamingPage(Adw.PreferencesPage):
         self._add_try_button(self.mango, T("gaming_try_mangohud_btn"), self._on_try_mangohud)
         g1.add(self.mango)
 
+        lib32_blocked_reason = B.lib32_blocked_reason()
         self.lib32 = InstallRow("lib32", B.lib32_installed(), risk="low",
                                 dep_pkg="lib32 (mesa:i386)",
                                 dep_check=B.lib32_installed,
-                                dep_install=B.lib32_install)
+                                dep_install=B.lib32_install,
+                                available=B.lib32_supported() and not lib32_blocked_reason)
         self.lib32.button.connect("clicked", self._on_lib32)
         self.lib32.add_prefix(IconBadge("input-gaming-symbolic", category="neutral"))
+        if lib32_blocked_reason:
+            # "Not available" alone doesn't explain WHY — this app never
+            # guesses a GPU-specific package, so the user needs the real
+            # reason (unrecognized GPU / NVIDIA proprietary needs its own
+            # repository) instead of a dead end.
+            reason_lbl = Gtk.Label(label=T(lib32_blocked_reason), xalign=0, wrap=True)
+            reason_lbl.add_css_class("desc-con")
+            self.lib32.add_row(reason_lbl)
         g1.add(self.lib32)
 
         self.vulkan = InstallRow("vulkan", B.vulkan_installed(), risk="low",

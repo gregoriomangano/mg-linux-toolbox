@@ -64,6 +64,8 @@ class RepoEntry:
     enabled: bool
     source_file: str
     uri: str                # already redacted
+    alias: str = ""        # Zypper section ID ("repo-oss") or raw Flatpak remote name
+    scope: str = ""        # Flatpak scope only: "system" | "user" (empty otherwise)
     signed: "bool | None" = None
     suites: list = field(default_factory=list)
     components: str = ""
@@ -448,7 +450,7 @@ def scan_zypper(repos_d: str = "/etc/zypp/repos.d") -> list:
             entries.append(RepoEntry(
                 name=fields.get("name", section), family="opensuse", kind=kind,
                 enabled=enabled, source_file=path, uri=redact_credentials(uri),
-                signed=gpgcheck, warnings=warnings,
+                alias=section, signed=gpgcheck, warnings=warnings,
             ))
     return entries
 
@@ -464,7 +466,7 @@ def scan_flatpak() -> list:
             entries.append(RepoEntry(
                 name=f"{r.name} ({scope})", family="flatpak", kind=kind,
                 enabled=r.enabled, source_file=f"flatpak --{scope}",
-                uri=redact_credentials(r.url), signed=None,
+                uri=redact_credentials(r.url), alias=r.name, scope=scope, signed=None,
             ))
     return entries
 

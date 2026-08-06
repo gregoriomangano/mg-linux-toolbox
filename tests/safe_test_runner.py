@@ -1,11 +1,15 @@
-"""Compact unittest runner with a suite-wide privilege guard."""
+"""Compact unittest runner with per-test tracking on top of the package guard."""
 import argparse
 import json
+import os
 import sys
 import time
 import unittest
 
-from tests.privilege_guard import installed_privilege_guard, set_current_test
+if __package__ in (None, ""):
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from tests.privilege_guard import set_current_test
 
 
 class TrackingTextTestResult(unittest.TextTestResult):
@@ -27,20 +31,19 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     loader = unittest.defaultTestLoader
-    with installed_privilege_guard():
-        if args.discover:
-            suite = loader.discover("tests", top_level_dir=".")
-        else:
-            if not args.names:
-                parser.error("provide test module names or --discover")
-            suite = loader.loadTestsFromNames(args.names)
+    if args.discover:
+        suite = loader.discover("tests", top_level_dir=".")
+    else:
+        if not args.names:
+            parser.error("provide test module names or --discover")
+        suite = loader.loadTestsFromNames(args.names)
 
-        discovered = suite.countTestCases()
-        started = time.monotonic()
-        runner = unittest.TextTestRunner(
-            verbosity=1, resultclass=TrackingTextTestResult)
-        result = runner.run(suite)
-        duration = time.monotonic() - started
+    discovered = suite.countTestCases()
+    started = time.monotonic()
+    runner = unittest.TextTestRunner(
+        verbosity=1, resultclass=TrackingTextTestResult)
+    result = runner.run(suite)
+    duration = time.monotonic() - started
 
     failures = len(result.failures)
     errors = len(result.errors)

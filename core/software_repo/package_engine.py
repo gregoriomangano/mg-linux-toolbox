@@ -106,6 +106,74 @@ def _op_disable_recipe(profile, scope, job):
     return recipes.disable_recipe(scope, profile, job=job)
 
 
+def _op_toggle_repo(profile, scope, job):
+    """Toggle a repository enable/disable state.
+    `scope` is JSON-encoded: {"family": "opensuse"|"flatpak", "alias": <section_id>,
+    "source_file": <path>, "scope": <flatpak_scope>, "enabled": bool}"""
+    import json
+    from core.software_repo import repo_toggle as toggle
+    try:
+        data = json.loads(scope)
+    except (json.JSONDecodeError, ValueError):
+        from core.software_repo.repo_transaction import EngineResult
+        return type('Result', (), {'ok': False, 'friendly_message': 'repo_toggle_invalid_scope'})()
+
+    family = data.get("family", "")
+    enabled = data.get("enabled", False)
+
+    if family == "opensuse":
+        return toggle.set_zypper_repo_enabled(
+            data["source_file"], data["alias"], enabled, job=job)
+    elif family == "flatpak":
+        return toggle.set_flatpak_remote_enabled(
+            data["remote_name"], data["scope"], enabled, job=job)
+    else:
+        return type('Result', (), {'ok': False, 'friendly_message': 'repo_toggle_unknown_family'})()
+
+
+def _op_remove_repo(profile, scope, job):
+    """Remove a repository entirely.
+    `scope` is JSON-encoded: same structure as _op_toggle_repo."""
+    import json
+    from core.software_repo import repo_toggle as toggle
+    try:
+        data = json.loads(scope)
+    except (json.JSONDecodeError, ValueError):
+        return type('Result', (), {'ok': False, 'friendly_message': 'repo_remove_invalid_scope'})()
+
+    family = data.get("family", "")
+
+    if family == "opensuse":
+        return toggle.remove_zypper_repo(
+            data["source_file"], data["alias"], job=job)
+    elif family == "flatpak":
+        return toggle.remove_flatpak_remote(
+            data["remote_name"], data["scope"], job=job)
+    else:
+        return type('Result', (), {'ok': False, 'friendly_message': 'repo_remove_unknown_family'})()
+
+
+# The one, real, version-matched Packman URL this app will ever add
+# automatically — fixed here, never built from GUI text. Only offered
+# when the detected distro id is exactly "opensuse-tumbleweed" and
+# detection is confident (see _op_activate_packman below); Leap and
+# any unresolved id are refused, never guessed at.
+PACKMAN_TUMBLEWEED_URL = "http://ftp.gwdg.de/pub/linux/misc/packman/suse/openSUSE_Tumbleweed/"
+PACKMAN_ALIAS = "packman"
+
+
+def _op_activate_packman(profile, scope, job):
+    """Add the real Packman repository for the exact detected openSUSE
+    Tumbleweed release. Refuses on Leap or any distro/version that
+    can't be confidently resolved — never falls back to guessing a
+    URL. No package is installed and no vendor is switched; this only
+    registers repository metadata."""
+    from core.software_repo import repo_toggle as toggle
+    if profile.family != "opensuse" or not profile.confident or profile.id != "opensuse-tumbleweed":
+        return type('Result', (), {'ok': False, 'friendly_message': 'packman_not_compatible'})()
+    return toggle.add_zypper_repo(PACKMAN_ALIAS, PACKMAN_TUMBLEWEED_URL, job=job)
+
+
 # Values store the *name* of the module-level function, not the
 # function object itself — resolved dynamically in run_operation()
 # below. Binding the object directly here would capture it once at
@@ -129,6 +197,9 @@ OPERATIONS = {
     "clean_cache":           ("_op_clean_cache", "software_repo.clean_cache", DEACTIVATION),
     "enable_recipe":         ("_op_enable_recipe", "software_repo.repo_recipe", ACTIVATION),
     "disable_recipe":        ("_op_disable_recipe", "software_repo.repo_recipe", DEACTIVATION),
+    "toggle_repo":           ("_op_toggle_repo", "software_repo.repo_toggle", CONFIGURATION),
+    "remove_repo":           ("_op_remove_repo", "software_repo.repo_remove", DEACTIVATION),
+    "activate_packman":      ("_op_activate_packman", "software_repo.packman_activation", ACTIVATION),
 }
 
 

@@ -6,6 +6,7 @@ Fallback to userspace tools when unavoidable, with dep-check helpers.
 from core.executor import run_command, run_command_full, run_pkexec, run_pkexec_full, INSTALL_TIMEOUT
 from core.distro import distro
 from core.kernel_features.base import OpResult
+from core import gpu_vendor
 import os
 import shutil
 
@@ -456,6 +457,36 @@ def mangohud_install(job=None):
     _install_pkg(pkg, job=job)
     return mangohud_installed()
 
+# openSUSE 32-bit Vulkan ICD (Installable Client Driver) package per GPU
+# vendor — confirmed real, present in the default "Repository principale
+# (OSS)" via `zypper search -s`/`zypper info` on a real Tumbleweed
+# machine. The loader (libvulkan1-32bit) alone does nothing without one
+# of these; there is deliberately no entry for NVIDIA_PROPRIETARY or
+# UNKNOWN — that package lives in a repository this app never adds on
+# its own, and guessing a GPU package is exactly what must not happen.
+_OPENSUSE_VULKAN_ICD_32BIT = {
+    gpu_vendor.AMD: "libvulkan_radeon-32bit",
+    gpu_vendor.INTEL: "libvulkan_intel-32bit",
+    gpu_vendor.NOUVEAU: "libvulkan_nouveau-32bit",
+}
+
+
+def lib32_blocked_reason() -> str:
+    """Empty string if a real, non-guessed 32-bit Vulkan ICD is known
+    for this machine's GPU; otherwise an i18n key explaining why lib32
+    install must not proceed. Only meaningful on openSUSE — the other
+    three families install a single, vendor-neutral loader package and
+    rely on whatever 64-bit ICD is already in use."""
+    if not distro.is_opensuse:
+        return ""
+    vendor = gpu_vendor.detect_gpu_vendor()
+    if vendor == gpu_vendor.NVIDIA_PROPRIETARY:
+        return "lib32_blocked_nvidia_proprietary"
+    if vendor == gpu_vendor.UNKNOWN:
+        return "lib32_blocked_unknown_gpu"
+    return ""
+
+
 def lib32_installed() -> bool:
     if distro.is_debian:
         ok, out, _ = run_command(["dpkg", "-l", "libgl1-mesa-dri:i386"])
@@ -470,14 +501,25 @@ def lib32_installed() -> bool:
         # even right after a successful install.
         ok, _, _ = run_command(["rpm", "-q", "mesa-libGL.i686"])
         return ok
+    elif distro.is_opensuse:
+        # openSUSE ships 32-bit/biarch RPMs with a "-32bit" suffix from the
+        # same main OSS repository as the 64-bit packages (no separate
+        # multiarch-enable step, unlike Debian). Verified for real on an
+        # openSUSE Tumbleweed machine: `Mesa-libGL1-32bit` is the package
+        # that actually exists (there is no "mesa-libGL1-32bit" or
+        # ".i686" variant on this family). The real Vulkan ICD for this
+        # GPU (not just the loader) is also required when the vendor is
+        # known — checking libvulkan1-32bit alone used to report
+        # "installed" even with zero working 32-bit Vulkan drivers.
+        packages = ["Mesa-libGL1-32bit", "libvulkan1-32bit"]
+        icd = _OPENSUSE_VULKAN_ICD_32BIT.get(gpu_vendor.detect_gpu_vendor())
+        if icd:
+            packages.append(icd)
+        ok, _, _ = run_command(["rpm", "-q", *packages])
+        return ok
     return False
 
 def lib32_install(job=None):
-    # openSUSE's 32-bit/multilib package names vary by version and aren't
-    # a simple, stable single name like the other three families — rather
-    # than guess and possibly pull in the wrong packages, this stays
-    # unsupported there (probe()/dep_check reports it unavailable instead
-    # of silently doing nothing on click).
     # run_pkexec_full(..., timeout=INSTALL_TIMEOUT, ...) here, not the
     # bare run_pkexec (10s default) — same reasoning as gamemode_install
     # above: these are real multi-package installs (plus an apt update),
@@ -490,10 +532,33 @@ def lib32_install(job=None):
         run_pkexec_full(["pacman", "-S", "--noconfirm", "lib32-mesa", "lib32-vulkan-icd-loader"], timeout=INSTALL_TIMEOUT, job=job)
     elif distro.is_fedora:
         run_pkexec_full(["dnf", "install", "-y", "mesa-libGL.i686", "vulkan-loader.i686"], timeout=INSTALL_TIMEOUT, job=job)
+    elif distro.is_opensuse:
+        # Defense in depth: the UI already hides/gates this button when
+        # lib32_blocked_reason() is non-empty, but this function must
+        # never install a guessed GPU package even if reached some other
+        # way (DepBanner, a future caller, ...).
+        reason = lib32_blocked_reason()
+        if reason:
+            from core.executor import CommandResult
+            return CommandResult([], False, None, "", "", 0.0, error=reason)
+        icd = _OPENSUSE_VULKAN_ICD_32BIT[gpu_vendor.detect_gpu_vendor()]
+        # Package names confirmed against a real openSUSE Tumbleweed
+        # machine (`zypper search -s`/`zypper info`): all three exist in
+        # the default, already-enabled "Repository principale (OSS)" —
+        # no Packman/extra repo needed for this part of lib32.
+        result = run_pkexec_full(["zypper", "--non-interactive", "install",
+                                   "Mesa-libGL1-32bit", "libvulkan1-32bit", icd], timeout=INSTALL_TIMEOUT, job=job)
+        if not result.ok:
+            # Real exit code / stdout / stderr (e.g. "System management
+            # is locked", a network error, ...) — previously discarded
+            # here same as the old docker_install() systemctl bug, so a
+            # real Zypper failure was indistinguishable from "not
+            # installed yet" with no diagnostic at all.
+            return result
     return lib32_installed()
 
 def lib32_supported() -> bool:
-    return distro.is_debian or distro.is_arch or distro.is_fedora
+    return distro.is_debian or distro.is_arch or distro.is_fedora or distro.is_opensuse
 
 def vulkan_installed() -> bool:
     ok, out, _ = run_command(["vulkaninfo", "--summary"])
@@ -572,14 +637,25 @@ def nested_virt_set(on: bool):
 def docker_installed() -> bool:
     return _cmd_exists("docker")
 
+def docker_ready() -> bool:
+    """Real final verification: the package being on disk doesn't mean
+    the daemon actually came up (systemd unit name mismatch, a masked
+    unit, a cgroup/driver conflict — all real ways `systemctl enable
+    --now docker` can fail silently if its result is discarded)."""
+    from core import container_engines as ce
+    return ce.docker_status()["daemon_active"]
+
 def docker_install(job=None):
-    # 2026-08-05: was missing an openSUSE branch — on that family no
-    # install command ever ran (only the doomed "enable a service that
-    # was never installed" call below), always reporting failure.
-    _install_pkg({"debian": "docker.io", "arch": "docker",
-                  "fedora": "docker", "opensuse": "docker"}, job=job)
-    run_pkexec(["systemctl", "enable", "--now", "docker"], job=job)
-    return docker_installed()
+    install_result = _install_pkg({"debian": "docker.io", "arch": "docker",
+                                    "fedora": "docker", "opensuse": "docker"}, job=job)
+    if not install_result.ok:
+        return install_result
+    # Real command, real exit code, real stdout/stderr — previously
+    # discarded (bare run_pkexec call with no captured result), so a
+    # failed `systemctl enable --now docker` (masked unit, cgroup
+    # driver conflict, wrong unit name...) was indistinguishable from
+    # success: the row only ever re-checked the docker *binary*.
+    return run_pkexec_full(["systemctl", "enable", "--now", "docker"], timeout=INSTALL_TIMEOUT, job=job)
 
 def podman_installed() -> bool:
     return _cmd_exists("podman")
@@ -588,14 +664,6 @@ def podman_install(job=None):
     pkg = {"default": "podman"}
     _install_pkg(pkg, job=job)
     return podman_installed()
-
-def distrobox_installed() -> bool:
-    return _cmd_exists("distrobox")
-
-def distrobox_install(job=None):
-    pkg = {"debian": "distrobox", "arch": "distrobox", "fedora": "distrobox", "default": "distrobox"}
-    _install_pkg(pkg, job=job)
-    return distrobox_installed()
 
 
 # ─── Security ────────────────────────────────────────────────────
@@ -791,7 +859,11 @@ PRINTER_DRIVER_SETS = {
         "debian": ["printer-driver-all"],
         "arch": ["gutenprint", "foomatic-db-ppds"],
         "fedora": ["gutenprint-cups", "foomatic-db-ppds"],
-        "opensuse": ["gutenprint", "foomatic-filters"],
+        # "foomatic-filters" does not exist as a package on openSUSE
+        # (verified with `zypper search`/`zypper info` on a real
+        # Tumbleweed machine — it 404s outright). The real equivalent
+        # "all manufacturer PPDs" package there is "manufacturer-PPDs".
+        "opensuse": ["gutenprint", "manufacturer-PPDs"],
     },
     "printer_hp": {
         "debian": ["hplip", "hplip-gui"],

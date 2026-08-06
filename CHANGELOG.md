@@ -4,6 +4,13 @@ Le modifiche pubbliche di M.G Linux Toolbox saranno registrate in questo file.
 
 Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il progetto usa [Semantic Versioning](https://semver.org/lang/it/) quando viene assegnata una versione pubblica.
 
+## [Non rilasciato]
+
+- Gaming Pack: verifica reale della disponibilità nei repository configurati, installazione in una sola transazione, verifica post-installazione e rimozione limitata ai pacchetti registrati dal Toolbox.
+- Gaming Pack: supporto verificato per Debian 13, Fedora 44, Arch Linux e openSUSE Tumbleweed, inclusi i pacchetti 32 bit e l'ICD Vulkan AMD corretto.
+- Repository e Virtualizzazione: riallineati i controlli pubblici per Packman, Flatpak, Docker, Podman e Distrobox alle implementazioni validate.
+- Test: la suite protegge anche la discovery standard da `sudo`, `pkexec`, `su` e `doas`, senza modificare il comportamento runtime dell'applicazione.
+
 ## [0.9.0-beta.4] - 2026-08-04
 
 ### Corretto

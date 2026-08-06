@@ -1,3 +1,4 @@
+import logging
 import threading
 
 import gi
@@ -14,9 +15,12 @@ from core import virt_setup as vs
 from core import bootloader_iommu as bi
 from core import vfio_setup as vfs
 from core import container_engines as ce
+from core.executor import Job
 from core.kernel_features.registry import register
 from core.kernel_features.ksm import KsmFeature
 from ui.pages.page_kernel import BooleanKernelFeatureRow, _widen_preferences_clamp
+
+logger = logging.getLogger(__name__)
 
 from ui.design_system.page_header import PageHeader, wrap_in_preferences_group
 from ui.design_system.icon_badge import IconBadge
@@ -732,9 +736,12 @@ class DockerRow(InstallRow):
 
     def _on_install(self, _btn):
         from ui.widgets import run_install_in_background, report_toggle_result
-        run_install_in_background(self.button, B.docker_install, B.docker_installed,
+        # Real final verification: the daemon actually being active, not
+        # just the binary being on disk (see backend.all.docker_ready).
+        run_install_in_background(self.button, B.docker_install, B.docker_ready,
                                    lambda: (self.mark_installed(), self._refresh_detail()),
-                                   on_failure=lambda: report_toggle_result(self, "virt", "virt.docker_install", False))
+                                   on_failure=lambda: (self._refresh_detail(),
+                                                        report_toggle_result(self, "virt", "virt.docker_install", False)))
 
 
 class PodmanRow(InstallRow):
@@ -781,11 +788,16 @@ class PodmanRow(InstallRow):
 class DistroboxRow(InstallRow):
     def __init__(self):
         status = ce.distrobox_status()
-        installed = status["state"] != ce.DISTROBOX_STATE_NOT_INSTALLED
+        # Real readiness, not just "the binary is on disk" — a distrobox
+        # install with no working backend must not show as done (see
+        # ce.distrobox_install / the "Installed" pill would otherwise
+        # hide the button on a machine that can't actually run anything).
+        installed = status["state"] == ce.DISTROBOX_STATE_READY
         super().__init__("distrobox", installed, risk="low",
-                         dep_pkg="distrobox", dep_check=lambda: B._cmd_exists("distrobox"),
-                         dep_install=B.distrobox_install,
-                         dep_pkg_map={"debian": "distrobox", "arch": "distrobox", "fedora": "distrobox", "default": "distrobox"})
+                         dep_pkg="distrobox",
+                         dep_check=lambda: ce.distrobox_status()["state"] == ce.DISTROBOX_STATE_READY,
+                         dep_install=lambda job=None: ce.distrobox_install(job=job))
+        self._install_job = None
         self.button.connect("clicked", self._on_install)
         self._detail_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         self.add_row(self._detail_box)
@@ -820,10 +832,56 @@ class DistroboxRow(InstallRow):
             self._detail_box.append(b_lbl)
 
     def _on_install(self, _btn):
-        from ui.widgets import run_install_in_background, report_toggle_result
-        run_install_in_background(self.button, B.distrobox_install, B.distrobox_installed,
-                                   lambda: (self.mark_installed(), self._refresh_detail()),
-                                   on_failure=lambda: report_toggle_result(self, "virt", "virt.distrobox_install", False))
+        if not self.button.get_sensitive():
+            return  # guard against a double-click starting a second install
+        plan = ce.distrobox_install_plan()
+        if not plan["packages"]:
+            # Distrobox binary and a ready backend already both exist —
+            # nothing to confirm, just re-verify and reflect reality.
+            self._run_install()
+            return
+        dialog = Adw.MessageDialog(
+            transient_for=self.get_root(),
+            heading=T("distrobox_install_confirm_title"),
+            body=T("distrobox_install_confirm_body").format(packages=", ".join(plan["packages"])),
+        )
+        dialog.add_response("cancel", T("kf_dialog_cancel"))
+        dialog.add_response("confirm", T("install_btn"))
+        dialog.set_response_appearance("confirm", Adw.ResponseAppearance.SUGGESTED)
+        dialog.connect("response", self._on_install_confirm_response)
+        dialog.present()
+
+    def _on_install_confirm_response(self, _dialog, response):
+        if response == "confirm":
+            self._run_install()
+
+    def _run_install(self):
+        from ui.widgets import report_toggle_result
+        self.button.set_label("⏳")
+        self.button.set_sensitive(False)
+        self._install_job = Job()
+
+        def run():
+            try:
+                result = ce.distrobox_install(job=self._install_job)
+            except Exception as exc:
+                logger.exception("Distrobox install failed")
+                result = ce.DistroboxInstallResult(False, [], None, "install_generic_error")
+            GLib.idle_add(self._on_install_done, result, report_toggle_result)
+
+        threading.Thread(target=run, name="mg-distrobox-install", daemon=True).start()
+
+    def _on_install_done(self, result, report_toggle_result):
+        self._install_job = None
+        self._refresh_detail()
+        if result.ok:
+            self.mark_installed()
+        else:
+            self.button.set_label(T("install_btn"))
+            self.button.set_sensitive(True)
+        report_toggle_result(self, "virt", "virt.distrobox_install", result.ok,
+                              result.technical_detail(), friendly_key=result.friendly_message or "kf_err_generic")
+        return False
 
     def _on_try_clicked(self, _btn):
         plan = ce.distrobox_test_plan()

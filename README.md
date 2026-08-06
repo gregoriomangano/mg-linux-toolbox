@@ -6,7 +6,7 @@ M.G Linux Toolbox raccoglie in un'interfaccia grafica semplice funzioni Linux ch
 
 ## Stato del progetto
 
-La versione **0.9.0 Beta 4** è la prerelease corrente. L'ultimo collaudo comprende **1580 test superati**.
+La versione **0.9.0 Beta 4** è la prerelease corrente. Il ramo locale per la prossima beta include il Gaming Pack installabile con controlli reali dei repository.
 
 Il pacchetto AppImage verificato e il relativo checksum sono associati alla [Release v0.9.0-beta.4](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.4).
 
@@ -58,7 +58,7 @@ La disponibilità cambia in base a kernel, hardware, driver e distribuzione. Una
 - **Audio:** stato di PipeWire, dispositivi, riavvio audio e opzioni di risparmio energetico.
 - **Stampanti:** servizio CUPS, supporto di base e driver rilevati.
 - **Software e repository:** stato di Flatpak e Flathub, sorgenti software rilevate e controlli sulla salute dei pacchetti, con comportamenti adattati alla distribuzione.
-- **Gaming:** stato di GameMode, Vulkan, librerie e strumenti comunemente usati per giocare; il Gaming Pack V1 esegue soltanto analisi e anteprima, senza installare o rimuovere pacchetti.
+- **Gaming:** stato di GameMode, Vulkan, librerie e strumenti comunemente usati per giocare; il Gaming Pack controlla la disponibilità reale nei repository configurati e permette installazione e rimozione sicure dei soli pacchetti registrati dal Toolbox.
 - **Virtualizzazione:** KVM, IOMMU, VFIO, KSM e motori per container.
 - **Servizi:** stato, avvio, arresto e attivazione automatica dei servizi riconosciuti.
 - **Sicurezza:** accesso SSH, aggiornamenti, AppArmor, SELinux e protezioni rilevate.
@@ -137,7 +137,7 @@ M.G Linux Toolbox non promette:
 
 Una scelta utile su un computer può essere inutile o controproducente su un altro. Leggi sempre le spiegazioni mostrate e concedi privilegi soltanto per un'azione riconosciuta.
 
-Ambiente verificato durante la preparazione pubblica: **Pop!_OS 24.04 LTS**, Python 3.12, GTK 4.14, Libadwaita 1.5 e PyGObject 3.48. La mappatura Debian del Gaming Pack è stata controllata realmente su questa macchina; Fedora, famiglia Arch e openSUSE richiedono ancora prove su macchine reali. Per altre distribuzioni moderne la compatibilità è prevista ma deve essere verificata. **Debian 12 non è dichiarata supportata: la sua Libadwaita 1.2.2 è sotto la versione minima reale richiesta (1.4)**, verificato empiricamente in un container Debian 12 — l'app lo rileva e lo dice chiaramente invece di fallire con un errore tecnico.
+Ambiente verificato durante la preparazione pubblica: **Pop!_OS 24.04 LTS**, Python 3.12, GTK 4.14, Libadwaita 1.5 e PyGObject 3.48. Il Gaming Pack è stato verificato nei container puliti Debian 13, Fedora 44, Arch Linux e openSUSE Tumbleweed; il controllo finale sui pacchetti resta comunque legato ai repository configurati sulla macchina dell'utente. Per altre distribuzioni moderne la compatibilità deve essere verificata. **Debian 12 non è dichiarata supportata: la sua Libadwaita 1.2.2 è sotto la versione minima reale richiesta (1.4)**, verificato empiricamente in un container Debian 12 — l'app lo rileva e lo dice chiaramente invece di fallire con un errore tecnico.
 
 Per le segnalazioni riservate consulta [SECURITY.md](SECURITY.md). Per i limiti generali consulta [DISCLAIMER.md](DISCLAIMER.md).
 

@@ -9,8 +9,10 @@ user elsewhere in the UI.
 """
 import os
 import shutil
+from dataclasses import dataclass, field
+from typing import Optional
 
-from core.executor import run_command
+from core.executor import run_command, run_command_full, run_pkexec_full, INSTALL_TIMEOUT, Job
 
 # ─── Docker ────────────────────────────────────────────────────────────
 DOCKER_STATE_NOT_INSTALLED = "not_installed"
@@ -132,6 +134,105 @@ def distrobox_test_plan() -> dict:
     they agree to anything, never run implicitly."""
     return {"image": _TEST_IMAGE, "container_name": _TEST_CONTAINER_NAME,
             "command": "echo ok"}
+
+
+@dataclass
+class DistroboxInstallResult:
+    ok: bool
+    steps: list = field(default_factory=list)  # [(label, CommandResult), ...]
+    backend: Optional[str] = None
+    friendly_message: str = ""
+
+    def __bool__(self):
+        return self.ok
+
+    def technical_detail(self) -> str:
+        """Real command, exit code, stdout and stderr for every step
+        actually attempted — the "Dettagli errore" disclosure."""
+        return "\n\n".join(f"[{label}]\n{result.technical_detail()}" for label, result in self.steps)
+
+
+def distrobox_install_plan() -> dict:
+    """What a real distrobox_install() call would do, computed without
+    installing or guessing anything — shown to the user for confirmation
+    BEFORE any privileged command runs. Prefers Podman when no backend
+    package exists at all yet: it works rootless, unlike Docker it needs
+    no system service the user hasn't agreed to enable, and it's already
+    this app's preferred backend everywhere else (see distrobox_status()).
+
+    Only proposes installing Podman when its package is genuinely
+    missing — if it's present but not ready (e.g. subuid/subgid not
+    configured, no newuidmap), reinstalling the package fixes nothing,
+    so that case is left for distrobox_install()'s final verification to
+    report honestly instead of running a pointless zypper/apt/dnf call.
+    """
+    podman_ready = podman_status()["state"] == PODMAN_STATE_READY
+    docker_ready = docker_status()["state"] == DOCKER_STATE_READY
+    backend_ready = podman_ready or docker_ready
+    podman_missing = not shutil.which("podman")
+    install_podman = (not backend_ready) and podman_missing
+    packages = []
+    if not shutil.which("distrobox"):
+        packages.append("distrobox")
+    if install_podman:
+        packages.append("podman")
+    return {
+        "packages": packages,
+        "needs_backend": install_podman,
+        "backend_choice": "podman" if install_podman else None,
+    }
+
+
+def distrobox_install(job: Optional[Job] = None) -> DistroboxInstallResult:
+    """
+    Real flow, one captured command/exit-code/stdout/stderr per step —
+    never a bare "did the package end up on disk" assumption:
+      1) if no backend (Podman or Docker) is actually ready, install
+         Podman (see distrobox_install_plan for why) — never silently
+         fall back to Docker, which the user hasn't agreed to enable;
+      2) install the distrobox package itself, if it's missing;
+      3) verify `distrobox version` actually runs;
+      4) verify the backend is now really ready (`podman info` /
+         `docker info`), not just "the package is on disk".
+    Step 4 failing means this returns ok=False: a distrobox binary with
+    no working container backend is not a working install, regardless
+    of what steps 1-3 reported.
+    """
+    from core.distro import distro
+
+    steps = []
+    plan = distrobox_install_plan()
+
+    if plan["needs_backend"]:
+        cmd = distro.install_cmd({"default": "podman"})
+        if not cmd:
+            return DistroboxInstallResult(False, steps, None, "distrobox_install_no_command")
+        result = run_pkexec_full(cmd, timeout=INSTALL_TIMEOUT, job=job)
+        steps.append(("install_podman", result))
+        if not result.ok:
+            return DistroboxInstallResult(False, steps, "podman", "distrobox_install_backend_failed")
+
+    if "distrobox" in plan["packages"]:
+        cmd = distro.install_cmd({"default": "distrobox"})
+        if not cmd:
+            return DistroboxInstallResult(False, steps, plan["backend_choice"], "distrobox_install_no_command")
+        result = run_pkexec_full(cmd, timeout=INSTALL_TIMEOUT, job=job)
+        steps.append(("install_distrobox", result))
+        if not result.ok:
+            return DistroboxInstallResult(False, steps, plan["backend_choice"], "distrobox_install_failed")
+
+    version_result = run_command_full(["distrobox", "version"])
+    steps.append(("distrobox_version", version_result))
+    if not version_result.ok:
+        return DistroboxInstallResult(False, steps, plan["backend_choice"], "distrobox_install_verify_failed")
+
+    podman_ready = podman_status()["state"] == PODMAN_STATE_READY
+    docker_ready = docker_status()["state"] == DOCKER_STATE_READY
+    if not (podman_ready or docker_ready):
+        return DistroboxInstallResult(False, steps, plan["backend_choice"], "distrobox_install_no_working_backend")
+
+    backend = plan["backend_choice"] or ("podman" if podman_ready else "docker")
+    return DistroboxInstallResult(True, steps, backend, "distrobox_install_done")
 
 
 def run_distrobox_test() -> dict:

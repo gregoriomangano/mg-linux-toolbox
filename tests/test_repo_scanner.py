@@ -345,6 +345,26 @@ class ZypperTests(unittest.TestCase):
             entries = rs.scan_zypper(tmp)
         self.assertEqual(entries[0].kind, rs.KIND_OFFICIAL)
 
+    def test_disabled_repo_has_enabled_false(self):
+        """Repository with enabled=0 must be marked as disabled."""
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(os.path.join(tmp, "external.repo"), "w") as f:
+                f.write(
+                    "[external-repo]\nname=External Repo\n"
+                    "baseurl=https://example.com/repo\nenabled=0\ngpgcheck=1\n"
+                )
+            entries = rs.scan_zypper(tmp)
+        self.assertEqual(len(entries), 1)
+        self.assertFalse(entries[0].enabled)
+
+    def test_alias_is_captured_from_section_id(self):
+        """Zypper section ID ([repo-oss]) must be captured as alias."""
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(os.path.join(tmp, "oss.repo"), "w") as f:
+                f.write("[repo-oss]\nname=Main Repository\nbaseurl=https://download.opensuse.org/oss\nenabled=1\ngpgcheck=1\n")
+            entries = rs.scan_zypper(tmp)
+        self.assertEqual(entries[0].alias, "repo-oss")
+
 
 class ScanAllTests(unittest.TestCase):
     def test_summary_counts_are_consistent(self):

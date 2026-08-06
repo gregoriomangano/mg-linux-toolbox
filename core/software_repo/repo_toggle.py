@@ -136,3 +136,102 @@ def set_flatpak_remote_enabled(remote_name: str, scope: str, enabled: bool, job=
     verified = match is not None and match.enabled == enabled
     return ToggleResult(verified, tx.VERIFIED if verified else tx.VERIFICATION_FAILED,
                          friendly_message="repo_toggle_success" if verified else "repo_toggle_verification_failed")
+
+
+def remove_zypper_repo(repo_file: str, section_id: str, job=None) -> ToggleResult:
+    """Remove a Zypper repository: either delete the entire .repo file
+    (if it contains only one section) or surgically remove just the
+    section block (if multiple sections exist). Backup before removal,
+    verify after, restore on failure."""
+    original = _read_text(repo_file)
+    if original is None:
+        return ToggleResult(False, tx.UNDETERMINED, friendly_message="repo_toggle_file_unreadable")
+
+    pattern = re.compile(_SECTION_RE_TEMPLATE.format(section=re.escape(section_id)))
+    match = pattern.search(original)
+    if not match:
+        return ToggleResult(False, tx.UNSUPPORTED, friendly_message="repo_toggle_section_not_found")
+
+    other_sections = len(re.findall(r"^\[.*\]$", original, re.MULTILINE)) > 1
+    if other_sections:
+        new_text = original[:match.start()] + original[match.end():]
+        tmp_path = _write_temp(new_text)
+        def apply_fn():
+            result = run_pkexec_full(["cp", tmp_path, repo_file], timeout=INSTALL_TIMEOUT, job=job)
+            return result.ok
+        def verify_fn():
+            current = _read_text(repo_file)
+            if current is None:
+                return False
+            return not pattern.search(current)
+    else:
+        tmp_path = None
+        def apply_fn():
+            result = run_pkexec_full(["rm", repo_file], timeout=INSTALL_TIMEOUT, job=job)
+            return result.ok
+        def verify_fn():
+            import os
+            return not os.path.exists(repo_file)
+
+    try:
+        result = tx.run_transaction([repo_file], apply_fn, verify_fn, job=job)
+    finally:
+        import os
+        if tmp_path:
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+
+    return ToggleResult(
+        result.ok, result.state,
+        friendly_message="repo_remove_success" if result.ok else (result.friendly_message or "repo_remove_failed"),
+        technical_detail=result.technical_detail,
+    )
+
+
+def remove_flatpak_remote(remote_name: str, scope: str, job=None) -> ToggleResult:
+    """Delete a Flatpak remote. No file backup — Flatpak remotes are
+    stored in Flatpak's own configuration, not as .repo files.
+    Verification re-reads the remote list to confirm deletion."""
+    from core.software_repo.flatpak_manager import list_remotes, SCOPE_SYSTEM
+
+    cmd = ["flatpak", "remote-delete", f"--{scope}", remote_name]
+    runner = run_pkexec_full if scope == SCOPE_SYSTEM else run_command_full
+    result = runner(cmd, timeout=INSTALL_TIMEOUT, job=job)
+    if not result.ok:
+        return ToggleResult(False, tx.VERIFICATION_FAILED, friendly_message="repo_remove_failed",
+                             technical_detail=result.technical_detail())
+
+    remotes = list_remotes(scope)
+    match = next((r for r in remotes if r.name == remote_name), None)
+    verified = match is None
+    return ToggleResult(verified, tx.VERIFIED if verified else tx.VERIFICATION_FAILED,
+                         friendly_message="repo_remove_success" if verified else "repo_remove_verification_failed")
+
+
+def add_zypper_repo(alias: str, url: str, job=None) -> ToggleResult:
+    """Add a new Zypper repository via `zypper addrepo` — used only for
+    a fixed, verified, version-matched URL built from the real detected
+    distro (e.g. Packman for the exact openSUSE Tumbleweed release),
+    never a free-text URL from the UI. No package is installed and no
+    vendor is switched — this only registers metadata. On verification
+    failure the just-added repo is removed again (rollback), so a
+    failed activation never leaves a half-registered repository
+    behind."""
+    cmd = ["zypper", "--non-interactive", "addrepo", "--refresh", "--check", url, alias]
+    result = run_pkexec_full(cmd, timeout=INSTALL_TIMEOUT, job=job)
+    if not result.ok:
+        return ToggleResult(False, tx.VERIFICATION_FAILED, friendly_message="repo_add_failed",
+                             technical_detail=result.technical_detail())
+
+    run_pkexec_full(["zypper", "--non-interactive", "refresh", alias], timeout=INSTALL_TIMEOUT, job=job)
+
+    from core.software_repo.repo_scanner import scan_zypper
+    entries = scan_zypper()
+    match = next((e for e in entries if e.alias == alias), None)
+    if match is None:
+        run_pkexec_full(["zypper", "--non-interactive", "removerepo", alias], timeout=INSTALL_TIMEOUT, job=job)
+        return ToggleResult(False, tx.VERIFICATION_FAILED, friendly_message="repo_add_verification_failed")
+
+    return ToggleResult(True, tx.VERIFIED, friendly_message="repo_add_success")

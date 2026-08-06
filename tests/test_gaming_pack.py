@@ -111,7 +111,7 @@ class ComponentStateTests(unittest.TestCase):
 
     def _scan(self, profile=None, installed=False, available=True):
         with mock.patch("core.gaming_pack._is_installed", return_value=installed), \
-             mock.patch("core.gaming_pack._is_available", return_value=available):
+             mock.patch("core.gaming_pack._availability_probe", return_value=(available, "repo-test")):
             return gp.scan(profile or self._profile())
 
     def test_package_already_present(self):
@@ -136,7 +136,7 @@ class ComponentStateTests(unittest.TestCase):
             return family == "debian" and package == "libvulkan1"
 
         with mock.patch("core.gaming_pack._is_installed", side_effect=installed), \
-             mock.patch("core.gaming_pack._is_available", return_value=True):
+             mock.patch("core.gaming_pack._availability_probe", return_value=(True, "repo-test")):
             previews = gp.scan(self._profile())
         vulkan = next(p for p in previews if p.component_id == "vulkan_64")
         self.assertEqual(vulkan.state, gp.AVAILABLE)
@@ -146,13 +146,12 @@ class ComponentStateTests(unittest.TestCase):
     def test_steam_missing_on_fedora_reports_manual_repository_hint(self):
         steam = next(p for p in self._scan(self._profile("fedora"), available=False)
                      if p.component_id == "steam")
-        self.assertEqual(steam.state, gp.REPO_NEEDED)
-        self.assertIn("RPM Fusion", steam.repo_hint)
+        self.assertEqual(steam.state, gp.NOT_AVAILABLE)
 
     def test_lib32_requires_existing_multilib_configuration(self):
         preview = next(p for p in self._scan(self._profile("arch", lib32_active=False))
                        if p.component_id == "vulkan_32")
-        self.assertEqual(preview.state, gp.REPO_NEEDED)
+        self.assertEqual(preview.state, gp.NOT_AVAILABLE)
         self.assertEqual(preview.repo_hint, "multilib-test")
 
     def test_lib32_not_suitable_on_non_x86(self):
@@ -192,10 +191,14 @@ class MappingTests(unittest.TestCase):
     def test_fedora_mapping_uses_rpm_names(self):
         self.assertEqual(gp.COMPONENTS["vulkan_32"]["fedora"], ["vulkan-loader.i686"])
         self.assertEqual(gp.COMPONENTS["gamescope"]["fedora"], ["gamescope"])
+        self.assertEqual(gp.COMPONENTS["steam_devices"]["fedora"], ["steam-devices"])
 
     def test_arch_mapping_includes_official_steam_device_rules(self):
         self.assertEqual(gp.COMPONENTS["steam_devices"]["arch"], ["steam-devices"])
         self.assertEqual(gp.COMPONENTS["vulkan_32"]["arch"], ["lib32-vulkan-icd-loader"])
+
+    def test_common_component_list_matches_verified_cross_distro_subset(self):
+        self.assertEqual(gp.COMMON_COMPONENTS, ("gamemode", "mangohud", "goverlay", "vulkan_64"))
 
     def test_opensuse_leap_does_not_inherit_tumbleweed_guesses(self):
         profile = ComponentStateTests()._profile("opensuse", variant="leap")
@@ -232,7 +235,7 @@ class ReadOnlySafetyTests(unittest.TestCase):
         with mock.patch("core.executor.run_pkexec_full", side_effect=fail), \
              mock.patch("core.executor.run_pkexec", side_effect=fail), \
              mock.patch("core.gaming_pack._is_installed", return_value=False), \
-             mock.patch("core.gaming_pack._is_available", return_value=True):
+             mock.patch("core.gaming_pack._availability_probe", return_value=(True, "repo-test")):
             previews = gp.scan(profile)
         self.assertEqual(len(previews), len(gp.COMPONENTS))
 

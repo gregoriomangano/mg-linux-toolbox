@@ -6,7 +6,7 @@ M.G Linux Toolbox brings together Linux features that would normally require the
 
 ## Project status
 
-Version **0.9.0 Beta 4** is the current prerelease. The latest validation includes **1580 passing tests**.
+Version **0.9.0 Beta 4** is the current prerelease. The local branch for the next beta includes the Gaming Pack with real repository availability checks.
 
 The verified AppImage package and its checksum are associated with [Release v0.9.0-beta.4](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.4).
 
@@ -58,7 +58,7 @@ Availability changes with the kernel, hardware, drivers, and distribution. An un
 - **Audio:** PipeWire status, devices, audio restart, and audio power-saving options.
 - **Printers:** CUPS service, basic support, and detected drivers.
 - **Software and repositories:** Flatpak and Flathub status, detected software sources, and package-health checks with distribution-aware behavior.
-- **Gaming:** GameMode, Vulkan, libraries, and tools commonly used for gaming; Gaming Pack V1 is analysis/preview only and does not install or remove packages.
+- **Gaming:** GameMode, Vulkan, libraries, and tools commonly used for gaming; the Gaming Pack checks real availability in configured repositories and safely installs or removes only packages recorded by the Toolbox.
 - **Virtualization:** KVM, IOMMU, VFIO, KSM, and container engines.
 - **Services:** status, start, stop, and automatic activation of recognized services.
 - **Security:** SSH access, updates, AppArmor, SELinux, and detected protections.
@@ -137,7 +137,7 @@ M.G Linux Toolbox does not promise:
 
 A choice that is useful on one computer may be ineffective or counterproductive on another. Always read the explanations shown and grant privileges only for an action you recognize.
 
-Environment verified during public preparation: **Pop!_OS 24.04 LTS**, Python 3.12, GTK 4.14, Libadwaita 1.5, and PyGObject 3.48. The Debian-family Gaming Pack mapping was checked on this machine; Fedora, Arch-family, and openSUSE still require real-machine testing. Compatibility with other modern distributions is expected but must be tested. **Debian 12 is not declared as supported: its Libadwaita 1.2.2 is below the real minimum required version (1.4)**, verified empirically in a Debian 12 container — the app detects this and says so clearly instead of failing with a technical error.
+Environment verified during public preparation: **Pop!_OS 24.04 LTS**, Python 3.12, GTK 4.14, Libadwaita 1.5, and PyGObject 3.48. The Gaming Pack was verified in clean Debian 13, Fedora 44, Arch Linux, and openSUSE Tumbleweed containers; final package availability still depends on the repositories configured on the user's machine. Compatibility with other modern distributions must be tested. **Debian 12 is not declared as supported: its Libadwaita 1.2.2 is below the real minimum required version (1.4)**, verified empirically in a Debian 12 container — the app detects this and says so clearly instead of failing with a technical error.
 
 For private security reports, see [SECURITY.md](SECURITY.md). For general limitations, see [DISCLAIMER.md](DISCLAIMER.md).
 

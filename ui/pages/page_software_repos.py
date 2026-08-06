@@ -6,6 +6,8 @@ recipes, and "Salute pacchetti". Built entirely on core.software_repo.*
 touch the system) and on the existing design system (PageHeader,
 make_section, StatusPill, IconBadge) — no new visual language.
 """
+import fnmatch
+import os
 import threading
 
 import gi
@@ -262,10 +264,10 @@ _page_strings = {
         "fr": "Ceux-ci sont vérifiés et peuvent être activés directement.",
     },
     "sr_additional_advanced_desc": {
-        "en": "Advanced level — information only for now. Enabling these manually carries more risk.",
-        "it": "Livello avanzato — solo informativo per ora. Abilitarli manualmente comporta più rischio.",
-        "es": "Nivel avanzado — solo informativo por ahora. Habilitarlos manualmente implica más riesgo.",
-        "fr": "Niveau avancé — informatif seulement pour l'instant. Les activer manuellement comporte plus de risques.",
+        "en": "Additional repositories compatible with your system. Before every activation, the source, changes and possible risks will be shown.",
+        "it": "Repository aggiuntivi compatibili con il sistema. Prima di ogni attivazione verranno mostrati origine, modifiche e possibili rischi.",
+        "es": "Repositorios adicionales compatibles con tu sistema. Antes de cada activación se mostrarán el origen, los cambios y los posibles riesgos.",
+        "fr": "Dépôts supplémentaires compatibles avec votre système. Avant chaque activation, la source, les modifications et les risques éventuels seront affichés.",
     },
     "sr_enable_btn": {"en": "Enable", "it": "Abilita", "es": "Habilitar", "fr": "Activer"},
     "sr_disable_btn": {"en": "Disable", "it": "Disabilita", "es": "Deshabilitar", "fr": "Désactiver"},
@@ -458,6 +460,85 @@ _page_strings = {
     "sr_result_failed": {"en": "The operation could not be completed.", "it": "Non è stato possibile completare l'operazione.",
                            "es": "No se pudo completar la operación.", "fr": "L'opération n'a pas pu être terminée."},
     "sr_reboot_note": {"en": "A restart is recommended.", "it": "Si consiglia il riavvio.", "es": "Se recomienda reiniciar.", "fr": "Un redémarrage est recommandé."},
+
+    # ── Repository interactive actions (2026-08-05) ───────────────────
+    "sr_repo_action_enable_btn": {"en": "Enable", "it": "Abilita", "es": "Habilitar", "fr": "Activer"},
+    "sr_repo_action_disable_btn": {"en": "Disable", "it": "Disabilita", "es": "Deshabilitar", "fr": "Désactiver"},
+    "sr_repo_action_remove_btn": {"en": "Remove repository", "it": "Rimuovi repository", "es": "Eliminar repositorio", "fr": "Supprimer le dépôt"},
+    "sr_repo_action_remove_remote_btn": {"en": "Remove remote", "it": "Rimuovi remoto", "es": "Eliminar remoto", "fr": "Supprimer le dépôt distant"},
+    "sr_repo_official_warning_title": {"en": "Warning", "it": "Attenzione", "es": "Advertencia", "fr": "Avertissement"},
+    "sr_repo_official_warning_body": {
+        "en": "Disabling an official repository may prevent security updates and correct software installation.",
+        "it": "Disattivare un repository ufficiale può impedire aggiornamenti di sicurezza e corrette installazioni.",
+        "es": "Desabilitar un repositorio oficial puede impedir actualizaciones de seguridad e instalaciones correctas.",
+        "fr": "Désactiver un dépôt officiel peut empêcher les mises à jour de sécurité et les installations correctes.",
+    },
+    "sr_repo_toggle_preview_title": {"en": "Repository status change", "it": "Cambio stato repository", "es": "Cambio de estado del repositorio", "fr": "Changement d'état du dépôt"},
+    "sr_repo_toggle_preview_body": {
+        "en": "Repository: {name}\nAlias: {alias}\nFile: {file}\nNew state: {state}",
+        "it": "Repository: {name}\nAlias: {alias}\nFile: {file}\nNuovo stato: {state}",
+        "es": "Repositorio: {name}\nAlias: {alias}\nArchivo: {file}\nNuevo estado: {state}",
+        "fr": "Dépôt: {name}\nAlias: {alias}\nFichier: {file}\nNouvel état: {state}",
+    },
+    "sr_repo_remove_preview_title": {"en": "Remove repository", "it": "Rimuovi repository", "es": "Eliminar repositorio", "fr": "Supprimer le dépôt"},
+    "sr_repo_remove_preview_body": {
+        "en": "The following repository will be permanently deleted:\n\n{name} ({alias})\n\nFile: {file}",
+        "it": "Il seguente repository verrà eliminato permanentemente:\n\n{name} ({alias})\n\nFile: {file}",
+        "es": "El siguiente repositorio será eliminado permanentemente:\n\n{name} ({alias})\n\nArchivo: {file}",
+        "fr": "Le dépôt suivant sera supprimé définitivement:\n\n{name} ({alias})\n\nFichier: {file}",
+    },
+    "sr_repo_toggle_success": {"en": "Repository status changed successfully.", "it": "Stato repository modificato con successo.",
+                                "es": "Estado del repositorio modificado con éxito.", "fr": "État du dépôt modifié avec succès."},
+    "sr_repo_toggle_failed": {"en": "Could not change repository status.", "it": "Impossibile modificare lo stato del repository.",
+                               "es": "No se pudo cambiar el estado del repositorio.", "fr": "Impossible de modifier l'état du dépôt."},
+    "sr_repo_remove_success": {"en": "Repository removed successfully.", "it": "Repository rimosso con successo.",
+                                "es": "Repositorio eliminado con éxito.", "fr": "Dépôt supprimé avec succès."},
+    "sr_repo_remove_failed": {"en": "Could not remove repository.", "it": "Impossibile rimuovere il repository.",
+                               "es": "No se pudo eliminar el repositorio.", "fr": "Impossible de supprimer le dépôt."},
+    "sr_packman_already_active": {"en": "Already active", "it": "Già attivo", "es": "Ya activo", "fr": "Déjà actif"},
+    "sr_packman_disabled_reactivate_btn": {"en": "Reactivate Packman", "it": "Riattiva Packman", "es": "Reactivar Packman", "fr": "Réactiver Packman"},
+    "sr_packman_activate_btn": {"en": "Activate Packman", "it": "Attiva Packman", "es": "Activar Packman", "fr": "Activer Packman"},
+
+    # ── Dialog buttons (shared) ────────────────────────────────────────
+    "sr_cancel_btn": {"en": "Cancel", "it": "Annulla", "es": "Cancelar", "fr": "Annuler"},
+    "sr_confirm_btn": {"en": "Confirm", "it": "Conferma", "es": "Confirmar", "fr": "Confirmer"},
+
+    # ── Recipe state vocabulary (2026-08-05 correction) ────────────────
+    # "Da controllare" is banned from every recipe row — this is the
+    # closed set of states a recipe can show instead.
+    "sr_state_not_compatible": {"en": "Not compatible", "it": "Non compatibile", "es": "No compatible", "fr": "Non compatible"},
+    "sr_state_unverifiable": {"en": "Status not verifiable", "it": "Stato non verificabile", "es": "Estado no verificable", "fr": "État non vérifiable"},
+    "sr_state_not_available": {"en": "Not available", "it": "Non disponibile", "es": "No disponible", "fr": "Non disponible"},
+    "sr_state_conflict_detected": {"en": "Conflict detected", "it": "Conflitto rilevato", "es": "Conflicto detectado", "fr": "Conflit détecté"},
+    "sr_state_info_only": {"en": "Information only", "it": "Solo informativo", "es": "Solo informativo", "fr": "Informatif seulement"},
+
+    "sr_obs_info_explanation": {
+        "en": "OBS is not a single repository. Each project has its own separate repository that must be checked individually.",
+        "it": "OBS non è un singolo repository. Ogni progetto dispone di un repository separato che deve essere verificato individualmente.",
+        "es": "OBS no es un único repositorio. Cada proyecto tiene su propio repositorio independiente que debe verificarse individualmente.",
+        "fr": "OBS n'est pas un dépôt unique. Chaque projet dispose de son propre dépôt distinct qui doit être vérifié individuellement.",
+    },
+
+    # ── Packman activation flow (2026-08-05) ───────────────────────────
+    "sr_packman_activate_confirm_title": {"en": "Activate Packman", "it": "Attiva Packman", "es": "Activar Packman", "fr": "Activer Packman"},
+    "sr_packman_activate_confirm_url": {"en": "URL", "it": "URL", "es": "URL", "fr": "URL"},
+    "sr_packman_activate_confirm_alias": {"en": "Alias", "it": "Alias", "es": "Alias", "fr": "Alias"},
+    "sr_packman_activate_confirm_command": {"en": "Command that will be run", "it": "Comando che verrà eseguito",
+                                              "es": "Comando que se ejecutará", "fr": "Commande qui sera exécutée"},
+
+    # ── Backend friendly_message translations for the new operations ──
+    "repo_add_success": {"en": "The repository was added successfully.", "it": "Il repository è stato aggiunto con successo.",
+                           "es": "El repositorio se agregó con éxito.", "fr": "Le dépôt a été ajouté avec succès."},
+    "repo_add_failed": {"en": "The repository could not be added.", "it": "Non è stato possibile aggiungere il repository.",
+                          "es": "No se pudo agregar el repositorio.", "fr": "Le dépôt n'a pas pu être ajouté."},
+    "repo_add_verification_failed": {"en": "The repository was not found after the operation — it was removed again.",
+                                       "it": "Il repository non è stato trovato dopo l'operazione — è stato rimosso di nuovo.",
+                                       "es": "El repositorio no se encontró después de la operación — se eliminó de nuevo.",
+                                       "fr": "Le dépôt n'a pas été trouvé après l'opération — il a été supprimé à nouveau."},
+    "packman_not_compatible": {"en": "Packman activation is only offered on openSUSE Tumbleweed with a confidently detected system.",
+                                 "it": "L'attivazione di Packman è offerta solo su openSUSE Tumbleweed con sistema rilevato in modo affidabile.",
+                                 "es": "La activación de Packman solo está disponible en openSUSE Tumbleweed con el sistema detectado de forma fiable.",
+                                 "fr": "L'activation de Packman n'est proposée que sur openSUSE Tumbleweed avec un système détecté de manière fiable."},
 }
 for _k, _v in _page_strings.items():
     _i18n_mod._strings[_k] = _v
@@ -1122,12 +1203,15 @@ class _SectionC:
             row.append(Gtk.Label(label=str(summary[key]), xalign=1))
             self._summary_box.append(row)
 
+        self._repo_row_widgets = {}
         if not entries:
             self._list_box.append(Gtk.Label(label=T("sr_no_repos_found"), xalign=0, wrap=True))
         for entry in entries:
-            self._list_box.append(self._build_repo_row(entry))
+            row_widget = self._build_repo_row(entry)
+            self._repo_row_widgets[self._repo_row_key(entry)] = row_widget
+            self._list_box.append(row_widget)
 
-        self._build_additional_section(profile)
+        self._build_additional_section(profile, entries)
 
     _WARNING_KEYS = {
         rsc.WARNING_NO_HOST: "sr_warning_no_host",
@@ -1177,10 +1261,161 @@ class _SectionC:
                                   xalign=0, wrap=True)
             dup_lbl.add_css_class("desc-con")
             detail.append(dup_lbl)
+
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        button_box.set_margin_top(10)
+        is_official = entry["kind"] == rsc.KIND_OFFICIAL
+        is_flatpak = entry["family"] == "flatpak"
+
+        if entry["enabled"]:
+            disable_btn = Gtk.Button(label=T("sr_repo_action_disable_btn"))
+            disable_btn.connect("clicked", lambda _b, e=entry: self._on_repo_toggle(e, False))
+            button_box.append(disable_btn)
+        else:
+            enable_btn = Gtk.Button(label=T("sr_repo_action_enable_btn"))
+            enable_btn.connect("clicked", lambda _b, e=entry: self._on_repo_toggle(e, True))
+            button_box.append(enable_btn)
+
+        if not is_official:
+            remove_label = T("sr_repo_action_remove_remote_btn") if is_flatpak else T("sr_repo_action_remove_btn")
+            remove_btn = Gtk.Button(label=remove_label)
+            remove_btn.connect("clicked", lambda _b, e=entry: self._on_repo_remove(e))
+            button_box.append(remove_btn)
+
+        if button_box.get_first_child() is not None:
+            detail.append(button_box)
         expander.add_row(detail)
         return expander
 
-    def _build_additional_section(self, profile):
+    def _on_repo_toggle(self, entry: dict, enable: bool):
+        is_official = entry["kind"] == rsc.KIND_OFFICIAL
+        title = T("sr_repo_official_warning_title") if (is_official and not enable) else T("sr_repo_toggle_preview_title")
+
+        body_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        if is_official and not enable:
+            body_box.append(Gtk.Label(label=T("sr_repo_official_warning_body"), xalign=0, wrap=True))
+        state_text = T("sr_kind_universal") if enable else T("sr_repo_disabled")
+        preview = T("sr_repo_toggle_preview_body").format(
+            name=entry["name"], alias=entry.get("alias", "—"),
+            file=entry["source_file"], state=state_text)
+        body_box.append(Gtk.Label(label=preview, xalign=0, wrap=True))
+
+        dialog = Adw.MessageDialog(transient_for=self.page.get_root(), heading=title)
+        dialog.set_extra_child(body_box)
+        dialog.add_response("cancel", T("sr_cancel_btn"))
+        dialog.add_response("confirm", T("sr_confirm_btn"))
+        if is_official and not enable:
+            dialog.set_response_appearance("confirm", Adw.ResponseAppearance.DESTRUCTIVE)
+        else:
+            dialog.set_response_appearance("confirm", Adw.ResponseAppearance.SUGGESTED)
+        dialog.connect("response", lambda d, r: self._run_repo_operation("toggle_repo", entry, enable) if r == "confirm" else None)
+        dialog.present()
+
+    def _on_repo_remove(self, entry: dict):
+        body_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        preview = T("sr_repo_remove_preview_body").format(
+            name=entry["name"], alias=entry.get("alias", "—"),
+            file=entry["source_file"])
+        body_box.append(Gtk.Label(label=preview, xalign=0, wrap=True))
+
+        dialog = Adw.MessageDialog(transient_for=self.page.get_root(), heading=T("sr_repo_remove_preview_title"))
+        dialog.set_extra_child(body_box)
+        dialog.add_response("cancel", T("sr_cancel_btn"))
+        dialog.add_response("confirm", T("sr_confirm_btn"))
+        dialog.set_response_appearance("confirm", Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.connect("response", lambda d, r: self._run_repo_operation("remove_repo", entry) if r == "confirm" else None)
+        dialog.present()
+
+    def _run_repo_operation(self, op_key: str, entry: dict, enable: bool = None):
+        import json
+        is_flatpak = entry["family"] == "flatpak"
+        scope_data = {
+            "family": entry["family"],
+            "alias": entry.get("alias", ""),
+            # Flatpak's real remote name is the bare alias (e.g. "flathub"),
+            # never entry["name"] which carries a "(system)"/"(user)" suffix
+            # only meant for display.
+            "remote_name": entry.get("alias", "") if is_flatpak else "",
+            "source_file": entry["source_file"],
+            "scope": entry.get("scope", "") if is_flatpak else "",
+            "enabled": enable,
+        }
+        scope = json.dumps(scope_data)
+
+        def run():
+            result = engine.run_operation(op_key, profile=self.page.profile, scope=scope)
+            GLib.idle_add(self._on_repo_operation_done, result)
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _on_repo_operation_done(self, result):
+        self.refresh()
+        return False
+
+    @staticmethod
+    def _repo_row_key(entry: dict):
+        return (entry["family"], entry["source_file"], entry.get("alias") or entry["name"])
+
+    def _highlight_repo_row(self, entry: dict):
+        """"Open or highlight" the Packman row in the main list — expands
+        it and applies a temporary accent so the user's eye finds it,
+        without needing a generic scroll-to-widget implementation."""
+        widget = self._repo_row_widgets.get(self._repo_row_key(entry))
+        if widget is None:
+            return
+        widget.set_expanded(True)
+        widget.add_css_class("accent")
+        GLib.timeout_add(1500, lambda w=widget: (w.remove_css_class("accent"), False)[1])
+
+    def _find_packman_repo_entry(self, entries: list) -> "dict | None":
+        """Find Packman repository among scanned entries by alias or URL pattern."""
+        for entry in entries:
+            if entry["family"] != "opensuse":
+                continue
+            alias = entry.get("alias", "").lower()
+            if "packman" in alias or "ftp.gwdg.de" in alias or "packman.links2linux.de" in alias:
+                return entry
+            uri_lower = entry.get("uri", "").lower()
+            if "packman" in uri_lower:
+                return entry
+        return None
+
+    # Basenames too generic to identify one specific recipe's own repo
+    # file — matching them would flag virtually any scanned entry as
+    # "this recipe is active", so presence detection skips them and
+    # falls back to "Non disponibile" instead of a false positive.
+    _GENERIC_GLOB_BASENAMES = {"*", "pacman.conf"}
+
+    def _recipe_presence(self, recipe, entries: list) -> "str | None":
+        """Returns 'active'/'disabled' if a scanned entry's source_file
+        matches one of the recipe's own files_involved globs, else
+        None (presence can't be determined from what's on disk)."""
+        for pattern in recipe.files_involved:
+            if os.path.basename(pattern) in self._GENERIC_GLOB_BASENAMES:
+                continue
+            for e in entries:
+                if e["family"] != recipe.family:
+                    continue
+                if fnmatch.fnmatch(e["source_file"], pattern):
+                    return "active" if e["enabled"] else "disabled"
+        return None
+
+    @staticmethod
+    def _packman_compatibility(profile) -> str:
+        """'compatible' | 'incompatible' | 'unverifiable' — Packman
+        activation in this app only ever targets the exact, real
+        Tumbleweed URL; Leap (different per-version URL, not
+        implemented here) and any distro/version this app can't
+        confidently resolve are both refused, never guessed at."""
+        if profile.family != "opensuse" or not profile.confident:
+            return "unverifiable"
+        if profile.id == "opensuse-tumbleweed":
+            return "compatible"
+        return "incompatible"
+
+    def _build_additional_section(self, profile, entries: list):
+        packman_entry = self._find_packman_repo_entry(entries)
+
         self._additional_box.append(Gtk.Label(label=T("sr_additional_title"), xalign=0))
         self._additional_box.get_first_child().add_css_class("heading")
 
@@ -1190,16 +1425,28 @@ class _SectionC:
         if guided:
             self._additional_box.append(Gtk.Label(label=T("sr_additional_guided_desc"), xalign=0, wrap=True))
         for recipe in guided:
-            self._additional_box.append(self._build_recipe_row(recipe, profile))
+            self._additional_box.append(self._build_recipe_row(recipe, profile, entries))
 
         if advanced:
             adv_lbl = Gtk.Label(label=T("sr_additional_advanced_desc"), xalign=0, wrap=True)
-            adv_lbl.add_css_class("desc-con")
+            adv_lbl.add_css_class("dim-label")
             self._additional_box.append(adv_lbl)
         for recipe in advanced:
-            self._additional_box.append(self._build_recipe_row(recipe, profile, actionable=False))
+            if recipe.id == "packman":
+                self._additional_box.append(self._build_packman_row(recipe, packman_entry, profile))
+            elif recipe.id == "opensuse_obs":
+                self._additional_box.append(self._build_obs_row(recipe))
+            else:
+                self._additional_box.append(self._build_advanced_state_row(recipe, entries))
 
-    def _build_recipe_row(self, recipe, profile, actionable=True) -> Gtk.Widget:
+    def _build_packman_row(self, recipe, packman_entry: "dict | None", profile) -> Gtk.Widget:
+        """Packman is always linked to the real scanned repository —
+        never a second, duplicate activation entry:
+        - present + enabled  -> "Già attivo", click opens/highlights the row
+        - present + disabled -> "Riattiva Packman"
+        - absent, Tumbleweed -> "Attiva Packman" (real add-repo flow)
+        - absent, Leap       -> "Non compatibile"
+        - absent, unresolved -> "Stato non verificabile" """
         row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         name_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True)
         name_box.append(Gtk.Label(label=_recipe_text(recipe.name_key), xalign=0))
@@ -1208,13 +1455,118 @@ class _SectionC:
         name_box.append(desc_lbl)
         row.append(name_box)
 
-        if actionable:
+        if packman_entry is not None:
+            if packman_entry["enabled"]:
+                active_btn = Gtk.Button()
+                active_btn.set_child(StatusPill(T("sr_packman_already_active"), variant="success"))
+                active_btn.add_css_class("flat")
+                active_btn.connect("clicked", lambda _b, e=packman_entry: self._highlight_repo_row(e))
+                row.append(active_btn)
+            else:
+                reactivate_btn = Gtk.Button(label=T("sr_packman_disabled_reactivate_btn"))
+                reactivate_btn.connect("clicked", lambda _b, e=packman_entry: self._on_repo_toggle(e, True))
+                row.append(reactivate_btn)
+        else:
+            compat = self._packman_compatibility(profile)
+            if compat == "compatible":
+                activate_btn = Gtk.Button(label=T("sr_packman_activate_btn"))
+                activate_btn.connect("clicked", lambda _b: self._on_activate_packman())
+                row.append(activate_btn)
+            elif compat == "incompatible":
+                row.append(StatusPill(T("sr_state_not_compatible"), variant="absent"))
+            else:
+                row.append(StatusPill(T("sr_state_unverifiable"), variant="neutral"))
+        return row
+
+    def _on_activate_packman(self):
+        from core.software_repo.package_engine import PACKMAN_TUMBLEWEED_URL, PACKMAN_ALIAS
+        command_preview = f"zypper addrepo --refresh --check {PACKMAN_TUMBLEWEED_URL} {PACKMAN_ALIAS}"
+
+        body_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        body_box.append(Gtk.Label(label=f"{T('sr_packman_activate_confirm_url')}: {PACKMAN_TUMBLEWEED_URL}",
+                                    xalign=0, wrap=True))
+        body_box.append(Gtk.Label(label=f"{T('sr_packman_activate_confirm_alias')}: {PACKMAN_ALIAS}",
+                                    xalign=0, wrap=True))
+        cmd_lbl = Gtk.Label(label=f"{T('sr_packman_activate_confirm_command')}:\n{command_preview}",
+                             xalign=0, wrap=True)
+        cmd_lbl.add_css_class("dim-label")
+        body_box.append(cmd_lbl)
+
+        dialog = Adw.MessageDialog(transient_for=self.page.get_root(), heading=T("sr_packman_activate_confirm_title"))
+        dialog.set_extra_child(body_box)
+        dialog.add_response("cancel", T("sr_cancel_btn"))
+        dialog.add_response("confirm", T("sr_confirm_btn"))
+        dialog.set_response_appearance("confirm", Adw.ResponseAppearance.SUGGESTED)
+        dialog.connect("response", lambda d, r: self._run_activate_packman() if r == "confirm" else None)
+        dialog.present()
+
+    def _run_activate_packman(self):
+        def run():
+            result = engine.run_operation("activate_packman", profile=self.page.profile, scope="")
+            GLib.idle_add(self._on_repo_operation_done, result)
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _build_obs_row(self, recipe) -> Gtk.Widget:
+        """OBS is never a single activatable repository — each project
+        has its own separate repo that must be checked individually,
+        so this always stays "Solo informativo" with no generic
+        activation button."""
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        name_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True)
+        name_box.append(Gtk.Label(label=_recipe_text(recipe.name_key), xalign=0))
+        desc_lbl = Gtk.Label(label=_recipe_text(recipe.description_key), xalign=0, wrap=True)
+        desc_lbl.add_css_class("dim-label")
+        name_box.append(desc_lbl)
+        explain_lbl = Gtk.Label(label=T("sr_obs_info_explanation"), xalign=0, wrap=True)
+        explain_lbl.add_css_class("dim-label")
+        name_box.append(explain_lbl)
+        row.append(name_box)
+        row.append(StatusPill(T("sr_state_info_only"), variant="neutral"))
+        return row
+
+    def _build_advanced_state_row(self, recipe, entries: list) -> Gtk.Widget:
+        """Every advanced recipe other than Packman/OBS: shows real
+        presence when it can be determined from the scan, otherwise
+        "Non disponibile" — never the banned "Da controllare" state."""
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        name_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True)
+        name_box.append(Gtk.Label(label=_recipe_text(recipe.name_key), xalign=0))
+        desc_lbl = Gtk.Label(label=_recipe_text(recipe.description_key), xalign=0, wrap=True)
+        desc_lbl.add_css_class("dim-label")
+        name_box.append(desc_lbl)
+        row.append(name_box)
+
+        presence = self._recipe_presence(recipe, entries)
+        if presence == "active":
+            row.append(StatusPill(T("sr_packman_already_active"), variant="success"))
+        elif presence == "disabled":
+            row.append(StatusPill(T("sr_repo_disabled"), variant="neutral"))
+        else:
+            row.append(StatusPill(T("sr_state_not_available"), variant="absent"))
+        return row
+
+    def _build_recipe_row(self, recipe, profile, entries: list) -> Gtk.Widget:
+        """Guided (auto-offered) recipes only — always actionable
+        unless a known conflict is currently detected active among the
+        real scanned entries, in which case it shows "Conflitto
+        rilevato" instead of an Enable button."""
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        name_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True)
+        name_box.append(Gtk.Label(label=_recipe_text(recipe.name_key), xalign=0))
+        desc_lbl = Gtk.Label(label=_recipe_text(recipe.description_key), xalign=0, wrap=True)
+        desc_lbl.add_css_class("dim-label")
+        name_box.append(desc_lbl)
+        row.append(name_box)
+
+        conflicting = [c for c in recipe.known_conflicts
+                       if c in rr.RECIPES_BY_ID and self._recipe_presence(rr.RECIPES_BY_ID[c], entries) == "active"]
+        if conflicting:
+            row.append(StatusPill(T("sr_state_conflict_detected"), variant="warning"))
+        else:
             enable_btn = Gtk.Button(label=T("sr_enable_btn"))
             enable_btn.connect("clicked", lambda _b, rid=recipe.id: self._on_enable_recipe(rid, profile))
             row.append(enable_btn)
-        else:
-            pill = StatusPill(T("sr_kind_needs_review"), variant="warning")
-            row.append(pill)
         return row
 
     def _on_enable_recipe(self, recipe_id: str, profile):
