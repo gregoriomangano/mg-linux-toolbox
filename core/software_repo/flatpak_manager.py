@@ -345,6 +345,35 @@ def install_flatpak(distro_profile, job=None) -> SetupResult:
                         technical_detail="" if ok else result.technical_detail())
 
 
+def remove_flatpak(distro_profile, job=None) -> SetupResult:
+    """Removes only the `flatpak` package itself, through the normal
+    package manager — never touches installed Flatpak apps, their data
+    or /var/lib/flatpak / ~/.local/share/flatpak. Those stay exactly
+    where they are; only the flatpak command/service goes away. Same
+    immutable/transactional and unresolved-family guards as
+    install_flatpak(), for the same reason: never a command that could
+    half-apply on a system this app can't safely act on."""
+    if not flatpak_installed():
+        return SetupResult(True, friendly_message="flatpak_not_installed_nothing_to_remove")
+
+    system_type = getattr(distro_profile, "system_type", "traditional")
+    family = getattr(distro_profile, "family", "unknown")
+
+    if system_type in ("immutable", "transactional"):
+        return SetupResult(False, friendly_message="flatpak_manual_procedure_required")
+    if family == "unknown":
+        return SetupResult(False, friendly_message="flatpak_family_unresolved")
+
+    cmd = distro.remove_cmd(_FLATPAK_INSTALL_PKG)
+    if not cmd:
+        return SetupResult(False, friendly_message="flatpak_family_unresolved")
+    result = run_pkexec_full(cmd, timeout=INSTALL_TIMEOUT, job=job)
+    ok = result.ok and not flatpak_installed()
+    return SetupResult(ok,
+                        friendly_message="flatpak_remove_success" if ok else "flatpak_remove_failed",
+                        technical_detail="" if ok else result.technical_detail())
+
+
 def add_flathub_remote(scope: str, job=None) -> SetupResult:
     assert scope in (SCOPE_SYSTEM, SCOPE_USER)
     cmd = ["flatpak", "remote-add", "--if-not-exists", f"--{scope}",

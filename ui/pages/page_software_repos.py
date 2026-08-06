@@ -63,8 +63,7 @@ _page_strings = {
     "sr_flatpak_installed": {"en": "Flatpak", "it": "Flatpak", "es": "Flatpak", "fr": "Flatpak"},
     "sr_flatpak_state_installed": {"en": "Installed", "it": "Installato", "es": "Instalado", "fr": "Installé"},
     "sr_flatpak_state_not_installed": {"en": "Not installed", "it": "Non installato", "es": "No instalado", "fr": "Non installé"},
-    "sr_flathub_system": {"en": "System-wide Flathub", "it": "Flathub di sistema", "es": "Flathub del sistema", "fr": "Flathub système"},
-    "sr_flathub_user": {"en": "Personal Flathub", "it": "Flathub personale", "es": "Flathub personal", "fr": "Flathub personnel"},
+    "sr_flathub_label": {"en": "Flathub", "it": "Flathub", "es": "Flathub", "fr": "Flathub"},
     "sr_flathub_active": {"en": "Active", "it": "Attivo", "es": "Activo", "fr": "Actif"},
     "sr_flathub_not_configured": {"en": "Not configured", "it": "Non configurato", "es": "No configurado", "fr": "Non configuré"},
     "sr_integration": {"en": "Desktop integration", "it": "Integrazione desktop", "es": "Integración de escritorio", "fr": "Intégration au bureau"},
@@ -72,37 +71,35 @@ _page_strings = {
     "sr_integration_incomplete": {"en": "To complete", "it": "Da completare", "es": "Por completar", "fr": "À compléter"},
     "sr_session_logout_recommended": {"en": "Session — logout recommended", "it": "Sessione — logout consigliato",
                                         "es": "Sesión — se recomienda cerrar sesión", "fr": "Session — déconnexion recommandée"},
-    "sr_configure_flatpak_btn": {"en": "Configure Flatpak and Flathub", "it": "Configura Flatpak e Flathub",
-                                   "es": "Configurar Flatpak y Flathub", "fr": "Configurer Flatpak et Flathub"},
-    "sr_configure_flatpak_dialog_title": {"en": "Configure Flatpak and Flathub", "it": "Configura Flatpak e Flathub",
-                                            "es": "Configurar Flatpak y Flathub", "fr": "Configurer Flatpak et Flathub"},
-    "sr_configure_flatpak_preview": {
-        "en": "Flatpak will be installed using your system's package manager, if it isn't already.\n"
-              "The official Flathub repository will be added.\nNo application will be installed.\n"
-              "A logout/login may be required for full desktop integration.",
-        "it": "Verrà installato Flatpak tramite il gestore pacchetti del tuo sistema, se non è già presente.\n"
-              "Verrà aggiunto il repository ufficiale Flathub.\nNon verrà installata alcuna applicazione.\n"
-              "Potrebbe essere necessario uscire e rientrare nella sessione per l'integrazione completa.",
-        "es": "Se instalará Flatpak mediante el gestor de paquetes de tu sistema, si aún no está presente.\n"
-              "Se añadirá el repositorio oficial Flathub.\nNo se instalará ninguna aplicación.\n"
-              "Puede ser necesario cerrar e iniciar sesión de nuevo.",
-        "fr": "Flatpak sera installé via le gestionnaire de paquets de votre système, s'il ne l'est pas déjà.\n"
-              "Le dépôt officiel Flathub sera ajouté.\nAucune application ne sera installée.\n"
-              "Une déconnexion/reconnexion peut être nécessaire pour une intégration complète.",
+    "sr_install_flatpak_btn": {"en": "Install Flatpak", "it": "Installa Flatpak",
+                                 "es": "Instalar Flatpak", "fr": "Installer Flatpak"},
+    "sr_install_flatpak_preview": {
+        "en": "Flatpak will be installed using your system's package manager, then the official Flathub "
+              "repository will be added for every user of this computer.\nNo application will be installed.",
+        "it": "Verrà installato Flatpak tramite il gestore pacchetti del tuo sistema, poi verrà aggiunto il "
+              "repository ufficiale Flathub per tutti gli utenti di questo computer.\nNon verrà installata alcuna applicazione.",
+        "es": "Se instalará Flatpak mediante el gestor de paquetes de tu sistema, después se añadirá el "
+              "repositorio oficial Flathub para todas las cuentas de este equipo.\nNo se instalará ninguna aplicación.",
+        "fr": "Flatpak sera installé via le gestionnaire de paquets de votre système, puis le dépôt officiel "
+              "Flathub sera ajouté pour tous les comptes de cet ordinateur.\nAucune application ne sera installée.",
     },
-    "sr_scope_system": {"en": "For every user", "it": "Per tutti gli utenti", "es": "Para todos los usuarios", "fr": "Pour tous les utilisateurs"},
-    "sr_scope_system_desc": {
-        "en": "Flatpak and Flathub will be available to every account on this computer.",
-        "it": "Flatpak e Flathub saranno disponibili per tutti gli account del computer.",
-        "es": "Flatpak y Flathub estarán disponibles para todas las cuentas del equipo.",
-        "fr": "Flatpak et Flathub seront disponibles pour tous les comptes de cet ordinateur.",
+    "sr_remove_flatpak_btn": {"en": "Remove Flatpak", "it": "Rimuovi Flatpak",
+                                "es": "Eliminar Flatpak", "fr": "Supprimer Flatpak"},
+    "sr_remove_flatpak_preview": {
+        "en": "Only the Flatpak package itself will be removed. Installed Flatpak applications and their "
+              "data are left untouched on disk.",
+        "it": "Verrà rimosso soltanto il pacchetto Flatpak. Le applicazioni Flatpak installate e i loro dati "
+              "restano invariati sul disco.",
+        "es": "Solo se eliminará el paquete de Flatpak. Las aplicaciones Flatpak instaladas y sus datos "
+              "permanecen intactos en el disco.",
+        "fr": "Seul le paquet Flatpak sera supprimé. Les applications Flatpak installées et leurs données "
+              "restent inchangées sur le disque.",
     },
-    "sr_scope_user": {"en": "Only for me", "it": "Solo per me", "es": "Solo para mí", "fr": "Seulement pour moi"},
-    "sr_scope_user_desc": {
-        "en": "Flatpak applications and data will be kept in the current user's Home.",
-        "it": "Le applicazioni e i dati Flatpak saranno conservati nella Home dell'utente corrente.",
-        "es": "Las aplicaciones y los datos de Flatpak se guardarán en la Home del usuario actual.",
-        "fr": "Les applications et données Flatpak seront conservées dans le dossier personnel de l'utilisateur actuel.",
+    "sr_add_flathub_preview": {
+        "en": "The official Flathub repository will be added for every user of this computer.",
+        "it": "Verrà aggiunto il repository ufficiale Flathub per tutti gli utenti di questo computer.",
+        "es": "Se añadirá el repositorio oficial Flathub para todas las cuentas de este equipo.",
+        "fr": "Le dépôt officiel Flathub sera ajouté pour tous les comptes de cet ordinateur.",
     },
     "sr_confirm_btn": {"en": "Confirm", "it": "Conferma", "es": "Confirmar", "fr": "Confirmer"},
     "sr_cancel_btn": {"en": "Cancel", "it": "Annulla", "es": "Cancelar", "fr": "Annuler"},
@@ -111,10 +108,6 @@ _page_strings = {
                                "es": "Buscar actualizaciones de Flatpak", "fr": "Vérifier les mises à jour Flatpak"},
     "sr_remove_unused_btn": {"en": "Remove unused runtimes", "it": "Rimuovi runtime inutilizzati",
                                "es": "Eliminar runtimes sin usar", "fr": "Supprimer les runtimes inutilisés"},
-    "sr_repair_flatpak_user_btn": {"en": "Repair Flatpak (personal)", "it": "Ripara Flatpak (personale)",
-                                     "es": "Reparar Flatpak (personal)", "fr": "Réparer Flatpak (personnel)"},
-    "sr_repair_flatpak_system_btn": {"en": "Repair Flatpak (system)", "it": "Ripara Flatpak (sistema)",
-                                       "es": "Reparar Flatpak (sistema)", "fr": "Réparer Flatpak (système)"},
     "sr_updates_available": {"en": "{n} Flatpak apps have an update available", "it": "{n} app Flatpak hanno un aggiornamento disponibile",
                                "es": "{n} apps Flatpak tienen una actualización disponible", "fr": "{n} applications Flatpak ont une mise à jour disponible"},
     "sr_updates_none": {"en": "Everything is up to date.", "it": "Tutto è già aggiornato.", "es": "Todo está actualizado.", "fr": "Tout est déjà à jour."},
@@ -137,8 +130,6 @@ _page_strings = {
     "sr_flatseal_state_undetermined": {"en": "State could not be determined", "it": "Stato non determinabile",
                                          "es": "No se pudo determinar el estado", "fr": "État impossible à déterminer"},
     "sr_open_flatseal_btn": {"en": "Open Flatseal", "it": "Apri Flatseal", "es": "Abrir Flatseal", "fr": "Ouvrir Flatseal"},
-    "sr_choose_scope_title": {"en": "Choose where to install", "it": "Scegli dove installare",
-                                "es": "Elige dónde instalar", "fr": "Choisissez où installer"},
     "sr_flatseal_install_preview_system": {
         "en": "Flatseal will be installed for every user of this computer (only Flathub is set up system-wide).",
         "it": "Flatseal verrà installato per tutti gli utenti di questo computer (è configurato soltanto il Flathub di sistema).",
@@ -154,22 +145,6 @@ _page_strings = {
 
     # ── Contextual main Flatpak button (Phase 5, 2026-08-05) ─────────
     "sr_add_flathub_btn": {"en": "Add Flathub", "it": "Aggiungi Flathub", "es": "Añadir Flathub", "fr": "Ajouter Flathub"},
-    "sr_extend_system_btn": {"en": "Configure for every user too", "it": "Configura anche per tutti gli utenti",
-                               "es": "Configurar también para todos los usuarios", "fr": "Configurer aussi pour tous les utilisateurs"},
-    "sr_extend_system_preview": {
-        "en": "Flathub will also be added system-wide, so it's available to every account on this computer. "
-              "What you already have configured for your user stays unchanged.",
-        "it": "Flathub verrà aggiunto anche a livello di sistema, così sarà disponibile per tutti gli account di questo computer. "
-              "Quello che hai già configurato per il tuo utente resta invariato.",
-        "es": "Flathub también se añadirá a nivel de sistema, para que esté disponible para todas las cuentas de este equipo. "
-              "Lo que ya tienes configurado para tu usuario permanece sin cambios.",
-        "fr": "Flathub sera aussi ajouté au niveau du système, pour qu'il soit disponible pour tous les comptes de cet ordinateur. "
-              "Ce qui est déjà configuré pour votre utilisateur reste inchangé.",
-    },
-    "sr_complete_integration_btn": {"en": "Complete desktop integration", "it": "Completa integrazione desktop",
-                                      "es": "Completar integración de escritorio", "fr": "Compléter l'intégration au bureau"},
-    "sr_configuration_complete_badge": {"en": "Configuration complete", "it": "Configurazione completa",
-                                          "es": "Configuración completa", "fr": "Configuration terminée"},
     "sr_integration_info_dialog_title": {"en": "Desktop integration", "it": "Integrazione desktop",
                                            "es": "Integración de escritorio", "fr": "Intégration au bureau"},
     "sr_integration_gap_portal_missing": {
@@ -531,6 +506,12 @@ _page_strings = {
         "es": "Actualmente no hay ningún repositorio OBS configurado en este sistema.",
         "fr": "Aucun dépôt OBS n'est actuellement configuré sur ce système.",
     },
+    "sr_obs_present_in_list": {
+        "en": "{n} OBS repositories are already configured — see the repository list above.",
+        "it": "{n} repository OBS sono già configurati — vedi l'elenco dei repository qui sopra.",
+        "es": "Ya hay {n} repositorios OBS configurados — consulta la lista de repositorios de arriba.",
+        "fr": "{n} dépôts OBS sont déjà configurés — voir la liste des dépôts ci-dessus.",
+    },
 
     # ── Packman activation flow (2026-08-05) ───────────────────────────
     "sr_packman_activate_confirm_title": {"en": "Activate Packman", "it": "Attiva Packman", "es": "Activar Packman", "fr": "Activer Packman"},
@@ -580,6 +561,14 @@ _backend_strings = {
                                 "es": "Flathub fue configurado.", "fr": "Flathub a été configuré."},
     "flathub_added_failed": {"en": "Flathub could not be configured.", "it": "Non è stato possibile configurare Flathub.",
                                "es": "No se pudo configurar Flathub.", "fr": "Flathub n'a pas pu être configuré."},
+    "flatpak_not_installed_nothing_to_remove": {"en": "Flatpak was already not installed.",
+                                                  "it": "Flatpak non era già installato.",
+                                                  "es": "Flatpak ya no estaba instalado.",
+                                                  "fr": "Flatpak n'était déjà pas installé."},
+    "flatpak_remove_success": {"en": "Flatpak was removed.", "it": "Flatpak è stato rimosso.",
+                                 "es": "Flatpak fue eliminado.", "fr": "Flatpak a été supprimé."},
+    "flatpak_remove_failed": {"en": "Flatpak could not be removed.", "it": "Non è stato possibile rimuovere Flatpak.",
+                                "es": "No se pudo eliminar Flatpak.", "fr": "Flatpak n'a pas pu être supprimé."},
     "flatseal_install_success": {"en": "Flatseal was installed.", "it": "Flatseal è stato installato.",
                                    "es": "Flatseal fue instalado.", "fr": "Flatseal a été installé."},
     "flatseal_already_installed": {"en": "Flatseal is already installed.", "it": "Flatseal è già installato.",
@@ -791,26 +780,41 @@ class _SectionA:
 
 
 class _SectionB:
-    """Flatpak e Flathub."""
+    """Flatpak e Flathub — stato mostrato direttamente, senza una
+    finestra separata per scegliere lo scope utente/sistema (quella
+    finestra, un Adw.MessageDialog con due Gtk.CheckButton extra,
+    restava bloccata su alcune configurazioni grafiche: Annulla e
+    Conferma non rispondevano più al click). Ogni azione che serve
+    privilegi (installazione/rimozione di Flatpak, aggiunta di Flathub)
+    agisce sempre a livello di sistema, cosi' e' disponibile per ogni
+    account — la stessa scelta che la vecchia finestra proponeva come
+    opzione predefinita. Flatseal, che NON richiede privilegi se lo
+    scope utente e' disponibile, continua a preferirlo senza chiedere
+    nulla all'utente."""
 
     def __init__(self, page):
         self.page = page
         self.group = make_section("sr_section_b_title")
-        self._rows = []
         self._detail_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
 
-        btn_row = Adw.ActionRow()
-        btn_row.set_activatable(False)
-        self.configure_btn = Gtk.Button(label=T("sr_configure_flatpak_btn"))
-        self.configure_btn.add_css_class("ds-btn-primary")
-        self.configure_btn.connect("clicked", self._on_configure_clicked)
-        self._configure_badge = StatusPill(T("sr_configuration_complete_badge"), variant="success")
-        self._configure_badge.set_visible(False)
-        badge_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        badge_box.append(self.configure_btn)
-        badge_box.append(self._configure_badge)
-        btn_row.add_suffix(badge_box)
-        self.group.add(btn_row)
+        status_row = Adw.ActionRow()
+        status_row.set_activatable(False)
+        status_row.set_child(self._detail_box)
+        self.group.add(status_row)
+
+        action_row = Adw.ActionRow()
+        action_row.set_activatable(False)
+        action_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.primary_btn = Gtk.Button()
+        self.primary_btn.add_css_class("ds-btn-primary")
+        action_box.append(self.primary_btn)
+        self.flathub_btn = Gtk.Button(label=T("sr_add_flathub_btn"))
+        self.flathub_btn.connect("clicked", lambda _b: self._confirm_and_run(
+            "add_flathub", "sr_add_flathub_btn", "sr_add_flathub_preview",
+            scope=fpm.SCOPE_SYSTEM, trigger=self.flathub_btn))
+        action_box.append(self.flathub_btn)
+        action_row.add_suffix(action_box)
+        self.group.add(action_row)
 
         self._integration_note_lbl = Gtk.Label(wrap=True, xalign=0)
         self._integration_note_lbl.add_css_class("dim-label")
@@ -828,25 +832,17 @@ class _SectionB:
         self.unused_btn = Gtk.Button(label=T("sr_remove_unused_btn"))
         self.unused_btn.connect("clicked", lambda _b: self._confirm_and_run(
             "remove_unused_flatpak", "sr_action_preview_title", "sr_orphans_preview", trigger=self.unused_btn))
-        self.repair_user_btn = Gtk.Button(label=T("sr_repair_flatpak_user_btn"))
-        self.repair_user_btn.connect("clicked", lambda _b: self._run_simple(
-            "repair_flatpak", scope=fpm.SCOPE_USER, trigger=self.repair_user_btn))
-        self.repair_system_btn = Gtk.Button(label=T("sr_repair_flatpak_system_btn"))
-        self.repair_system_btn.connect("clicked", lambda _b: self._run_simple(
-            "repair_flatpak", scope=fpm.SCOPE_SYSTEM, trigger=self.repair_system_btn))
-        for b in (self.updates_btn, self.unused_btn, self.repair_user_btn, self.repair_system_btn):
+        self.repair_btn = Gtk.Button(label=T("sr_repair_flatpak_btn"))
+        self.repair_btn.connect("clicked", lambda _b: self._run_simple(
+            "repair_flatpak", scope=fpm.SCOPE_SYSTEM, trigger=self.repair_btn))
+        for b in (self.updates_btn, self.unused_btn, self.repair_btn):
             extra_box.append(b)
         extra_row.set_child(extra_box)
         self.group.add(extra_row)
 
-        detail_row = Adw.ActionRow()
-        detail_row.set_activatable(False)
-        detail_row.set_child(self._detail_box)
-        self.group.add(detail_row)
-
         # Flatseal has its own contextual row: state + action button/badge,
         # never a single static "Install Flatseal" that ignores what's
-        # actually already there (the bug this block fixes).
+        # actually already there.
         self._flatseal_state_lbl = Gtk.Label(xalign=0, hexpand=True)
         self.flatseal_btn = Gtk.Button(label=T("sr_install_flatseal_btn"))
         self.flatseal_btn.connect("clicked", self._on_flatseal_clicked)
@@ -886,31 +882,55 @@ class _SectionB:
             row.append(StatusPill(text, variant=ok_variant))
             return row
 
-        action_buttons = (self.updates_btn, self.unused_btn, self.repair_user_btn, self.repair_system_btn)
+        action_buttons = (self.updates_btn, self.unused_btn, self.repair_btn)
+
         if not state.installed:
             self._detail_box.append(line("sr_flatpak_installed", "absent", T("sr_flatpak_state_not_installed")))
             for b in action_buttons:
                 b.set_sensitive(False)
-            self._refresh_configure_button(state)
+            self.primary_btn.set_label(T("sr_install_flatpak_btn"))
+            self.primary_btn.remove_css_class("destructive-action")
+            self.primary_btn.add_css_class("ds-btn-primary")
+            self._set_primary_handler(self._on_install_clicked)
+            self.primary_btn.set_visible(True)
+            self.flathub_btn.set_visible(False)
+            self._integration_note_lbl.set_visible(False)
             self._refresh_flatseal_row()
             return
 
         for b in action_buttons:
             b.set_sensitive(True)
 
-        self._detail_box.append(line("sr_flatpak_installed", "success",
-                                       f"{T('sr_flatpak_state_installed')} ({state.version})" if state.version else T("sr_flatpak_state_installed")))
-        self._detail_box.append(line("sr_flathub_system", "success" if state.flathub_system else "neutral",
-                                       T("sr_flathub_active") if state.flathub_system else T("sr_flathub_not_configured")))
-        self._detail_box.append(line("sr_flathub_user", "success" if state.flathub_user else "neutral",
-                                       T("sr_flathub_active") if state.flathub_user else T("sr_flathub_not_configured")))
+        flathub_active = state.flathub_system or state.flathub_user
+        version_text = (f"{T('sr_flatpak_state_installed')} ({state.version})" if state.version
+                         else T("sr_flatpak_state_installed"))
+        self._detail_box.append(line("sr_flatpak_installed", "success", version_text))
+        self._detail_box.append(line("sr_flathub_label", "success" if flathub_active else "neutral",
+                                       T("sr_flathub_active") if flathub_active else T("sr_flathub_not_configured")))
         self._detail_box.append(line("sr_integration", "success" if state.integration_complete else "warning",
                                        T("sr_integration_complete") if state.integration_complete else T("sr_integration_incomplete")))
 
-        self._refresh_configure_button(state)
+        can_remove = self.page.profile.family != "unknown" and self.page.profile.system_type not in ("immutable", "transactional")
+        if can_remove:
+            self.primary_btn.set_label(T("sr_remove_flatpak_btn"))
+            self.primary_btn.remove_css_class("ds-btn-primary")
+            self.primary_btn.add_css_class("destructive-action")
+            self._set_primary_handler(self._on_remove_clicked)
+            self.primary_btn.set_visible(True)
+        else:
+            self.primary_btn.set_visible(False)
+
+        self.flathub_btn.set_visible(not flathub_active)
+
+        gap = self._integration_gap_reason(state)
+        if gap:
+            self._integration_note_lbl.set_text(T(gap))
+            self._integration_note_lbl.set_visible(True)
+        else:
+            self._integration_note_lbl.set_visible(False)
+
         self._refresh_flatseal_row()
 
-    # ── Phase 5: the main button is contextual, never one generic label ──
     def _integration_gap_reason(self, state: fpm.FlatpakState) -> "str | None":
         """None means integration is genuinely complete — never guessed."""
         if state.integration_complete:
@@ -921,100 +941,26 @@ class _SectionB:
             return "sr_integration_gap_backend_missing"
         return "sr_integration_gap_undetermined"
 
-    def _refresh_configure_button(self, state: fpm.FlatpakState):
-        if not state.installed:
-            self._set_configure_mode("sr_configure_flatpak_btn", self._on_configure_clicked, visible=True)
-            self._integration_note_lbl.set_visible(False)
-            return
+    _primary_handler_id = None
 
-        if not state.flathub_system and not state.flathub_user:
-            self._set_configure_mode("sr_add_flathub_btn", self._on_configure_clicked, visible=True)
-            self._integration_note_lbl.set_visible(False)
-            return
+    def _set_primary_handler(self, handler):
+        if self._primary_handler_id is not None:
+            self.primary_btn.disconnect(self._primary_handler_id)
+        self._primary_handler_id = self.primary_btn.connect("clicked", handler)
 
-        if state.flathub_user and not state.flathub_system:
-            self._set_configure_mode("sr_extend_system_btn", self._on_extend_system_clicked, visible=True)
-        elif not self._integration_gap_reason(state):
-            self._set_configure_mode(None, None, visible=False)
-        else:
-            self._set_configure_mode("sr_complete_integration_btn", self._on_complete_integration_clicked, visible=True)
+    # ── Install / remove Flatpak — one direct, plain confirmation,
+    # never a second window asking where to install ─────────────────
+    def _on_install_clicked(self, _btn):
+        self._confirm_and_run("configure_flatpak", "sr_install_flatpak_btn", "sr_install_flatpak_preview",
+                               scope=fpm.SCOPE_SYSTEM, trigger=self.primary_btn)
 
-        gap = self._integration_gap_reason(state)
-        # "Logout consigliato" is surfaced only as an immediate one-off
-        # note after an action (_on_op_done) — never folded into this
-        # persistent gap reasoning, and never phrased as an error.
-        if gap:
-            self._integration_note_lbl.set_text(T(gap))
-            self._integration_note_lbl.set_visible(True)
-        else:
-            self._integration_note_lbl.set_visible(False)
-
-    def _set_configure_mode(self, label_key, handler, visible: bool):
-        if self._configure_click_handler_id is not None:
-            self.configure_btn.disconnect(self._configure_click_handler_id)
-            self._configure_click_handler_id = None
-        self.configure_btn.set_visible(visible)
-        self._configure_badge.set_visible(not visible)
-        if visible and label_key:
-            self.configure_btn.set_label(T(label_key))
-            self._configure_click_handler_id = self.configure_btn.connect("clicked", handler)
-
-    _configure_click_handler_id = None
-
-    # ── Configure Flatpak + Flathub (with scope choice + preview) ──
-    def _on_configure_clicked(self, _btn):
-        body_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        body_box.append(Gtk.Label(label=T("sr_configure_flatpak_preview"), wrap=True, xalign=0))
-        self._append_scope_choice(body_box, default_system=False)
-
-        dialog = Adw.MessageDialog(transient_for=self.page.get_root(),
-                                    heading=T("sr_configure_flatpak_dialog_title"))
-        dialog.set_extra_child(body_box)
+    def _on_remove_clicked(self, _btn):
+        dialog = Adw.MessageDialog(transient_for=self.page.get_root(), heading=T("sr_remove_flatpak_btn"),
+                                    body=T("sr_remove_flatpak_preview"))
         dialog.add_response("cancel", T("sr_cancel_btn"))
-        dialog.add_response("confirm", T("sr_confirm_btn"))
-        dialog.set_response_appearance("confirm", Adw.ResponseAppearance.SUGGESTED)
-        dialog.connect("response", lambda d, r: self._on_configure_response(r, self._pending_system_check.get_active()))
-        dialog.present()
-
-    def _append_scope_choice(self, body_box, default_system: bool):
-        system_check = Gtk.CheckButton(label=T("sr_scope_system"))
-        system_desc = Gtk.Label(label=T("sr_scope_system_desc"), wrap=True, xalign=0)
-        system_desc.add_css_class("dim-label")
-        user_check = Gtk.CheckButton(label=T("sr_scope_user"))
-        user_check.set_group(system_check)
-        system_check.set_active(default_system)
-        user_check.set_active(not default_system)
-        user_desc = Gtk.Label(label=T("sr_scope_user_desc"), wrap=True, xalign=0)
-        user_desc.add_css_class("dim-label")
-        body_box.append(system_check)
-        body_box.append(system_desc)
-        body_box.append(user_check)
-        body_box.append(user_desc)
-        self._pending_system_check = system_check
-
-    def _on_configure_response(self, response, system_scope: bool):
-        if response != "confirm":
-            return
-        scope = fpm.SCOPE_SYSTEM if system_scope else fpm.SCOPE_USER
-        self._run_simple("configure_flatpak", scope=scope, trigger=self.configure_btn)
-
-    def _on_extend_system_clicked(self, _btn):
-        dialog = Adw.MessageDialog(transient_for=self.page.get_root(),
-                                    heading=T("sr_extend_system_btn"),
-                                    body=T("sr_extend_system_preview"))
-        dialog.add_response("cancel", T("sr_cancel_btn"))
-        dialog.add_response("confirm", T("sr_confirm_btn"))
-        dialog.set_response_appearance("confirm", Adw.ResponseAppearance.SUGGESTED)
-        dialog.connect("response", lambda d, r: self._run_simple(
-            "add_flathub", scope=fpm.SCOPE_SYSTEM, trigger=self.configure_btn) if r == "confirm" else None)
-        dialog.present()
-
-    def _on_complete_integration_clicked(self, _btn):
-        gap = self._integration_gap_reason(self._state)
-        dialog = Adw.MessageDialog(transient_for=self.page.get_root(),
-                                    heading=T("sr_integration_info_dialog_title"),
-                                    body=T(gap) if gap else "")
-        dialog.add_response("close", T("dialog_close_btn"))
+        dialog.add_response("confirm", T("sr_remove_flatpak_btn"))
+        dialog.set_response_appearance("confirm", Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.connect("response", lambda d, r: self._run_simple("remove_flatpak", trigger=self.primary_btn) if r == "confirm" else None)
         dialog.present()
 
     # ── Flatseal (Phase 3) ──────────────────────────────────────────
@@ -1062,40 +1008,14 @@ class _SectionB:
             fpm.open_flatpak_app(fpm.FLATSEAL_APP_ID)
             return
 
-        both_available = status.flathub_user_available and status.flathub_system_available
-        if both_available:
-            body_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-            self._append_scope_choice(body_box, default_system=False)
-            dialog = Adw.MessageDialog(transient_for=self.page.get_root(), heading=T("sr_choose_scope_title"))
-            dialog.set_extra_child(body_box)
-            dialog.add_response("cancel", T("sr_cancel_btn"))
-            dialog.add_response("confirm", T("sr_confirm_btn"))
-            dialog.set_response_appearance("confirm", Adw.ResponseAppearance.SUGGESTED)
-            dialog.connect("response", lambda d, r: self._run_simple(
-                "install_flatseal", scope=(fpm.SCOPE_SYSTEM if self._pending_system_check.get_active() else fpm.SCOPE_USER),
-                trigger=self.flatseal_btn) if r == "confirm" else None)
-            dialog.present()
-            return
-
-        if status.flathub_system_available:
-            # Only the system scope is usable — ask for privileges only
-            # after an explicit confirmation, never silently.
-            dialog = Adw.MessageDialog(transient_for=self.page.get_root(),
-                                        heading=T("sr_install_flatseal_btn"),
-                                        body=T("sr_flatseal_install_preview_system"))
-            dialog.add_response("cancel", T("sr_cancel_btn"))
-            dialog.add_response("confirm", T("sr_confirm_btn"))
-            dialog.set_response_appearance("confirm", Adw.ResponseAppearance.SUGGESTED)
-            dialog.connect("response", lambda d, r: self._run_simple(
-                "install_flatseal", scope=fpm.SCOPE_SYSTEM, trigger=self.flatseal_btn) if r == "confirm" else None)
-            dialog.present()
-            return
-
         if status.flathub_user_available:
-            # User scope needs no privileges at all — proceed directly,
-            # per spec ("non usare privilegi... non provare
-            # automaticamente lo scope di sistema").
+            # No privileges needed at all — proceed directly, no dialog.
             self._run_simple("install_flatseal", scope=fpm.SCOPE_USER, trigger=self.flatseal_btn)
+        elif status.flathub_system_available:
+            # System scope needs pkexec — ask for a plain confirmation
+            # first (no scope picker: system is the only option here).
+            self._confirm_and_run("install_flatseal", "sr_install_flatseal_btn", "sr_flatseal_install_preview_system",
+                                   scope=fpm.SCOPE_SYSTEM, trigger=self.flatseal_btn)
 
     def _on_check_updates(self, _btn):
         self.updates_btn.set_sensitive(False)
@@ -1115,10 +1035,10 @@ class _SectionB:
             self._show_result(T("sr_updates_none"), True)
             return False
         text = T("sr_updates_available").format(n=len(items))
-        self._show_result(text, True, offer_apply=True)
+        self._show_result(text, True)
         return False
 
-    def _show_result(self, text, ok, offer_apply=False):
+    def _show_result(self, text, ok):
         self._result_lbl.set_visible(True)
         self._result_lbl.remove_css_class("desc-con")
         self._result_lbl.remove_css_class("status-active")
@@ -1134,7 +1054,7 @@ class _SectionB:
         dialog.present()
 
     def _run_simple(self, op_key, scope="", trigger=None):
-        button = trigger or self.configure_btn
+        button = trigger or self.primary_btn
         button.set_sensitive(False)
 
         def run():
@@ -1275,43 +1195,55 @@ class _SectionC:
             widgets.append(dup_lbl)
         return widgets
 
-    def _build_repo_action_buttons(self, entry: dict) -> Gtk.Widget:
-        """Real Disattiva/Riattiva + Rimuovi, shared by the main list
-        and by the Packman/OBS curated rows — one implementation, one
-        set of confirmation dialogs, one path to the engine."""
-        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+    def _build_repo_menu(self, entry: dict) -> "Gtk.MenuButton | None":
+        """One small compact menu per row — Abilita/Disabilita and
+        Rimuovi sorgente, the only actions the backend really supports
+        for this family (package_engine._op_toggle_repo/_op_remove_repo).
+        Official repositories never get a Rimuovi entry, so they can't
+        be deleted by accident."""
+        if entry["family"] not in self._MANAGEABLE_FAMILIES:
+            return None
         is_official = entry["kind"] == rsc.KIND_OFFICIAL
         is_flatpak = entry["family"] == "flatpak"
 
+        popover_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        popover_box.set_margin_top(6)
+        popover_box.set_margin_bottom(6)
+        popover_box.set_margin_start(6)
+        popover_box.set_margin_end(6)
+
+        popover = Gtk.Popover()
+        popover.set_child(popover_box)
+
+        menu_btn = Gtk.MenuButton(icon_name="view-more-symbolic")
+        menu_btn.add_css_class("flat")
+        menu_btn.set_popover(popover)
+        menu_btn.set_valign(Gtk.Align.CENTER)
+
+        def close_and(fn):
+            def handler(_b, e=entry):
+                popover.popdown()
+                fn(e)
+            return handler
+
         if entry["enabled"]:
-            disable_btn = Gtk.Button(label=T("sr_repo_action_disable_btn"))
-            disable_btn.connect("clicked", lambda _b, e=entry: self._on_repo_toggle(e, False))
-            button_box.append(disable_btn)
+            toggle_btn = Gtk.Button(label=T("sr_repo_action_disable_btn"))
+            toggle_btn.connect("clicked", close_and(lambda e: self._on_repo_toggle(e, False)))
         else:
-            enable_btn = Gtk.Button(label=T("sr_repo_action_enable_btn"))
-            enable_btn.connect("clicked", lambda _b, e=entry: self._on_repo_toggle(e, True))
-            button_box.append(enable_btn)
+            toggle_btn = Gtk.Button(label=T("sr_repo_action_enable_btn"))
+            toggle_btn.connect("clicked", close_and(lambda e: self._on_repo_toggle(e, True)))
+        toggle_btn.add_css_class("flat")
+        popover_box.append(toggle_btn)
 
         if not is_official:
             remove_label = T("sr_repo_action_remove_remote_btn") if is_flatpak else T("sr_repo_action_remove_btn")
             remove_btn = Gtk.Button(label=remove_label)
-            remove_btn.connect("clicked", lambda _b, e=entry: self._on_repo_remove(e))
-            button_box.append(remove_btn)
+            remove_btn.add_css_class("flat")
+            remove_btn.add_css_class("destructive-action")
+            remove_btn.connect("clicked", close_and(self._on_repo_remove))
+            popover_box.append(remove_btn)
 
-        details_btn = Gtk.Button(label=T("sr_repo_action_details_btn"))
-        details_btn.connect("clicked", lambda _b, e=entry: self._show_repo_details_dialog(e))
-        button_box.append(details_btn)
-        return button_box
-
-    def _show_repo_details_dialog(self, entry: dict):
-        body_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        for widget in self._repo_detail_widgets(entry, self._WARNING_KEYS):
-            body_box.append(widget)
-        dialog = Adw.MessageDialog(transient_for=self.page.get_root(),
-                                    heading=entry["name"] or entry.get("uri") or "—")
-        dialog.set_extra_child(body_box)
-        dialog.add_response("close", T("sr_close_btn"))
-        dialog.present()
+        return menu_btn
 
     def _build_repo_row(self, entry: dict) -> Gtk.Widget:
         expander = Adw.ExpanderRow(title=entry["name"] or entry["uri"] or "—")
@@ -1321,6 +1253,10 @@ class _SectionC:
         if not entry["enabled"]:
             expander.add_suffix(StatusPill(T("sr_repo_disabled"), variant="neutral"))
 
+        menu_btn = self._build_repo_menu(entry)
+        if menu_btn is not None:
+            expander.add_suffix(menu_btn)
+
         detail = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         detail.set_margin_top(6)
         detail.set_margin_bottom(10)
@@ -1329,35 +1265,7 @@ class _SectionC:
         for widget in self._repo_detail_widgets(entry, self._WARNING_KEYS):
             detail.append(widget)
 
-        if entry["family"] in self._MANAGEABLE_FAMILIES:
-            button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-            button_box.set_margin_top(10)
-            is_official = entry["kind"] == rsc.KIND_OFFICIAL
-            is_flatpak = entry["family"] == "flatpak"
-
-            if entry["enabled"]:
-                disable_btn = Gtk.Button(label=T("sr_repo_action_disable_btn"))
-                disable_btn.connect("clicked", lambda _b, e=entry: self._on_repo_toggle(e, False))
-                button_box.append(disable_btn)
-            else:
-                enable_btn = Gtk.Button(label=T("sr_repo_action_enable_btn"))
-                enable_btn.connect("clicked", lambda _b, e=entry: self._on_repo_toggle(e, True))
-                button_box.append(enable_btn)
-
-            if not is_official:
-                remove_label = T("sr_repo_action_remove_remote_btn") if is_flatpak else T("sr_repo_action_remove_btn")
-                remove_btn = Gtk.Button(label=remove_label)
-                remove_btn.connect("clicked", lambda _b, e=entry: self._on_repo_remove(e))
-                button_box.append(remove_btn)
-
-            # Note: the main list's own row already expands to show every
-            # technical detail inline (right below), so it deliberately
-            # doesn't add its own "Dettagli" button here — that button is
-            # for the curated Packman/OBS rows below, which have no
-            # expander of their own. See _build_repo_action_buttons.
-            if button_box.get_first_child() is not None:
-                detail.append(button_box)
-        else:
+        if entry["family"] not in self._MANAGEABLE_FAMILIES:
             note = Gtk.Label(label=T("sr_repo_management_not_available_family"), xalign=0, wrap=True)
             note.add_css_class("dim-label")
             note.set_margin_top(10)
@@ -1481,11 +1389,18 @@ class _SectionC:
         packman_entry = self._find_packman_repo_entry(entries)
         obs_entries = [e for e in entries if e.get("is_obs")]
 
+        guided_all = [r for r in rr.recipes_for_profile(profile) if r.level == rr.LEVEL_GUIDED]
+        advanced_all = [r for r in rr.recipes_for_profile(profile) if r.level == rr.LEVEL_ADVANCED]
+
+        # A recipe whose own repository is already visible (active or
+        # disabled) in the real list above is never shown a second time
+        # down here — no duplicate cards for the same repository.
+        guided = [r for r in guided_all if self._recipe_presence(r, entries) is None]
+        advanced = [r for r in advanced_all
+                    if r.id in ("packman", "opensuse_obs") or self._recipe_presence(r, entries) is None]
+
         self._additional_box.append(Gtk.Label(label=T("sr_additional_title"), xalign=0))
         self._additional_box.get_first_child().add_css_class("heading")
-
-        guided = [r for r in rr.recipes_for_profile(profile) if r.level == rr.LEVEL_GUIDED]
-        advanced = [r for r in rr.recipes_for_profile(profile) if r.level == rr.LEVEL_ADVANCED]
 
         if guided:
             self._additional_box.append(Gtk.Label(label=T("sr_additional_guided_desc"), xalign=0, wrap=True))
@@ -1498,52 +1413,38 @@ class _SectionC:
             self._additional_box.append(adv_lbl)
         for recipe in advanced:
             if recipe.id == "packman":
-                self._additional_box.append(self._build_packman_row(recipe, packman_entry, profile))
+                # Once Packman is configured it appears in the real
+                # repository list above (with its own compact menu) —
+                # this "offer" card is only shown while it's absent.
+                if packman_entry is None:
+                    self._additional_box.append(self._build_packman_row(recipe, profile))
             elif recipe.id == "opensuse_obs":
                 self._additional_box.append(self._build_obs_row(recipe, obs_entries))
             else:
                 self._additional_box.append(self._build_advanced_state_row(recipe, entries))
 
-    def _build_packman_row(self, recipe, packman_entry: "dict | None", profile) -> Gtk.Widget:
-        """Packman is always linked to the real scanned repository —
-        never a second, duplicate activation entry:
-        - present + enabled  -> status pill + real Disattiva/Rimuovi/Dettagli
-        - present + disabled -> status pill + real Riattiva/Rimuovi/Dettagli
-        - absent, Tumbleweed -> "Attiva Packman" (real add-repo flow)
-        - absent, Leap       -> "Non compatibile"
-        - absent, unresolved -> "Stato non verificabile"
-
-        The action buttons are the exact same ones the main repository
-        list uses (_build_repo_action_buttons -> _on_repo_toggle /
-        _on_repo_remove -> the real engine call) — never a second,
-        parallel implementation, and never just a link that depends on
-        the user finding another row somewhere else on the page."""
-        row = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    def _build_packman_row(self, recipe, profile) -> Gtk.Widget:
+        """Packman "offer" card — shown only while no Packman repository
+        is configured yet (see _build_additional_section). Once added,
+        it's managed from the real repository list, never from a second
+        copy here."""
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         name_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True)
         name_box.append(Gtk.Label(label=_recipe_text(recipe.name_key), xalign=0))
         desc_lbl = Gtk.Label(label=_recipe_text(recipe.description_key), xalign=0, wrap=True)
         desc_lbl.add_css_class("dim-label")
         name_box.append(desc_lbl)
-        header.append(name_box)
+        row.append(name_box)
 
-        if packman_entry is not None:
-            pill_text = T("sr_packman_already_active") if packman_entry["enabled"] else T("sr_repo_disabled")
-            pill_variant = "success" if packman_entry["enabled"] else "neutral"
-            header.append(StatusPill(pill_text, variant=pill_variant))
-            row.append(header)
-            row.append(self._build_repo_action_buttons(packman_entry))
+        compat = self._packman_compatibility(profile)
+        if compat == "compatible":
+            activate_btn = Gtk.Button(label=T("sr_packman_activate_btn"))
+            activate_btn.connect("clicked", lambda _b: self._on_activate_packman())
+            row.append(activate_btn)
+        elif compat == "incompatible":
+            row.append(StatusPill(T("sr_state_not_compatible"), variant="absent"))
         else:
-            compat = self._packman_compatibility(profile)
-            if compat == "compatible":
-                activate_btn = Gtk.Button(label=T("sr_packman_activate_btn"))
-                activate_btn.connect("clicked", lambda _b: self._on_activate_packman())
-                header.append(activate_btn)
-            elif compat == "incompatible":
-                header.append(StatusPill(T("sr_state_not_compatible"), variant="absent"))
-            else:
-                header.append(StatusPill(T("sr_state_unverifiable"), variant="neutral"))
-            row.append(header)
+            row.append(StatusPill(T("sr_state_unverifiable"), variant="neutral"))
         return row
 
     def _on_activate_packman(self):
@@ -1577,12 +1478,12 @@ class _SectionC:
 
     def _build_obs_row(self, recipe, obs_entries: list) -> Gtk.Widget:
         """OBS is never a single activatable repository — there is no
-        generic "Attiva OBS" button here, and there never will be. But
-        every REAL OBS project repository the scanner finds (see
-        repo_scanner._is_obs_project_repo) gets its own row below the
-        general explanation, with the same real Disattiva/Riattiva/
-        Rimuovi/Dettagli actions as any other openSUSE repository —
-        never just a generic "Esterno" line lost in the main list."""
+        generic "Attiva OBS" button here, and there never will be. Real
+        OBS project repositories the scanner finds (see
+        repo_scanner._is_obs_project_repo) already appear in the real
+        repository list above, each with its own compact menu — this
+        card only explains what OBS is and points there, it never
+        re-lists the same entries a second time."""
         container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
 
         name_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True)
@@ -1595,26 +1496,15 @@ class _SectionC:
         name_box.append(explain_lbl)
         container.append(name_box)
 
-        if not obs_entries:
-            none_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-            none_row.append(Gtk.Label(label=T("sr_obs_none_configured"), xalign=0, hexpand=True, wrap=True))
-            none_row.append(StatusPill(T("sr_state_info_only"), variant="neutral"))
-            container.append(none_row)
-            return container
-
-        for entry in obs_entries:
-            entry_row = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-            header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-            header.append(Gtk.Label(label=entry["name"] or entry.get("alias") or "—", xalign=0, hexpand=True))
-            pill_text = T("sr_packman_already_active") if entry["enabled"] else T("sr_repo_disabled")
-            pill_variant = "success" if entry["enabled"] else "neutral"
-            header.append(StatusPill(pill_text, variant=pill_variant))
-            entry_row.append(header)
-            entry_row.append(self._build_repo_action_buttons(entry))
-            entry_row.add_css_class("card")
-            entry_row.set_margin_top(4)
-            container.append(entry_row)
-
+        status_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        if obs_entries:
+            status_row.append(Gtk.Label(label=T("sr_obs_present_in_list").format(n=len(obs_entries)),
+                                          xalign=0, hexpand=True, wrap=True))
+            status_row.append(StatusPill(T("sr_packman_already_active"), variant="success"))
+        else:
+            status_row.append(Gtk.Label(label=T("sr_obs_none_configured"), xalign=0, hexpand=True, wrap=True))
+            status_row.append(StatusPill(T("sr_state_info_only"), variant="neutral"))
+        container.append(status_row)
         return container
 
     def _build_advanced_state_row(self, recipe, entries: list) -> Gtk.Widget:

@@ -57,6 +57,25 @@ class DistroManager:
             pkg = packages.get("debian", packages.get("default", ""))
             return ["apt-get", "install", "-y", pkg] if pkg else []
 
+    def remove_cmd(self, packages: dict) -> list:
+        """
+        Same package-name map as install_cmd(), the removal side.
+        Never purges/autoremoves — only takes the named package(s) off,
+        so it never cascades into removing unrelated dependents.
+        """
+        if self.is_arch:
+            pkg = packages.get("arch", packages.get("default", ""))
+            return ["pacman", "-R", "--noconfirm", pkg] if pkg else []
+        elif self.is_opensuse:
+            pkg = packages.get("opensuse", packages.get("default", ""))
+            return ["zypper", "--non-interactive", "remove", pkg] if pkg else []
+        elif self.is_fedora:
+            pkg = packages.get("fedora", packages.get("default", ""))
+            return ["dnf", "remove", "-y", pkg] if pkg else []
+        else:  # default to debian
+            pkg = packages.get("debian", packages.get("default", ""))
+            return ["apt-get", "remove", "-y", pkg] if pkg else []
+
     def is_installed(self, packages: dict) -> bool:
         """
         Check if a package is installed, using the package database that

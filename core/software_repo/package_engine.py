@@ -64,6 +64,10 @@ def _op_add_flathub(profile, scope, job):
     return fp.add_flathub_remote(scope or fp.SCOPE_USER, job=job)
 
 
+def _op_remove_flatpak(profile, scope, job):
+    return fp.remove_flatpak(profile, job=job)
+
+
 def _op_install_flatseal(profile, scope, job):
     return fp.install_flatseal(scope or fp.SCOPE_USER, job=job)
 
@@ -187,6 +191,7 @@ def _op_activate_packman(profile, scope, job):
 OPERATIONS = {
     "configure_flatpak":     ("_op_configure_flatpak", "software_repo.flatpak_setup", CONFIGURATION),
     "add_flathub":           ("_op_add_flathub", "software_repo.flathub_remote", ACTIVATION),
+    "remove_flatpak":        ("_op_remove_flatpak", "software_repo.flatpak_remove", DEACTIVATION),
     "install_flatseal":      ("_op_install_flatseal", "software_repo.flatseal", ACTIVATION),
     "update_flatpaks":       ("_op_update_flatpaks", "software_repo.flatpak_update", TEMPORARY_CHANGE),
     "remove_unused_flatpak": ("_op_remove_unused_flatpak_runtimes", "software_repo.flatpak_unused", DEACTIVATION),
