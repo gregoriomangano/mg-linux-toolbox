@@ -23,11 +23,15 @@ import os
 import shutil
 import subprocess
 import tempfile
+import secrets
+import sys
 
 from core.updater import downloader, installer, verifier
 from core.updater.models import InstallResult, ReleaseInfo
 
 VERSION_FILE = os.path.join(installer.MANAGED_DIR, ".version")
+LAST_PENDING_BACKUP_PATH = ""
+LAST_UPDATE_VERSION = ""
 
 
 class UpdateError(Exception):
@@ -91,6 +95,7 @@ def _work_dir() -> str:
 
 def perform_managed_update(release: ReleaseInfo, current_version: str,
                             on_progress=None, cancel_token=None) -> InstallResult:
+    global LAST_PENDING_BACKUP_PATH, LAST_UPDATE_VERSION
     work_dir = _work_dir()
     try:
         try:
@@ -101,9 +106,10 @@ def perform_managed_update(release: ReleaseInfo, current_version: str,
 
         # Backup BEFORE any replacement; keep exactly one previous version.
         try:
-            _prune_backups()
-            installer.backup_current(installer.MANAGED_APPIMAGE_PATH,
-                                      installer.BACKUP_DIR, current_version or "unknown")
+            LAST_PENDING_BACKUP_PATH = installer.pending_backup_current(
+                installer.MANAGED_APPIMAGE_PATH, installer.BACKUP_DIR,
+                current_version or "unknown")
+            LAST_UPDATE_VERSION = release.version
         except OSError as e:
             return InstallResult(False, friendly_message="updater_backup_failed",
                                   technical_detail=str(e))
@@ -126,21 +132,6 @@ def perform_managed_update(release: ReleaseInfo, current_version: str,
         return InstallResult(True)
     finally:
         shutil.rmtree(work_dir, ignore_errors=True)
-
-
-def _prune_backups():
-    """Keeps the backup dir down to nothing before a new backup is made —
-    the spec keeps exactly ONE previous version."""
-    try:
-        names = os.listdir(installer.BACKUP_DIR)
-    except OSError:
-        return
-    for name in names:
-        if name.startswith("previous-") and name.endswith(".AppImage"):
-            try:
-                os.remove(os.path.join(installer.BACKUP_DIR, name))
-            except OSError:
-                pass
 
 
 def download_only(release: ReleaseInfo, dest_dir: str,
@@ -227,15 +218,36 @@ def update_helper_from_appimage(appimage_path: str) -> InstallResult:
 
 # ── Restart ───────────────────────────────────────────────────────────
 def restart_into_managed() -> bool:
-    """Launches the STABLE managed path detached from this process, so
-    quitting the current app never kills the new one. Returns False if
-    the managed AppImage isn't there (caller keeps the app open)."""
+    """Starts the external supervisor for confirmation and rollback."""
     target = installer.MANAGED_APPIMAGE_PATH
+    pending = LAST_PENDING_BACKUP_PATH
+    version = LAST_UPDATE_VERSION
+    if not pending or not version or not os.path.isfile(pending):
+        return False
     if not os.path.isfile(target) or not os.access(target, os.X_OK):
         return False
+    helper_source = os.path.join(os.path.dirname(__file__), "launch_helper.py")
+    runtime_dir = tempfile.mkdtemp(prefix="mg-toolbox-update-")
+    helper_path = os.path.join(runtime_dir, "launch_helper.py")
+    confirmation = os.path.join(runtime_dir, "confirmation.json")
+    token = secrets.token_urlsafe(32)
+    log_path = os.path.join(installer.BACKUP_DIR, "update-last-result.log")
     try:
-        subprocess.Popen([target], start_new_session=True,
-                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        shutil.copy2(helper_source, helper_path)
+        os.chmod(helper_path, 0o700)
+        subprocess.Popen([
+            sys.executable, helper_path,
+            "--target", target,
+            "--pending", pending,
+            "--backup-dir", installer.BACKUP_DIR,
+            "--version", version,
+            "--previous-version", os.path.basename(pending)[len(installer.PENDING_BACKUP_PREFIX):-len(".AppImage")],
+            "--confirmation", confirmation,
+            "--token", token,
+            "--log", log_path,
+        ], cwd=runtime_dir, start_new_session=True,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except OSError:
+        shutil.rmtree(runtime_dir, ignore_errors=True)
         return False
     return True

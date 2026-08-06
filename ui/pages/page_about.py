@@ -327,7 +327,10 @@ class AboutWindow(Adw.Window):
             # then run the exact same managed update on top of it.
             running_path = _running_appimage_path()
             if running_path:
-                installer.install_to_managed_location(running_path)
+                result = installer.install_to_managed_location(running_path)
+                if not result.ok:
+                    self._show_update_failure(result)
+                    return
             self._start_managed_update(release)
         elif response == "download":
             self._choose_download_folder(release)
@@ -403,6 +406,8 @@ class AboutWindow(Adw.Window):
                 app = self._main_window.get_application()
             if app is not None:
                 app.quit()
+        else:
+            self._update_status_lbl.set_text(T("updater_replace_failed"))
 
     def _start_download_only(self, release, dest_dir):
         self._begin_update_ui()

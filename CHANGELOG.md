@@ -11,6 +11,13 @@ Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il p
 - Repository e Virtualizzazione: riallineati i controlli pubblici per Packman, Flatpak, Docker, Podman e Distrobox alle implementazioni validate.
 - Test: la suite protegge anche la discovery standard da `sudo`, `pkexec`, `su` e `doas`, senza modificare il comportamento runtime dell'applicazione.
 
+## [0.9.0-beta.5] - 2026-08-06
+
+### Corretto
+
+- L'aggiornamento gestito conserva una copia pendente, attende la conferma atomica dell'avvio della nuova AppImage tramite helper esterno e ripristina la versione precedente se la conferma manca o il processo termina durante la stabilizzazione.
+- La conversione da AppImage portatile a installazione gestita verifica copia, permessi, dimensione e SHA-256 e ripristina la destinazione se la scrittura del launcher fallisce.
+
 ## [0.9.0-beta.4] - 2026-08-04
 
 ### Corretto

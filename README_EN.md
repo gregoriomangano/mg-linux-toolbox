@@ -6,9 +6,9 @@ M.G Linux Toolbox brings together Linux features that would normally require the
 
 ## Project status
 
-Version **0.9.0 Beta 4** is the current prerelease. The local branch for the next beta includes the Gaming Pack with real repository availability checks.
+Version **0.9.0 Beta 5** is the current prerelease candidate. It includes the Gaming Pack with real repository availability checks and managed updates with startup confirmation and verified rollback.
 
-The verified AppImage package and its checksum are associated with [Release v0.9.0-beta.4](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.4).
+The verified AppImage package and its checksum will be associated with [Release v0.9.0-beta.5](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.5) after publication.
 
 The code is distributed under the **GPL-3.0-or-later** license. The project name, logo, and identity are addressed separately in [TRADEMARKS.md](TRADEMARKS.md).
 

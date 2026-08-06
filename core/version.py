@@ -5,7 +5,7 @@ scripts) reads from here — never duplicate the version string elsewhere.
 """
 
 APP_NAME = "M.G Linux Toolbox"
-APP_VERSION = "0.9.0-beta.4"
+APP_VERSION = "0.9.0-beta.5"
 UPDATE_CHANNEL = "beta"  # "stable" | "beta" — controls which releases the updater considers
 
 

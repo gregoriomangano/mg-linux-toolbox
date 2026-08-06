@@ -1,12 +1,14 @@
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Gtk, Adw, Gio
+from gi.repository import Gtk, Adw, Gio, GLib
 import os
 import core.i18n as i18n
 from core.i18n import T, on_change
 from core import release_config
 from core.uri_launcher import open_external_url
+from core.version import APP_VERSION
+from core.updater.startup import write_update_confirmation
 
 from ui.sidebar import Sidebar
 
@@ -347,3 +349,18 @@ class LinuxToolboxApp(Adw.Application):
         if not win:
             win = LinuxToolboxWindow(application=self)
         win.present()
+        write_update_confirmation(APP_VERSION)
+        if os.environ.pop("MG_TOOLBOX_UPDATE_ROLLBACK", "") == "1":
+            GLib.idle_add(self._show_update_rollback_notice, win)
+
+    def _show_update_rollback_notice(self, win):
+        log_path = os.environ.pop("MG_TOOLBOX_UPDATE_ROLLBACK_LOG", "")
+        body = "L'aggiornamento non è stato completato. È stata ripristinata la versione precedente."
+        if log_path:
+            body += f"\n\nDettagli tecnici disponibili in:\n{log_path}"
+        dialog = Adw.MessageDialog(transient_for=win,
+                                   heading="Aggiornamento non riuscito",
+                                   body=body)
+        dialog.add_response("close", "Chiudi")
+        dialog.present()
+        return False

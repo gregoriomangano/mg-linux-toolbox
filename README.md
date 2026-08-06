@@ -6,9 +6,9 @@ M.G Linux Toolbox raccoglie in un'interfaccia grafica semplice funzioni Linux ch
 
 ## Stato del progetto
 
-La versione **0.9.0 Beta 4** è la prerelease corrente. Il ramo locale per la prossima beta include il Gaming Pack installabile con controlli reali dei repository.
+La versione **0.9.0 Beta 5** è la prerelease candidata corrente. Include il Gaming Pack installabile con controlli reali dei repository e l'aggiornamento gestito con conferma dell'avvio e rollback verificato.
 
-Il pacchetto AppImage verificato e il relativo checksum sono associati alla [Release v0.9.0-beta.4](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.4).
+Il pacchetto AppImage verificato e il relativo checksum saranno associati alla [Release v0.9.0-beta.5](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.5) dopo la pubblicazione.
 
 Il codice è distribuito con licenza **GPL-3.0-or-later**. Nome, logo e identità del progetto sono trattati separatamente in [TRADEMARKS.md](TRADEMARKS.md).
 

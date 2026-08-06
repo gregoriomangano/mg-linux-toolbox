@@ -390,6 +390,66 @@ class InstallerTests(unittest.TestCase):
             content = f.read()
         self.assertIn("Exec=", content)
 
+    def test_managed_install_failure_does_not_change_existing_destination_or_launcher(self):
+        source = os.path.join(self.tmp, "Downloads", "MG-Linux-Toolbox.AppImage")
+        os.makedirs(os.path.dirname(source))
+        with open(source, "wb") as f:
+            f.write(b"new appimage")
+        managed_dir = os.path.join(self.tmp, "managed")
+        os.makedirs(managed_dir)
+        destination = os.path.join(managed_dir, installer.MANAGED_APPIMAGE_NAME)
+        with open(destination, "wb") as f:
+            f.write(b"old appimage")
+        os.chmod(destination, 0o755)
+        desktop_path = os.path.join(self.tmp, "applications", "mg-linux-toolbox.desktop")
+        os.makedirs(os.path.dirname(desktop_path))
+        with open(desktop_path, "w") as f:
+            f.write("old launcher")
+        real_replace = installer.os.replace
+
+        def fail_launcher_replace(source_path, target_path):
+            if target_path == desktop_path:
+                raise OSError("launcher write failed")
+            return real_replace(source_path, target_path)
+
+        with mock.patch.object(installer.os, "replace", side_effect=fail_launcher_replace):
+            result = installer.install_to_managed_location(
+                source, managed_dir=managed_dir, desktop_entry_path=desktop_path)
+        self.assertFalse(result.ok)
+        with open(destination, "rb") as f:
+            self.assertEqual(f.read(), b"old appimage")
+        with open(desktop_path) as f:
+            self.assertEqual(f.read(), "old launcher")
+
+    def test_managed_install_rejects_empty_source(self):
+        source = os.path.join(self.tmp, "Downloads", "MG-Linux-Toolbox.AppImage")
+        os.makedirs(os.path.dirname(source))
+        open(source, "wb").close()
+        result = installer.install_to_managed_location(
+            source, managed_dir=os.path.join(self.tmp, "managed"),
+            desktop_entry_path=os.path.join(self.tmp, "applications", "app.desktop"))
+        self.assertFalse(result.ok)
+
+    def test_managed_install_rejects_incomplete_copy(self):
+        source = os.path.join(self.tmp, "Downloads", "MG-Linux-Toolbox.AppImage")
+        os.makedirs(os.path.dirname(source))
+        with open(source, "wb") as f:
+            f.write(b"complete source")
+        real_copy2 = installer.shutil.copy2
+
+        def truncated_copy(source_path, destination_path):
+            if destination_path.endswith(".new"):
+                with open(destination_path, "wb") as f:
+                    f.write(b"short")
+                return destination_path
+            return real_copy2(source_path, destination_path)
+
+        with mock.patch.object(installer.shutil, "copy2", side_effect=truncated_copy):
+            result = installer.install_to_managed_location(
+                source, managed_dir=os.path.join(self.tmp, "managed"),
+                desktop_entry_path=os.path.join(self.tmp, "applications", "app.desktop"))
+        self.assertFalse(result.ok)
+
     def test_backup_creates_copy_and_none_when_nothing_to_back_up(self):
         managed_path = os.path.join(self.tmp, "MG-Linux-Toolbox.AppImage")
         backup_dir = os.path.join(self.tmp, "backup")

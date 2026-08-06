@@ -87,7 +87,7 @@ class ManagedUpdateTests(unittest.TestCase):
             self.assertEqual(f.read(), b"new appimage")
         self.assertTrue(os.access(self.managed_path, os.X_OK))
         backups = os.listdir(self.backup_dir)
-        self.assertEqual(backups, ["previous-0.9.0-beta.4.AppImage"])
+        self.assertEqual(backups, ["pending-previous-0.9.0-beta.4.AppImage"])
         with open(os.path.join(self.backup_dir, backups[0]), "rb") as f:
             self.assertEqual(f.read(), b"old appimage")
         with open(orchestrator.VERSION_FILE) as f:
@@ -100,7 +100,10 @@ class ManagedUpdateTests(unittest.TestCase):
             f.write(b"very old")
         result = self._run()
         self.assertTrue(result.ok)
-        self.assertEqual(os.listdir(self.backup_dir), ["previous-0.9.0-beta.4.AppImage"])
+        self.assertEqual(sorted(os.listdir(self.backup_dir)), [
+            "pending-previous-0.9.0-beta.4.AppImage",
+            "previous-0.9.0-beta.3.AppImage",
+        ])
 
     def test_checksum_mismatch_changes_nothing(self):
         downloads = _FakeDownloads(checksum_of="0" * 64)
@@ -187,15 +190,21 @@ class RestartTests(unittest.TestCase):
     def test_restart_launches_the_stable_path_detached(self):
         with tempfile.TemporaryDirectory() as d:
             target = os.path.join(d, "MG-Linux-Toolbox.AppImage")
+            pending = os.path.join(d, "pending-previous-0.9.0-beta.4.AppImage")
             with open(target, "w") as f:
                 f.write("#!/bin/sh\nexit 0\n")
+            with open(pending, "w") as f:
+                f.write("#!/bin/sh\nexit 0\n")
             os.chmod(target, 0o755)
+            os.chmod(pending, 0o755)
             with mock.patch.object(installer, "MANAGED_APPIMAGE_PATH", target), \
+                 mock.patch.object(orchestrator, "LAST_PENDING_BACKUP_PATH", pending), \
+                 mock.patch.object(orchestrator, "LAST_UPDATE_VERSION", "0.9.0-beta.5"), \
                  mock.patch.object(orchestrator.subprocess, "Popen") as mock_popen:
                 self.assertTrue(orchestrator.restart_into_managed())
             argv = mock_popen.call_args[0][0]
-            self.assertEqual(argv, [target])
-            self.assertNotIn("/tmp/.mount_", argv[0])
+            self.assertIn("launch_helper.py", argv[1])
+            self.assertIn(target, argv)
             self.assertTrue(mock_popen.call_args[1]["start_new_session"])
 
 
