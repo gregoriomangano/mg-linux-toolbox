@@ -1,13 +1,25 @@
-"""Gaming Pack V1: read-only system analysis and package preview.
+"""Video Editing Pack V1: read-only system analysis and package preview.
 
-This module deliberately contains no installation, removal, repository
-configuration, driver or kernel operation.  It only identifies the running
-system and asks its existing package database which named packages are already
-installed or are available from repositories the user configured beforehand.
+Same read-only contract as core/gaming_pack.py, from which this module
+started as a plain copy: it never installs, removes, configures a
+repository, or touches a driver/kernel setting. It only asks the running
+distro's package manager which named packages are already present or
+available from repositories the user already configured, plus one *real*
+capability probe — the installed ffmpeg's own list of compiled-in hardware
+accelerators — instead of guessing GPU-encoder support from the GPU vendor
+alone (a correct GPU can still sit behind an ffmpeg build with no
+VAAPI/NVENC/QSV support at all).
 
-The Debian-family mapping was exercised on the Pop!_OS 24.04 development
-machine.  Fedora, Arch-family and openSUSE mappings were checked against their
-official package indexes, but still require testing on real machines.
+Package-name mappings below were checked against each distribution's real
+package index (packages.debian.org, Arch's official repos, live on a Fedora
+44 machine) on 2026-08-07. openSUSE names were checked against Packman —
+openSUSE's own documented multimedia repository — rather than a live
+Tumbleweed install: ffmpeg and obs-studio are not in openSUSE's default OSS
+repo at all (patent/codec licensing, same reason Fedora needs RPM Fusion),
+so scan() will correctly report them "not available" there unless the user
+has already added Packman themselves; this app never adds it automatically.
+Where a name could not be confirmed this way, the mapping is None (never a
+guessed name) — scan() reports that as "not_verifiable".
 """
 import shutil
 from dataclasses import dataclass, field
@@ -15,143 +27,32 @@ from typing import Callable, Optional
 
 from core.distro import get_context
 from core.executor import Job, run_command, run_command_full
-from core import gaming_readiness as gr
-from core import gpu_vendor as gv
-
 
 FAMILIES = ("debian", "fedora", "arch", "opensuse")
-OPTIONAL_COMPONENTS = {"gamescope", "goverlay", "mangohud_32"}
-COMMON_COMPONENTS = ("gamemode", "mangohud", "goverlay", "vulkan_64")
 
-# None means that no sufficiently reliable official-repository mapping was
-# found.  It is reported as "not verifiable", never replaced by a guessed name.
+# ffmpeg is the one dependency the other two effectively assume is present
+# (encoding/decoding backbone); obs_studio and kdenlive are "pick what you
+# need" tools, not implied by one another.
+COMMON_COMPONENTS = ("ffmpeg",)
+OPTIONAL_COMPONENTS: set = set()
+
+# None means no sufficiently reliable official-repository mapping was found.
+# Reported as "not verifiable", never replaced by a guessed name.
 COMPONENTS = {
-    "steam": {
-        "debian": ["steam"], "fedora": ["steam"], "arch": ["steam"],
-        "opensuse": None,
+    "ffmpeg": {
+        "debian": ["ffmpeg"], "fedora": ["ffmpeg"], "arch": ["ffmpeg"], "opensuse": ["ffmpeg"],
     },
-    "gamemode": {
-        "debian": ["gamemode"], "fedora": ["gamemode"], "arch": ["gamemode"],
-        "opensuse": None,
+    "obs_studio": {
+        "debian": ["obs-studio"], "fedora": ["obs-studio"], "arch": ["obs-studio"], "opensuse": ["obs-studio"],
     },
-    "mangohud": {
-        "debian": ["mangohud"], "fedora": ["mangohud"], "arch": ["mangohud"],
-        "opensuse": None,
-    },
-    "mangohud_32": {
-        # 32-bit companion package, needed for MangoHud to overlay 32-bit
-        # games. Not the same package as "mangohud" above — openSUSE
-        # ships them as two separate RPMs (confirmed on a real
-        # Tumbleweed machine; other families were not checked for this
-        # split and stay unverified rather than guessed).
-        "debian": None, "fedora": None, "arch": None,
-        "opensuse": None,
-    },
-    "gamescope": {
-        "debian": ["gamescope"], "fedora": ["gamescope"], "arch": ["gamescope"],
-        "opensuse": None,
-    },
-    "goverlay": {
-        "debian": ["goverlay"], "fedora": ["goverlay"], "arch": ["goverlay"],
-        "opensuse": None,
-    },
-    "lutris": {
-        "debian": ["lutris"], "fedora": ["lutris"], "arch": ["lutris"],
-        "opensuse": None,
-    },
-    "protontricks": {
-        "debian": ["protontricks"], "fedora": ["protontricks"],
-        "arch": ["protontricks"], "opensuse": None,
-    },
-    "winetricks": {
-        "debian": ["winetricks"], "fedora": ["winetricks"],
-        "arch": ["winetricks"], "opensuse": None,
-    },
-    "steam_devices": {
-        "debian": ["steam-devices"], "fedora": ["steam-devices"],
-        "arch": ["steam-devices"], "opensuse": None,
-    },
-    "vulkan_64": {
-        "debian": ["libvulkan1", "vulkan-tools"],
-        "fedora": ["vulkan-loader", "vulkan-tools"],
-        "arch": ["vulkan-icd-loader", "vulkan-tools"],
-        "opensuse": ["libvulkan1", "vulkan-tools"],
-    },
-    "vulkan_32": {
-        "debian": ["libvulkan1:i386"],
-        "fedora": ["vulkan-loader.i686"],
-        "arch": ["lib32-vulkan-icd-loader"],
-        # openSUSE has no single vendor-neutral package here: the loader
-        # alone doesn't provide working 32-bit Vulkan without a matching
-        # ICD. See _OPENSUSE_VULKAN_ICD_32BIT / _packages_for() below —
-        # this entry is intentionally never used for that family.
-        "opensuse": None,
-    },
-    "opengl_32": {
-        "debian": ["libgl1-mesa-dri:i386", "libglx-mesa0:i386"],
-        "fedora": ["mesa-libGL.i686"],
-        "arch": ["lib32-mesa"],
-        # Confirmed on a real openSUSE Tumbleweed machine only (see
-        # _OPENSUSE_TUMBLEWEED) — not assumed valid for Leap.
-        "opensuse": None,
-    },
-    "audio_32": {
-        "debian": ["libasound2-plugins:i386"],
-        "fedora": ["alsa-plugins-pulseaudio.i686"],
-        "arch": ["lib32-alsa-plugins"],
-        # Confirmed on a real openSUSE Tumbleweed machine only (see
-        # _OPENSUSE_TUMBLEWEED) — not assumed valid for Leap.
-        "opensuse": None,
+    "kdenlive": {
+        "debian": ["kdenlive"], "fedora": ["kdenlive"], "arch": ["kdenlive"], "opensuse": ["kdenlive"],
     },
 }
-
-# openSUSE 32-bit Vulkan ICD per GPU vendor (core.gpu_vendor values) —
-# same real, `zypper`-confirmed names as backend.all._OPENSUSE_VULKAN_ICD_32BIT.
-# Deliberately no entry for a proprietary NVIDIA driver or an
-# unrecognized GPU: guessing a GPU-specific package is exactly what this
-# module must never do (see ReadOnlySafetyTests — it also never installs
-# anything, guessed or not).
-_OPENSUSE_VULKAN_ICD_32BIT = {
-    "amd": "libvulkan_radeon-32bit",
-    "intel": "libvulkan_intel-32bit",
-    "nouveau": "libvulkan_nouveau-32bit",
-}
-
-# Tumbleweed has official packages that are not consistently present in Leap.
-# Keeping the variants separate avoids presenting a rolling-release result as
-# valid for Leap.  Runtime repository checks remain authoritative.
-#
-# 2026-08-05: re-verified for real with `zypper search -s`/`zypper info`
-# on a Tumbleweed machine (AMD/amdgpu GPU) — steam is served from the
-# default "Repository principale (NON-OSS)" (part of a stock Tumbleweed
-# install, not an external/Packman-style repo this app would need to
-# add), everything else from "Repository principale (OSS)". mangohud,
-# gamescope and goverlay were NOT installed on that machine but ARE
-# present/available there, confirming the name itself is real even
-# though the component's install state is "available", not
-# "already_installed".
-_OPENSUSE_TUMBLEWEED = {
-    "steam": ["steam"],
-    "gamemode": ["gamemode"],
-    "mangohud": ["mangohud"],
-    "mangohud_32": ["mangohud-32bit"],
-    "gamescope": ["gamescope"],
-    "goverlay": ["goverlay"],
-    "lutris": ["lutris"],
-    "protontricks": ["protontricks"],
-    "winetricks": ["winetricks"],
-    "steam_devices": ["steam-devices"],
-    "opengl_32": ["Mesa-libGL1-32bit"],
-    "audio_32": ["alsa-plugins-pulse-32bit"],
-}
-
-_LIB32_COMPONENTS = {"vulkan_32", "opengl_32", "audio_32"}
 
 ALREADY_INSTALLED = "already_installed"
 AVAILABLE = "available"
 NOT_AVAILABLE = "not_available"
-REPO_NEEDED = "repo_needed"
-NOT_SUITABLE = "not_suitable"
 NOT_VERIFIABLE = "not_verifiable"
 
 
@@ -161,14 +62,9 @@ class SystemProfile:
     distro_pretty_name: str
     package_manager: str
     architecture: str
-    gpu_driver: str
-    gpu_driver_known_good: bool
-    vulkan_ok: bool
-    lib32_active: bool
-    lib32_repo_hint: str
-    distro_variant: str = ""
     package_manager_available: bool = True
-    gpu_vendor: str = gv.UNKNOWN
+    ffmpeg_present: bool = False
+    hwaccels: list = field(default_factory=list)
 
 
 @dataclass
@@ -177,7 +73,6 @@ class ComponentPreview:
     optional: bool
     state: str
     packages: list = field(default_factory=list)
-    repo_hint: str = ""
     common: bool = False
     installed_packages: list = field(default_factory=list)
     suggested_packages: list = field(default_factory=list)
@@ -199,33 +94,24 @@ def _family_from_identity(identifier: str, id_like: str) -> str:
     return "unknown"
 
 
-def _variant_from_context(ctx, family: str) -> str:
-    if family != "opensuse":
-        return ""
-    identity = f"{ctx.id} {ctx.id_like} {ctx.pretty_name} {ctx.version_id}".lower()
-    return "tumbleweed" if "tumbleweed" in identity else "leap"
+def _probe_hwaccels(job: Optional[Job] = None) -> list:
+    """Real probe of the installed ffmpeg's compiled-in hardware
+    accelerators (vaapi, nvenc, qsv...) — never inferred from the GPU
+    vendor alone, since a correct GPU can still sit behind an ffmpeg build
+    with no hardware-encoder support at all."""
+    if not shutil.which("ffmpeg"):
+        return []
+    result = run_command_full(["ffmpeg", "-hide_banner", "-hwaccels"], job=job)
+    if not result.ok:
+        return []
+    lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    # First non-empty line is ffmpeg's own "Hardware acceleration methods:"
+    # header, not an accelerator name.
+    return lines[1:] if lines else []
 
 
-def _lib32_status(family: str) -> "tuple[bool, str]":
-    """Read existing multilib configuration without changing it."""
-    if family == "debian":
-        ok, out, _ = run_command(["dpkg", "--print-foreign-architectures"])
-        active = ok and "i386" in out.split()
-        return active, "" if active else "architettura i386"
-    if family == "arch":
-        try:
-            with open("/etc/pacman.conf", encoding="utf-8") as config:
-                active = any(line.strip() == "[multilib]" for line in config)
-        except OSError:
-            active = False
-        return active, "" if active else "multilib"
-    if family in ("fedora", "opensuse"):
-        return True, ""
-    return False, ""
-
-
-def detect_system(sys_root: str = "/sys") -> SystemProfile:
-    """Build a read-only profile of distro, GPU and package facilities."""
+def detect_system(job: Optional[Job] = None) -> SystemProfile:
+    """Build a read-only profile of distro and package facilities."""
     ctx = get_context()
     family = _family_from_identity(ctx.id, ctx.id_like)
     package_manager = {
@@ -237,36 +123,19 @@ def detect_system(sys_root: str = "/sys") -> SystemProfile:
         "arch": ("pacman",),
         "opensuse": ("zypper", "rpm"),
     }.get(family, ())
-    driver_item = gr.check_gpu_driver(sys_root=sys_root)
-    vulkan_item = gr.check_vulkan()
-    lib32_active, lib32_hint = _lib32_status(family)
+    ffmpeg_present = bool(shutil.which("ffmpeg"))
     return SystemProfile(
         family=family,
         distro_pretty_name=ctx.pretty_name or ctx.id or "Distribuzione sconosciuta",
         package_manager=package_manager,
         architecture=ctx.architecture,
-        gpu_driver=driver_item.detail,
-        gpu_driver_known_good=driver_item.state in (gr.READY, gr.ALMOST_READY),
-        vulkan_ok=vulkan_item.state == gr.READY,
-        lib32_active=lib32_active,
-        lib32_repo_hint=lib32_hint,
-        distro_variant=_variant_from_context(ctx, family),
         package_manager_available=bool(query_tools) and all(shutil.which(tool) for tool in query_tools),
-        gpu_vendor=gv.detect_gpu_vendor(sys_root=sys_root),
+        ffmpeg_present=ffmpeg_present,
+        hwaccels=_probe_hwaccels(job=job) if ffmpeg_present else [],
     )
 
 
 def _packages_for(component_id: str, profile: SystemProfile) -> "list | None":
-    is_opensuse_tumbleweed = profile.family == "opensuse" and profile.distro_variant == "tumbleweed"
-    if component_id == "vulkan_32" and is_opensuse_tumbleweed:
-        # GPU-vendor-dependent, and only verified on Tumbleweed: the
-        # loader alone isn't enough, and there is no confirmed package
-        # for a proprietary NVIDIA driver or an unrecognized GPU here —
-        # return None (not_verifiable) rather than guess one.
-        icd = _OPENSUSE_VULKAN_ICD_32BIT.get(profile.gpu_vendor)
-        return ["libvulkan1-32bit", icd] if icd else None
-    if is_opensuse_tumbleweed and component_id in _OPENSUSE_TUMBLEWEED:
-        return list(_OPENSUSE_TUMBLEWEED[component_id])
     packages = COMPONENTS[component_id].get(profile.family)
     return list(packages) if packages is not None else None
 
@@ -281,8 +150,9 @@ def _preview_unverifiable(component_id: str, optional: bool, packages=None) -> C
 def _is_installed(family: str, package: str, job: Optional[Job] = None) -> bool:
     """Query the detected family's package database directly.
 
-    This intentionally does not use DistroManager's Debian fallback: a new or
-    derivative distribution must never be queried with the wrong tool.
+    This intentionally does not fall back to a "closest guess" tool for an
+    unrecognized family: an unknown distro must report as unverifiable,
+    never be silently queried with the wrong package manager.
     """
     if family == "arch":
         ok, _, _ = run_command(["pacman", "-Q", package], job=job)
@@ -305,14 +175,14 @@ def _availability_probe(family: str, package: str, job: Optional[Job] = None) ->
     """Return (available, repository).
 
     available=True/False means the package manager really answered.
-    available=None means the query itself was not runnable or not trustworthy.
+    available=None means the query itself was not runnable or not
+    trustworthy — callers must treat that as unverifiable, never as False.
     """
     if family == "debian":
         policy = _command_result_or_none(["apt-cache", "policy", package], job=job)
         show = _command_result_or_none(["apt-cache", "show", package], job=job)
         if policy is None or show is None:
             return None, ""
-        text = f"{policy.stdout}\n{show.stdout}\n{policy.stderr}\n{show.stderr}"
         candidate = ""
         repository = ""
         for line in policy.stdout.splitlines():
@@ -378,7 +248,7 @@ def scan(
     job: Optional[Job] = None,
 ) -> list:
     """Return package-level analysis; never mutate package or repo state."""
-    profile = profile or detect_system()
+    profile = profile or detect_system(job=job)
     results = []
 
     for component_id in COMPONENTS:
@@ -392,18 +262,6 @@ def scan(
             continue
         if packages is None:
             results.append(_preview_unverifiable(component_id, optional))
-            continue
-        if component_id in _LIB32_COMPONENTS and profile.architecture not in (
-            "x86_64", "amd64", "i686", "i386",
-        ):
-            results.append(ComponentPreview(component_id, optional, NOT_SUITABLE, packages))
-            continue
-        if component_id in _LIB32_COMPONENTS and not profile.lib32_active:
-            results.append(ComponentPreview(
-                component_id, optional, NOT_AVAILABLE, packages,
-                profile.lib32_repo_hint, component_id in COMMON_COMPONENTS,
-                unavailable_packages=packages,
-            ))
             continue
 
         installed = []
@@ -450,7 +308,8 @@ def scan(
 
         state = NOT_AVAILABLE if unavailable else AVAILABLE
         results.append(ComponentPreview(
-            component_id, optional, state, packages, profile.lib32_repo_hint if unavailable and component_id in _LIB32_COMPONENTS and not profile.lib32_active else "", component_id in COMMON_COMPONENTS,
+            component_id, optional, state, packages,
+            common=component_id in COMMON_COMPONENTS,
             installed_packages=installed,
             suggested_packages=available,
             unavailable_packages=unavailable,
@@ -458,8 +317,3 @@ def scan(
         ))
 
     return results
-
-
-def gpu_driver_unverified(profile: SystemProfile) -> bool:
-    """Informational warning only: analysis remains safe and available."""
-    return not profile.gpu_driver_known_good

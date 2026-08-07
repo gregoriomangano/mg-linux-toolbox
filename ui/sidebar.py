@@ -50,6 +50,7 @@ SIDEBAR_GROUPS = [
     ("nav_group_usage", [
         ("tab_software_repos", "software_repos", "system-software-install-symbolic"),
         ("tab_gaming", "gaming", "input-gaming-symbolic"),
+        ("tab_video_editing", "video_editing", "camera-video-symbolic"),
         ("tab_virt", "virt", "computer-symbolic"),
         ("tab_services", "services", "system-run-symbolic"),
     ]),
