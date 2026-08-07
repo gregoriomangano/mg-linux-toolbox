@@ -1105,12 +1105,18 @@ class _SectionC:
         self.group.add(list_row)
         self._rows.append(list_row)
 
+        # "Repository aggiuntivi" (guided/advanced recipes incl. OBS) is
+        # deliberately NOT mounted into the visible group anymore — it was
+        # a redundant, mostly-informational box sitting below the real
+        # repository list above (which already represents every detected
+        # repository as its own row/card). _additional_box keeps being
+        # built and populated in refresh() below purely so the existing
+        # recipe-rendering helpers (_build_obs_row, _build_packman_row,
+        # etc. — still exercised directly by tests, and still the future
+        # home for a per-repo Packman action once it moves into the main
+        # list) keep working unchanged; it's just never added to a row
+        # that ends up on screen.
         self._additional_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        additional_row = Adw.ActionRow()
-        additional_row.set_activatable(False)
-        additional_row.set_child(self._additional_box)
-        self.group.add(additional_row)
-        self._rows.append(additional_row)
 
         self.refresh()
 

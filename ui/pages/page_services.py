@@ -209,7 +209,21 @@ class ServicesPage(Adw.PreferencesPage):
         self.add(g1)
 
         for key, unit_names in B.SERVICES:
-            g1.add(ServiceRow(key, unit_names))
+            # Adw.PreferencesGroup.add() only gives the visible card
+            # background/border/radius (the "row" CSS node) to a real
+            # Adw.PreferencesRow — a bare Gtk.Box like ServiceRow gets
+            # appended with NO such wrapper at all and sits flat on the
+            # page background. Wrapping it in a plain, non-activatable
+            # Adw.ActionRow (same pattern already used elsewhere for
+            # custom row content, e.g. page_software_repos.py's
+            # _SectionC) supplies that real "row" node while
+            # ServiceRow itself keeps being a plain Gtk.Box — it must
+            # stay one, never an Adw.ActionRow subclass itself, see
+            # ServicesRowStructureTests.
+            wrapper = Adw.ActionRow()
+            wrapper.set_activatable(False)
+            wrapper.set_child(ServiceRow(key, unit_names))
+            g1.add(wrapper)
 
     def _refresh_title(self):
         self.set_title(T("tab_services"))

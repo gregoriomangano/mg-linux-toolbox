@@ -41,6 +41,10 @@ class AudioPowerRow(KernelFeatureRow):
     def __init__(self):
         feature = register(AudioPowerSaveFeature())
         super().__init__(feature, "audio_power")
+        # Multi-value (Sempre attivo / 5s / 10s / valore personalizzato),
+        # not a fixed on/off word — plain compact text, same treatment as
+        # every other multi-value kernel row (governor, swappiness...).
+        self.set_status_pill_style(False)
         self.btn_permanent.set_visible(False)
         self._current_value = None
         self._selected_value = None

@@ -12,11 +12,19 @@ import os
 
 GITHUB_OWNER = "gregoriomangano"
 GITHUB_REPOSITORY = "mg-linux-toolbox"
-YOUTUBE_URL = ""
+# Verified against README.md/README_EN.md/README_IT.md, which all list
+# this exact channel — never a guessed handle.
+YOUTUBE_URL = "https://www.youtube.com/@GregorioMangano"
 WEBSITE_URL = "https://manganogregorio.it"
 ISSUES_URL = ""
 PROJECT_PAGE_URL = "https://www.manganogregorio.it/m-g-linux-toolbox/"
 CONTACT_URL = "https://www.manganogregorio.it/contatti-gregorio-mangano-mondovi/"
+# No "info@..." mailbox is verified anywhere in the project yet — left
+# empty deliberately (same convention as ISSUES_URL above) rather than
+# guessing a local-part on top of the one verified domain. The one
+# place to fill in once it exists; the Help & Support page already
+# hides the Email row/button whenever this is empty.
+SUPPORT_EMAIL = ""
 
 LICENSE_NAME = "GNU General Public License v3.0 or later"
 LICENSE_SPDX = "GPL-3.0-or-later"

@@ -11,6 +11,20 @@ Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il p
 - Repository e Virtualizzazione: riallineati i controlli pubblici per Packman, Flatpak, Docker, Podman e Distrobox alle implementazioni validate.
 - Test: la suite protegge anche la discovery standard da `sudo`, `pkexec`, `su` e `doas`, senza modificare il comportamento runtime dell'applicazione.
 
+## [0.9.0-beta.7] - 2026-08-07
+
+### Aggiunto
+
+- Nuova gestione ClamAV nella pagina Sicurezza: installazione dai repository ufficiali (Debian/Ubuntu, Fedora, openSUSE, Arch — mai repository esterni), aggiornamento delle definizioni, scansione on-demand di un file o di una cartella, avvio/arresto del servizio di scansione quando realmente disponibile, disinstallazione con conferma esplicita. Lo stato reale (non installato/installato/pronto/firme da aggiornare) è sempre rilevato, mai presentato come protezione in tempo reale.
+- Nuova pagina "Aiuto e supporto" con i riferimenti diretti di contatto del progetto.
+
+### Cambiato
+
+- La pagina "Rete e sicurezza" è stata divisa in due pagine distinte: **"Rete e dispositivi"** (Wi-Fi, hotspot, Bluetooth, IPv6, condivisione file, DNS) e **"Sicurezza"** (Firewall, SSH, accesso root, aggiornamenti automatici, AppArmor/SELinux, Secure Boot, ClamAV), organizzata in gruppi "Protezione del sistema", "Accesso e rete" e "Protezione malware".
+- Uniformato lo stile grafico di più pagine (Funzioni kernel, Audio, Virtualizzazione, Energia, Servizi) rimuovendo indicatori di stato incoerenti tra loro.
+- La pagina Servizi mostra ora ogni servizio come una card visibile distinta.
+- Rimosso dalla pagina Software e repository un riquadro informativo ridondante privo di un'azione reale.
+
 ## [0.9.0-beta.6] - 2026-08-06
 
 ### Corretto

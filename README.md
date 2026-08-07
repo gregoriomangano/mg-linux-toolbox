@@ -6,9 +6,9 @@ M.G Linux Toolbox raccoglie in un'interfaccia grafica semplice funzioni Linux ch
 
 ## Stato del progetto
 
-La versione **0.9.0 Beta 6** è la prerelease candidata corrente. Include il Gaming Pack installabile con controlli reali dei repository e l'aggiornamento gestito con conferma dell'avvio e rollback verificato.
+La versione **0.9.0 Beta 7** è la prerelease candidata corrente. Aggiunge la gestione dell'antivirus ClamAV (installazione dai repository ufficiali, aggiornamento firme e scansione file/cartelle) e separa la vecchia pagina "Rete e sicurezza" in "Rete e dispositivi" e "Sicurezza".
 
-Il pacchetto AppImage verificato e il relativo checksum saranno associati alla [Release v0.9.0-beta.6](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.6) dopo la pubblicazione.
+Il pacchetto AppImage verificato e il relativo checksum sono associati alla [Release v0.9.0-beta.7](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.7).
 
 Il codice è distribuito con licenza **GPL-3.0-or-later**. Nome, logo e identità del progetto sono trattati separatamente in [TRADEMARKS.md](TRADEMARKS.md).
 
@@ -19,8 +19,8 @@ Il codice è distribuito con licenza **GPL-3.0-or-later**. Nome, logo e identit�
 | [![Panoramica di M.G Linux Toolbox](docs/images/screenshots/panoramica.png)](docs/images/screenshots/panoramica.png) | [![Funzioni Kernel](docs/images/screenshots/funzioni-kernel.png)](docs/images/screenshots/funzioni-kernel.png) |
 | Sistema e disco | Energia e batteria |
 | [![Sistema e disco](docs/images/screenshots/sistema-disco.png)](docs/images/screenshots/sistema-disco.png) | [![Energia e batteria](docs/images/screenshots/energia-batteria.png)](docs/images/screenshots/energia-batteria.png) |
-| Rete e sicurezza | Gaming |
-| [![Rete e sicurezza](docs/images/screenshots/rete-sicurezza.png)](docs/images/screenshots/rete-sicurezza.png) | [![Gaming](docs/images/screenshots/gaming.png)](docs/images/screenshots/gaming.png) |
+| Rete e dispositivi | Gaming |
+| [![Rete e dispositivi](docs/images/screenshots/rete-sicurezza.png)](docs/images/screenshots/rete-sicurezza.png) | [![Gaming](docs/images/screenshots/gaming.png)](docs/images/screenshots/gaming.png) |
 | Sicurezza | Cronologia e ripristino |
 | [![Sicurezza](docs/images/screenshots/sicurezza.png)](docs/images/screenshots/sicurezza.png) | [![Cronologia e ripristino](docs/images/screenshots/cronologia-ripristino.png)](docs/images/screenshots/cronologia-ripristino.png) |
 
@@ -53,7 +53,7 @@ La disponibilità cambia in base a kernel, hardware, driver e distribuzione. Una
 ## Aree del programma
 
 - **Sistema e dischi:** informazioni sul sistema, dispositivi, TRIM, SMART, manutenzione controllata e attività live del disco basata su dati `/proc` e `/sys`.
-- **Rete e sicurezza:** Wi-Fi, hotspot, Bluetooth, IPv6, firewall, DNS e servizi di condivisione disponibili.
+- **Rete e dispositivi:** Wi-Fi, hotspot, Bluetooth, IPv6, condivisione file Samba e DNS (incluso DNS-over-TLS).
 - **Energia e batteria:** profili energetici, sospensione, batteria e risparmio dei dispositivi.
 - **Audio:** stato di PipeWire, dispositivi, riavvio audio e opzioni di risparmio energetico.
 - **Stampanti:** servizio CUPS, supporto di base e driver rilevati.
@@ -61,7 +61,7 @@ La disponibilità cambia in base a kernel, hardware, driver e distribuzione. Una
 - **Gaming:** stato di GameMode, Vulkan, librerie e strumenti comunemente usati per giocare; il Gaming Pack controlla la disponibilità reale nei repository configurati e permette installazione e rimozione sicure dei soli pacchetti registrati dal Toolbox.
 - **Virtualizzazione:** KVM, IOMMU, VFIO, KSM e motori per container.
 - **Servizi:** stato, avvio, arresto e attivazione automatica dei servizi riconosciuti.
-- **Sicurezza:** accesso SSH, aggiornamenti, AppArmor, SELinux e protezioni rilevate.
+- **Sicurezza:** firewall, accesso SSH e accesso root via SSH, aggiornamenti automatici, AppArmor/SELinux, Secure Boot e antivirus ClamAV (installazione dai repository ufficiali, aggiornamento delle definizioni e scansione di file e cartelle).
 - **Cronologia e ripristino:** operazioni registrate, punti di ripristino e ritorno ai valori salvati.
 
 ## Prova fino al riavvio
@@ -155,7 +155,7 @@ Verifica sempre il destinatario prima di confermare un pagamento.
 - Canale YouTube: <https://www.youtube.com/@GregorioMangano>
 - Contatti: <https://www.manganogregorio.it/contatti-gregorio-mangano-mondovi/>
 - Codice pubblico: <https://github.com/gregoriomangano/mg-linux-toolbox>
-- Release: <https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.4>
+- Release: <https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.7>
 
 ## Autore
 
@@ -188,4 +188,4 @@ Test automatici:
 python3 -m unittest discover -s tests
 ```
 
-La preparazione di una AppImage richiede inoltre `rsync`, `sha256sum` e una copia verificata di `appimagetool`. Il pacchetto della Release 0.9.0 Beta 4 viene costruito da un'AppDir nuova e verificato prima della pubblicazione.
+La preparazione di una AppImage richiede inoltre `rsync`, `sha256sum` e una copia verificata di `appimagetool`. Il pacchetto di ogni Release viene costruito da un'AppDir nuova e verificato prima della pubblicazione.

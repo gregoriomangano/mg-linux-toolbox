@@ -31,6 +31,7 @@ from ui.pages.page_guide       import GuidePage
 from ui.pages.page_credits     import CreditsPage
 from ui.pages.page_donate      import DonatePage
 from ui.pages.page_about       import AboutWindow
+from ui.pages.page_help_support import HelpSupportPage
 
 
 LANGS = [
@@ -60,6 +61,7 @@ PAGES = [
     ("tab_guide",       GuidePage,       "guide",       "help-faq-symbolic"),
     ("tab_credits",     CreditsPage,     "credits",     "starred-symbolic"),
     ("tab_donate",      DonatePage,      "donate",      "emblem-favorite-symbolic"),
+    ("tab_help_support", HelpSupportPage, "help_support", "system-help-symbolic"),
     # 2026-08-03: reached only from the Panoramica's Disco card ("Apri
     # Attività del disco"), never as its own sidebar entry — see
     # HIDDEN_FROM_SWITCHER below, same pattern as author/guide/credits/donate.
@@ -73,7 +75,7 @@ PAGES = [
 # from in-page links (Chi sono -> Crediti/Guida/Supporta, Informazioni
 # -> Crediti; Panoramica -> Attività del disco), never as a sidebar
 # entry among the 11 operational pages.
-HIDDEN_FROM_SWITCHER = {"author", "guide", "credits", "donate", "disk_activity"}
+HIDDEN_FROM_SWITCHER = {"author", "guide", "credits", "donate", "disk_activity", "help_support"}
 
 # (icon_name, i18n_title_key, target_internal_page) — Guida | Chi sono |
 # Supporta. "Contatti" is built separately below (opens the real
@@ -178,6 +180,15 @@ class LinuxToolboxWindow(Adw.ApplicationWindow):
         contact_btn, contact_label = self._build_contact_button()
         nav_box.append(contact_btn)
         self._nav_buttons.append((contact_btn, contact_label, "nav_contact"))
+
+        # "Aiuto e supporto" — the direct line to Gregorio, deliberately
+        # a touch more visible than the other four (soft blue tint via
+        # mgv2-topbar-nav-btn-highlight, see style.css) but never a loud
+        # ad: same button shape, same size, just a gentle accent.
+        help_btn, help_label = self._build_nav_button("system-help-symbolic", "tab_help_support", "help_support")
+        help_btn.add_css_class("mgv2-topbar-nav-btn-highlight")
+        nav_box.append(help_btn)
+        self._nav_buttons.append((help_btn, help_label, "tab_help_support"))
 
         header.set_title_widget(nav_box)
 

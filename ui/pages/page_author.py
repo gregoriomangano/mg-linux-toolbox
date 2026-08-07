@@ -16,7 +16,7 @@ from core.i18n import T, on_change
 from ui.widgets import load_image_or_placeholder
 
 _PHOTO_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "..", "assets", "images", "gregorio-profilo.jpg"
+    os.path.dirname(os.path.abspath(__file__)), "..", "..", "assets", "images", "gregorio-supporto.jpg"
 )
 
 
@@ -39,7 +39,10 @@ class AuthorPage(Adw.PreferencesPage):
         photo = load_image_or_placeholder(_PHOTO_PATH, "avatar-default-symbolic",
                                            "author_photo_placeholder", size=160)
         photo.set_halign(Gtk.Align.CENTER)
-        photo.add_css_class("card")
+        # Same round, dark-theme-integrated treatment as the Aiuto e
+        # supporto intro photo — no white card square behind it.
+        photo.add_css_class("mg-help-photo")
+        photo.set_overflow(Gtk.Overflow.HIDDEN)
         content.append(photo)
 
         self._bio_lbl = Gtk.Label(wrap=True, xalign=0)

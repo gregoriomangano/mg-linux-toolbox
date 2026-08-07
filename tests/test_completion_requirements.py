@@ -479,7 +479,7 @@ class SentenceCaseSampleTests(unittest.TestCase):
         set_lang("it")
         self.assertEqual(T("tab_kernel"), "Funzioni kernel")
         self.assertEqual(T("ov2_quick_kernel_t"), T("tab_kernel"))
-        self.assertEqual(T("tab_network"), "Rete e sicurezza")
+        self.assertEqual(T("tab_network"), "Rete e dispositivi")
         self.assertEqual(T("ov2_quick_network_t"), T("tab_network"))
         self.assertEqual(T("tab_system"), "Sistema e disco")
         self.assertEqual(T("ov2_quick_system_t"), T("tab_system"))

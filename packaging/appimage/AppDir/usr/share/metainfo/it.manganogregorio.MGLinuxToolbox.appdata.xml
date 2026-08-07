@@ -16,6 +16,11 @@
     <name>Gregorio Mangano</name>
   </developer>
   <releases>
+    <release version="0.9.0-beta.7" date="2026-08-07" type="development">
+      <description>
+        <p>Adds ClamAV antivirus management (install from official repositories, signature updates, on-demand file/folder scanning, scan-service start/stop and uninstall). Splits "Network &amp; Security" into "Network &amp; Devices" and "Security", moving Firewall, SSH and ClamAV into a reorganized Security page. Adds a "Help &amp; Support" page. Various interface consistency fixes across the Kernel, Audio, Virtualization, Energy and Services pages.</p>
+      </description>
+    </release>
     <release version="0.9.0-beta.6" date="2026-08-06" type="development">
       <description>
         <p>Fixes managed updates when the temporary download directory and the managed installation are on different filesystems.</p>

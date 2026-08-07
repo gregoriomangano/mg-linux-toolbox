@@ -45,7 +45,9 @@ _strings = {
     "risk_high":            {"en": "🔴 Risk: High", "it": "🔴 Rischio: Alto", "es": "🔴 Riesgo: Alto", "fr": "🔴 Risque : Élevé"},
 
     # ─── Tab Labels ───────────────────────────────────────────────
-    "tab_network":          {"en": "Network & Security", "it": "Rete e sicurezza", "es": "Red y Seguridad", "fr": "Réseau et Sécurité"},
+    # 2026-08-07: split from "Sicurezza" — this page is connectivity/
+    # sharing only now (Firewall/SSH/ClamAV moved to the Sicurezza page).
+    "tab_network":          {"en": "Network & Devices", "it": "Rete e dispositivi", "es": "Red y dispositivos", "fr": "Réseau et périphériques"},
     "tab_system":           {"en": "System & Disk", "it": "Sistema e disco", "es": "Sistema y Disco", "fr": "Système et Disque"},
     "tab_performance":      {"en": "Energy & Battery", "it": "Energia e batteria", "es": "Energía y batería", "fr": "Énergie et batterie"},
     "tab_gaming":           {"en": "Gaming", "it": "Gaming", "es": "Juegos", "fr": "Jeu"},
@@ -57,6 +59,10 @@ _strings = {
     # ─── Group Labels ─────────────────────────────────────────────
     "grp_connectivity":     {"en": "Connectivity", "it": "Connettività", "es": "Conectividad", "fr": "Connectivité"},
     "grp_security":         {"en": "Security &amp; Sharing", "it": "Sicurezza &amp; condivisione", "es": "Seguridad y uso compartido", "fr": "Sécurité et partage"},
+    # 2026-08-07: Rete e dispositivi / Sicurezza split.
+    "grp_network_sharing":  {"en": "Sharing &amp; DNS", "it": "Condivisione e DNS", "es": "Uso compartido y DNS", "fr": "Partage et DNS"},
+    "grp_system_protection": {"en": "System Protection", "it": "Protezione del sistema", "es": "Protección del sistema", "fr": "Protection du système"},
+    "grp_access_network":   {"en": "Access &amp; Network", "it": "Accesso e rete", "es": "Acceso y red", "fr": "Accès et réseau"},
     "grp_disk":             {"en": "Disk Management", "it": "Gestione disco", "es": "Gestión de Disco", "fr": "Gestion du Disque"},
     "grp_performance":      {"en": "Performance Tuning", "it": "Ottimizzazione prestazioni", "es": "Ajuste de Rendimiento", "fr": "Optimisation des Performances"},
     "grp_battery":          {"en": "Battery &amp; Power", "it": "Batteria &amp; energia", "es": "Batería y Energía", "fr": "Batterie et Énergie"},
@@ -979,6 +985,17 @@ _strings = {
     "distrobox_try_confirm_body": {"en": "This will download a small Alpine Linux image (if not already present), create a temporary test container, run one harmless command inside it, then delete the container. This requires an internet connection the first time.", "it": "Verrà scaricata una piccola immagine Alpine Linux (se non già presente), creato un container di prova temporaneo, eseguito un comando innocuo al suo interno, poi il container verrà eliminato. La prima volta richiede una connessione internet.", "es": "Se descargará una pequeña imagen de Alpine Linux (si no está ya presente), se creará un contenedor de prueba temporal, se ejecutará un comando inofensivo dentro de él y luego se eliminará el contenedor.", "fr": "Une petite image Alpine Linux sera téléchargée (si elle n'est pas déjà présente), un conteneur de test temporaire sera créé, une commande inoffensive y sera exécutée, puis le conteneur sera supprimé."},
     "distrobox_try_success": {"en": "Test container created, ran, and removed successfully.", "it": "Container di prova creato, eseguito e rimosso con successo.", "es": "Contenedor de prueba creado, ejecutado y eliminado con éxito.", "fr": "Conteneur de test créé, exécuté et supprimé avec succès."},
     "distrobox_try_failed": {"en": "The test could not complete.", "it": "Il test non è riuscito a completarsi.", "es": "La prueba no pudo completarse.", "fr": "Le test n'a pas pu se terminer."},
+    # Pre-existing gap found while verifying this release: page_virt.py
+    # already called these two keys for the Distrobox install-confirm
+    # dialog, but they were never defined — fixed here as a plain,
+    # isolated i18n addition (no logic touched).
+    "distrobox_install_confirm_title": {"en": "Install these packages?", "it": "Installare questi pacchetti?", "es": "¿Instalar estos paquetes?", "fr": "Installer ces paquets ?"},
+    "distrobox_install_confirm_body": {
+        "en": "The following packages will be installed: {packages}. Podman is chosen automatically when no container engine is ready yet — it works rootless and needs no system service enabled.",
+        "it": "Verranno installati i seguenti pacchetti: {packages}. Podman viene scelto automaticamente quando non è ancora pronto alcun motore container — funziona senza root e non richiede l'attivazione di alcun servizio di sistema.",
+        "es": "Se instalarán los siguientes paquetes: {packages}. Podman se elige automáticamente cuando aún no hay listo ningún motor de contenedores: funciona sin root y no requiere activar ningún servicio del sistema.",
+        "fr": "Les paquets suivants seront installés : {packages}. Podman est choisi automatiquement lorsqu'aucun moteur de conteneurs n'est encore prêt : il fonctionne sans root et ne nécessite l'activation d'aucun service système.",
+    },
 
     # ─── History and restore ("Cronologia e ripristino") ───────────
     "tab_history": {"en": "History and restore", "it": "Cronologia e ripristino", "es": "Historial y restauración", "fr": "Historique et restauration"},

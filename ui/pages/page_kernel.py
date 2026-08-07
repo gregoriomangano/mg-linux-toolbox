@@ -68,6 +68,7 @@ class PSIRow(KernelFeatureRow):
     def __init__(self):
         self.feature = register(PSIFeature())
         super().__init__(self.feature, "kf_psi")
+        self.set_status_pill_style(False)
 
         # 2026-08-03 PSI fix: one hysteresis tracker per resource, so a
         # single elevated (or single recovered) sample never flips the
@@ -226,6 +227,7 @@ class SwappinessRow(KernelFeatureRow):
     def __init__(self):
         self.feature = register(SwappinessFeature())
         super().__init__(self.feature, "kf_swappiness")
+        self.set_status_pill_style(False)
 
         # This feature's "try" interaction IS the preset/custom picker
         # below, so the generic single "Try" button from the base row
@@ -384,6 +386,7 @@ class IOSchedulerRow(KernelFeatureRow):
         self._current_scheduler = None
         self._selected_scheduler = None
         super().__init__(self.feature, "kf_io_scheduler")
+        self.set_status_pill_style(False)
 
         # No permanence in this phase for the I/O scheduler.
         self.btn_permanent.set_visible(False)
@@ -541,6 +544,17 @@ class BooleanKernelFeatureRow(KernelFeatureRow):
         self._choice_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         self.choices_box.append(self._choice_box)
 
+        # Secondary info for features that track boot persistence
+        # separately from runtime state (currently only KSM's
+        # autostart_state()) — a plain line in the expanded body, never
+        # appended into the collapsed pill's own text (that turned a
+        # short "Disattivata" into a long "Disattivata · Avvio
+        # automatico: Non configurato" oval).
+        self._autostart_lbl = Gtk.Label(wrap=True, xalign=0)
+        self._autostart_lbl.add_css_class("sysinfo-value-sub")
+        self._autostart_lbl.set_visible(False)
+        self.choices_box.append(self._autostart_lbl)
+
         self.btn_try.connect("clicked", self._on_try_clicked)
         self.btn_permanent.connect("clicked", self._on_make_permanent)
         self.btn_restore.connect("clicked", self._on_restore)
@@ -593,17 +607,22 @@ class BooleanKernelFeatureRow(KernelFeatureRow):
         self._current_value = current.value
         self._selected_value = current.value
         status_text = T(self.feature.to_friendly(current.value))
+        self.set_status_line(status_text)
         # Runtime state and boot persistence are different facts: a
         # feature that exposes autostart_state() (KSM) gets both shown
         # honestly — "Attiva adesso" never silently implies "sempre
         # attiva", and "Avvio automatico" reflects the real config file.
+        # Shown as its own secondary line, never folded into the
+        # collapsed-row pill text above.
         autostart_probe = getattr(self.feature, "autostart_state", None)
+        autostart_text = ""
         if callable(autostart_probe):
             autostart = autostart_probe()
             if autostart is not None:
-                status_text += (f"  ·  {T('ksm_autostart_label')}: "
-                                f"{T('ksm_autostart_configured' if autostart else 'ksm_autostart_not_configured')}")
-        self.set_status_line(status_text)
+                autostart_text = (f"{T('ksm_autostart_label')}: "
+                                  f"{T('ksm_autostart_configured' if autostart else 'ksm_autostart_not_configured')}")
+        self._autostart_lbl.set_text(autostart_text)
+        self._autostart_lbl.set_visible(bool(autostart_text))
         # v4: every boolean kernel feature (Turbo Boost, ZRAM, Zswap,
         # KSM...) gets the same rule — "on" is a real, positive state
         # worth showing in green, "off" is neutral, never a fabricated
@@ -670,6 +689,11 @@ class ChoiceKernelFeatureRow(KernelFeatureRow):
     """
     def __init__(self, feature, i18n_key_base):
         super().__init__(feature, i18n_key_base)
+        # Values here are whatever the kernel itself names them
+        # (governor/EPP/THP/scheduler...) — never a short fixed set of
+        # state words, so the collapsed suffix stays plain compact text
+        # instead of a pill that would stretch into a big oval.
+        self.set_status_pill_style(False)
         self._current_value = None
         self._selected_value = None
 
@@ -998,6 +1022,7 @@ class ReadAheadRow(KernelFeatureRow):
         # calls refresh_labels() once, and our override below needs it.
         self._custom_lbl = Gtk.Label()
         super().__init__(self.feature, "kf_read_ahead")
+        self.set_status_pill_style(False)
         self.btn_permanent.set_visible(False)
 
         self._preset_box = _new_choice_flowbox()
@@ -1141,6 +1166,7 @@ class CpuFrequencyLimitsRow(KernelFeatureRow):
 
         feature = register(CpuFrequencyLimitsFeature())
         super().__init__(feature, "kf_cpu_freq_limits")
+        self.set_status_pill_style(False)
         self.btn_permanent.set_visible(False)
 
         self._range_lbl = Gtk.Label(wrap=True, xalign=0)

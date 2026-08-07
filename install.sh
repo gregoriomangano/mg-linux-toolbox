@@ -28,7 +28,7 @@
 set -euo pipefail
 
 # ── Centralized configuration ───────────────────────────────────
-APP_VERSION="0.9.0-beta.6"
+APP_VERSION="0.9.0-beta.7"
 APPIMAGE_RELEASE_NAME="MG-Linux-Toolbox-${APP_VERSION}-x86_64.AppImage"
 GITHUB_OWNER="gregoriomangano"
 GITHUB_REPOSITORY="mg-linux-toolbox"

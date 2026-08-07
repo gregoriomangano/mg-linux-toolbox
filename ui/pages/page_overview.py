@@ -103,8 +103,8 @@ _overview_strings = {
     "ov2_quick_kernel_d": {"en": "Governor, swappiness, ZRAM and other kernel functions.", "it": "Governor, swappiness, ZRAM e altre funzioni del kernel.", "es": "Governor, swappiness, ZRAM y otras funciones del kernel.", "fr": "Governor, swappiness, ZRAM et autres fonctions du noyau."},
     "ov2_quick_system_t": {"en": "System & Disk", "it": "Sistema e disco", "es": "Sistema y Disco", "fr": "Système et Disque"},
     "ov2_quick_system_d": {"en": "Disk space, partitions and system tools.", "it": "Spazio su disco, partizioni e strumenti di sistema.", "es": "Espacio en disco, particiones y herramientas del sistema.", "fr": "Espace disque, partitions et outils système."},
-    "ov2_quick_network_t": {"en": "Network & Security", "it": "Rete e sicurezza", "es": "Red y Seguridad", "fr": "Réseau et Sécurité"},
-    "ov2_quick_network_d": {"en": "Network status and security settings.", "it": "Stato della rete e impostazioni di sicurezza.", "es": "Estado de la red y ajustes de seguridad.", "fr": "État du réseau et paramètres de sécurité."},
+    "ov2_quick_network_t": {"en": "Network & Devices", "it": "Rete e dispositivi", "es": "Red y dispositivos", "fr": "Réseau et périphériques"},
+    "ov2_quick_network_d": {"en": "Network status and connected devices.", "it": "Stato della rete e dispositivi connessi.", "es": "Estado de la red y dispositivos conectados.", "fr": "État du réseau et périphériques connectés."},
     "ov2_quick_history_t": {"en": "History and restore", "it": "Cronologia e ripristino", "es": "Historial y restauración", "fr": "Historique et restauration"},
     "ov2_quick_history_d": {"en": "Review applied changes and restore saved values.", "it": "Rivedi le modifiche applicate e ripristina i valori.", "es": "Revisa los cambios aplicados y restaura los valores.", "fr": "Passez en revue les modifications et restaurez les valeurs."},
 

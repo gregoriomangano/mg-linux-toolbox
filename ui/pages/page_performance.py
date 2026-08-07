@@ -431,28 +431,56 @@ class PerformancePage(Adw.PreferencesPage):
         self.pp_row = FeatureRow("pprofile", None, risk="low", **pp_kwargs)
 
         if active_provider == "power-profiles-daemon":
-            # v4 fix: this used to be a raw Gtk.DropDown showing the
-            # literal technical strings "power-saver"/"balanced"/
-            # "performance" in English. Exactly 3 fixed values -> a
-            # SegmentedControl, translated for display only; the
-            # values read/written to the backend (B.set_power_profile)
-            # are the exact same technical strings as before.
+            # v5: the closed row shows only a compact current-value label
+            # (never three big segmented buttons sitting on the row itself
+            # — that read as an oversized, out-of-place control cluster
+            # whenever the row was collapsed). The real picker — exactly
+            # 3 fixed values -> a SegmentedControl, translated for display
+            # only; the values read/written to the backend
+            # (B.set_power_profile) are the exact same technical strings
+            # as before — now lives in the expanded body, same place every
+            # other multi-value kernel row keeps its choices.
             options = [(v, translated_value(v)) for v in ("power-saver", "balanced", "performance")]
-            self.pp_segmented = SegmentedControl(options, selected_value=B.get_power_profile())
+            current_profile = B.get_power_profile()
+            self._pp_value_lbl = Gtk.Label(xalign=1, valign=Gtk.Align.CENTER)
+            self._pp_value_lbl.add_css_class("ds-kf-status-text")
+            self._pp_value_lbl.set_text(translated_value(current_profile))
+            self.pp_row.add_suffix(self._pp_value_lbl)
+
+            self.pp_segmented = SegmentedControl(options, selected_value=current_profile)
             self.pp_segmented.connect_changed(self._on_pprofile_segmented)
-            self.pp_row.add_suffix(self.pp_segmented)
+            segmented_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+            segmented_box.set_margin_top(6)
+            segmented_box.set_margin_bottom(6)
+            segmented_box.set_margin_start(14)
+            segmented_box.set_margin_end(14)
+            segmented_box.append(self.pp_segmented)
+            self.pp_row.add_row(segmented_box)
 
         elif active_provider == "system76-power":
-            # Dynamic/distro-specific value set -> the standardized
-            # SelectControl instead (not a fixed 3-way choice).
+            # Same pattern: compact value label when collapsed, the real
+            # (dynamic/distro-specific — not a fixed 3-way choice)
+            # SelectControl picker only in the expanded body.
             profiles = B.SYSTEM76_POWER_PROFILES
             labels = [translated_value(p) for p in profiles]
             current = B.get_system76_power_profile()
             selected_idx = profiles.index(current) if current in profiles else 1
-            self.pp_select = SelectControl(labels, selected=selected_idx)
             self._system76_profiles = profiles
+
+            self._pp_value_lbl = Gtk.Label(xalign=1, valign=Gtk.Align.CENTER)
+            self._pp_value_lbl.add_css_class("ds-kf-status-text")
+            self._pp_value_lbl.set_text(labels[selected_idx])
+            self.pp_row.add_suffix(self._pp_value_lbl)
+
+            self.pp_select = SelectControl(labels, selected=selected_idx)
             self.pp_select.dropdown.connect("notify::selected", self._on_pprofile_system76)
-            self.pp_row.add_suffix(self.pp_select)
+            select_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+            select_box.set_margin_top(6)
+            select_box.set_margin_bottom(6)
+            select_box.set_margin_start(14)
+            select_box.set_margin_end(14)
+            select_box.append(self.pp_select)
+            self.pp_row.add_row(select_box)
             self.pp_row.add_row(self._make_provider_note(active_provider))
 
         elif active_provider is not None:
@@ -563,6 +591,9 @@ class PerformancePage(Adw.PreferencesPage):
 
     def _on_pprofile_segmented(self, value):
         B.set_power_profile(value)
+        self._pp_value_lbl.set_text(translated_value(value))
 
     def _on_pprofile_system76(self, dd, _):
-        B.set_system76_power_profile(self._system76_profiles[dd.get_selected()])
+        profile = self._system76_profiles[dd.get_selected()]
+        B.set_system76_power_profile(profile)
+        self._pp_value_lbl.set_text(translated_value(profile))

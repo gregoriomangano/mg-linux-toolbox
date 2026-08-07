@@ -26,11 +26,11 @@ Mostra manutenzione dei dischi, TRIM, SMART e pulizia controllata della cache de
 
 Raccoglie profilo energetico, batteria, sospensione e risparmio dei dispositivi.
 
-## Rete e sicurezza
+## Rete e dispositivi
 
-[![Rete e sicurezza](images/screenshots/rete-sicurezza.png)](images/screenshots/rete-sicurezza.png)
+[![Rete e dispositivi](images/screenshots/rete-sicurezza.png)](images/screenshots/rete-sicurezza.png)
 
-Mostra connettività, Bluetooth, firewall, condivisione e impostazioni DNS rilevate.
+Mostra connettività, Bluetooth, condivisione file e impostazioni DNS rilevate. Firewall e SSH sono ora nella pagina Sicurezza.
 
 ## Audio
 
@@ -66,7 +66,7 @@ Mostra lo stato e l'avvio automatico dei servizi riconosciuti.
 
 [![Sicurezza](images/screenshots/sicurezza.png)](images/screenshots/sicurezza.png)
 
-Raccoglie accesso SSH, aggiornamenti, AppArmor, SELinux e altre protezioni rilevate.
+Raccoglie firewall, accesso SSH, aggiornamenti automatici, AppArmor/SELinux, Secure Boot e l'antivirus ClamAV (installazione, aggiornamento firme e scansione file/cartelle).
 
 ## Cronologia e ripristino
 

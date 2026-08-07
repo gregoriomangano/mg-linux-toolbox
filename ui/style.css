@@ -949,6 +949,38 @@ button.mgv2-topbar-nav-btn:active {
   background: alpha(#FFFFFF, 0.14);
 }
 
+/* ── "Aiuto e supporto" — the one topbar nav button that should read
+   as slightly more prominent than Guida/Chi sono/Supporta/Contatti
+   (it's the direct line to Gregorio), without looking like an ad: a
+   soft, low-alpha tint of the same blue already used app-wide for
+   primary actions (@ds_primary), never a solid/loud fill. ─────────── */
+button.mgv2-topbar-nav-btn-highlight {
+  background: alpha(@ds_primary, 0.14);
+  border: 1px solid alpha(@ds_primary, 0.32);
+  color: @lt_text;
+}
+
+button.mgv2-topbar-nav-btn-highlight:hover {
+  background: alpha(@ds_primary, 0.22);
+  border-color: alpha(@ds_primary, 0.48);
+}
+
+button.mgv2-topbar-nav-btn-highlight:active {
+  background: alpha(@ds_primary, 0.28);
+}
+
+button.mgv2-topbar-nav-btn-highlight image {
+  color: @lt_accent;
+}
+
+/* ── Help & Support intro photo — round, clipped via overflow:hidden
+   set on the widget itself (border-radius alone doesn't clip a
+   GtkPicture's content in GTK4). ─────────────────────────────────── */
+.mg-help-photo {
+  border-radius: 999px;
+  border: 1px solid @lt_border;
+}
+
 /* ── Sidebar v2 — real blocks, not flat text rows ────────────── */
 .mgv2-sidebar {
   background: @mgv2_level1;
@@ -1769,6 +1801,18 @@ preferencesgroup > box > box > label.description {
   background: alpha(@ds_danger, 0.20);
   color: @ds_danger;
   border: 1px solid alpha(@ds_danger, 0.40);
+}
+
+/* ── Plain compact status text — the collapsed-row alternative to
+   ds-pill for anything that ISN'T a short state word (governor name,
+   I/O scheduler, read-ahead size, CPU frequency range...). No capsule
+   background/border/radius, so a longer value never turns into a big
+   oval sitting on top of the row — just right-aligned, subdued text,
+   same family as the row's other secondary text. ─────────────────── */
+.ds-kf-status-text {
+  color: @lt_text_secondary;
+  font-size: 12.5px;
+  font-weight: 600;
 }
 
 /* ── "Installed" chip — was reading as a faded disabled button.

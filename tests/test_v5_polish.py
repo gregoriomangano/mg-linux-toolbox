@@ -277,10 +277,25 @@ class MarkupSafeGroupTitleTests(unittest.TestCase):
         self.assertEqual(bad, [], f"bare '&' in a markup-parsed group title: {bad}")
 
 
+def _has_status_pill(row):
+    from ui.design_system.status_pill import StatusPill
+    # ExpanderRow internals are nested; walk the whole subtree.
+    stack = [row]
+    while stack:
+        w = stack.pop()
+        if isinstance(w, StatusPill):
+            return True
+        c = w.get_first_child()
+        while c is not None:
+            stack.append(c)
+            c = c.get_next_sibling()
+    return False
+
+
 @unittest.skipUnless(_HAS_DISPLAY, _SKIP_REASON)
 class NetworkStatusPillTests(unittest.TestCase):
-    """SSH/Samba/Firewall/DNS switches must never rely on switch
-    position alone — each row gets an explicit StatusPill next to it."""
+    """Samba/DNS switches must never rely on switch position alone —
+    each row gets an explicit StatusPill next to it."""
 
     @classmethod
     def setUpClass(cls):
@@ -292,32 +307,33 @@ class NetworkStatusPillTests(unittest.TestCase):
         from ui.pages.page_network import NetworkPage
         cls.page = NetworkPage()
 
-    def _has_status_pill(self, row):
-        from ui.design_system.status_pill import StatusPill
-        child = row.get_first_child()
-        # ExpanderRow internals are nested; walk the whole subtree.
-        stack = [row]
-        while stack:
-            w = stack.pop()
-            if isinstance(w, StatusPill):
-                return True
-            c = w.get_first_child()
-            while c is not None:
-                stack.append(c)
-                c = c.get_next_sibling()
-        return False
-
-    def test_ssh_row_has_an_explicit_status_pill(self):
-        self.assertTrue(self._has_status_pill(self.page.ssh))
-
     def test_samba_row_has_an_explicit_status_pill(self):
-        self.assertTrue(self._has_status_pill(self.page.samba))
-
-    def test_firewall_row_has_an_explicit_status_pill(self):
-        self.assertTrue(self._has_status_pill(self.page.fw))
+        self.assertTrue(_has_status_pill(self.page.samba))
 
     def test_dns_over_tls_row_has_an_explicit_status_pill(self):
-        self.assertTrue(self._has_status_pill(self.page.dns))
+        self.assertTrue(_has_status_pill(self.page.dns))
+
+
+@unittest.skipUnless(_HAS_DISPLAY, _SKIP_REASON)
+class SecurityStatusPillTests(unittest.TestCase):
+    """SSH/Firewall moved to the Sicurezza page (2026-08-07 Rete e
+    dispositivi / Sicurezza split) — same StatusPill requirement."""
+
+    @classmethod
+    def setUpClass(cls):
+        import gi
+        gi.require_version("Gtk", "4.0")
+        gi.require_version("Adw", "1")
+        from gi.repository import Adw
+        Adw.init()
+        from ui.pages.page_security import SecurityPage
+        cls.page = SecurityPage()
+
+    def test_ssh_row_has_an_explicit_status_pill(self):
+        self.assertTrue(_has_status_pill(self.page.ssh))
+
+    def test_firewall_row_has_an_explicit_status_pill(self):
+        self.assertTrue(_has_status_pill(self.page.fw))
 
 
 @unittest.skipUnless(_HAS_DISPLAY, _SKIP_REASON)

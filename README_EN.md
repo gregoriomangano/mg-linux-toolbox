@@ -6,9 +6,9 @@ M.G Linux Toolbox brings together Linux features that would normally require the
 
 ## Project status
 
-Version **0.9.0 Beta 5** is the current prerelease candidate. It includes the Gaming Pack with real repository availability checks and managed updates with startup confirmation and verified rollback.
+Version **0.9.0 Beta 7** is the current prerelease candidate. It adds ClamAV antivirus management (install from official repositories, signature updates and file/folder scanning) and splits the former "Network & Security" page into "Network & Devices" and "Security".
 
-The verified AppImage package and its checksum will be associated with [Release v0.9.0-beta.5](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.5) after publication.
+The verified AppImage package and its checksum are associated with [Release v0.9.0-beta.7](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.7).
 
 The code is distributed under the **GPL-3.0-or-later** license. The project name, logo, and identity are addressed separately in [TRADEMARKS.md](TRADEMARKS.md).
 
@@ -19,8 +19,8 @@ The code is distributed under the **GPL-3.0-or-later** license. The project name
 | [![M.G Linux Toolbox overview](docs/images/screenshots/panoramica.png)](docs/images/screenshots/panoramica.png) | [![Kernel features](docs/images/screenshots/funzioni-kernel.png)](docs/images/screenshots/funzioni-kernel.png) |
 | System and disks | Power and battery |
 | [![System and disks](docs/images/screenshots/sistema-disco.png)](docs/images/screenshots/sistema-disco.png) | [![Power and battery](docs/images/screenshots/energia-batteria.png)](docs/images/screenshots/energia-batteria.png) |
-| Network and security | Gaming |
-| [![Network and security](docs/images/screenshots/rete-sicurezza.png)](docs/images/screenshots/rete-sicurezza.png) | [![Gaming](docs/images/screenshots/gaming.png)](docs/images/screenshots/gaming.png) |
+| Network and devices | Gaming |
+| [![Network and devices](docs/images/screenshots/rete-sicurezza.png)](docs/images/screenshots/rete-sicurezza.png) | [![Gaming](docs/images/screenshots/gaming.png)](docs/images/screenshots/gaming.png) |
 | Security | History and recovery |
 | [![Security](docs/images/screenshots/sicurezza.png)](docs/images/screenshots/sicurezza.png) | [![History and recovery](docs/images/screenshots/cronologia-ripristino.png)](docs/images/screenshots/cronologia-ripristino.png) |
 
@@ -53,7 +53,7 @@ Availability changes with the kernel, hardware, drivers, and distribution. An un
 ## Program areas
 
 - **System and disks:** system information, devices, TRIM, SMART, controlled maintenance, and live disk activity based on `/proc` and `/sys` data.
-- **Network and security:** Wi-Fi, hotspot, Bluetooth, IPv6, firewall, DNS, and available sharing services.
+- **Network and devices:** Wi-Fi, hotspot, Bluetooth, IPv6, Samba file sharing, and DNS (including DNS-over-TLS).
 - **Power and battery:** power profiles, suspend, battery, and device power saving.
 - **Audio:** PipeWire status, devices, audio restart, and audio power-saving options.
 - **Printers:** CUPS service, basic support, and detected drivers.
@@ -61,7 +61,7 @@ Availability changes with the kernel, hardware, drivers, and distribution. An un
 - **Gaming:** GameMode, Vulkan, libraries, and tools commonly used for gaming; the Gaming Pack checks real availability in configured repositories and safely installs or removes only packages recorded by the Toolbox.
 - **Virtualization:** KVM, IOMMU, VFIO, KSM, and container engines.
 - **Services:** status, start, stop, and automatic activation of recognized services.
-- **Security:** SSH access, updates, AppArmor, SELinux, and detected protections.
+- **Security:** firewall, SSH access and SSH root login, automatic updates, AppArmor/SELinux, Secure Boot, and ClamAV antivirus (install from official repositories, signature updates, and file/folder scanning).
 - **History and recovery:** recorded operations, recovery points, and restoration of saved values.
 
 ## Try until reboot
@@ -155,7 +155,7 @@ Always verify the recipient before confirming a payment.
 - YouTube channel: <https://www.youtube.com/@GregorioMangano>
 - Contact: <https://www.manganogregorio.it/contatti-gregorio-mangano-mondovi/>
 - Public source: <https://github.com/gregoriomangano/mg-linux-toolbox>
-- Release: <https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.4>
+- Release: <https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.7>
 
 ## Author
 
@@ -188,4 +188,4 @@ Run the automated tests:
 python3 -m unittest discover -s tests
 ```
 
-Preparing an AppImage also requires `rsync`, `sha256sum`, and a verified copy of `appimagetool`. The package for Release 0.9.0 Beta 4 is built from a fresh AppDir and verified before publication.
+Preparing an AppImage also requires `rsync`, `sha256sum`, and a verified copy of `appimagetool`. The package for each Release is built from a fresh AppDir and verified before publication.

@@ -20,10 +20,10 @@ from ui.pages.page_kernel import _widen_preferences_clamp
 
 _network_ds_strings = {
     "ds_network_header_desc": {
-        "en": "Manage connections, sharing and network protection.",
-        "it": "Gestisci connessioni, condivisione e protezione della rete.",
-        "es": "Gestiona conexiones, compartición y protección de la red.",
-        "fr": "Gérez les connexions, le partage et la protection du réseau.",
+        "en": "Manage connections, devices and file sharing.",
+        "it": "Gestisci connessioni, dispositivi e condivisione file.",
+        "es": "Gestiona conexiones, dispositivos y uso compartido de archivos.",
+        "fr": "Gérez les connexions, les périphériques et le partage de fichiers.",
     },
     # 2026-08-04: firewall detection fix (Peppermint/GUFW report) — the
     # granular state now shown under the Firewall row.
@@ -70,7 +70,6 @@ class NetworkPage(Adw.PreferencesPage):
         super().__init__()
         self.set_icon_name("network-wireless-symbolic")
         on_change(self._refresh_title)
-        on_change(self._refresh_fw_state_label)
         self._refresh_title()
         _widen_preferences_clamp(self, maximum_size=900, tightening_threshold=700)
 
@@ -122,43 +121,11 @@ class NetworkPage(Adw.PreferencesPage):
         style_kernel_feature_row_buttons(self.ipv6)
         g1.add(self.ipv6)
 
-        # ── Security & Sharing ────────────────────────────────────
-        g2 = make_group("grp_security")
+        # ── Sharing & DNS ───────────────────────────────────────────
+        # Firewall, SSH and ClamAV live on the "Sicurezza" page now —
+        # this page stays connectivity/sharing only.
+        g2 = make_group("grp_network_sharing")
         self.add(g2)
-
-        # Firewall — ufw (debian/arch) or firewalld (fedora/opensuse).
-        # dep_check no longer just checks the binary: `firewall_state()`
-        # combines the binary, the package, /etc/ufw/ufw.conf and the
-        # systemd unit (see core/firewall_detect.py) so a GUFW-only
-        # install (GUFW is just a front-end, never the firewall itself)
-        # doesn't get reported as "not installed".
-        from core.firewall_detect import STATE_NONE_DETECTED, STATE_UNDETERMINED
-        fw_dep_check = lambda: B.firewall_state() not in (STATE_NONE_DETECTED,)
-        self.fw = SwitchRow("fw", B.firewall_active(), risk="medium",
-                            dep_pkg="ufw / firewalld",
-                            dep_check=fw_dep_check,
-                            dep_install=lambda job=None: B._install_pkg({"debian": "ufw", "arch": "ufw", "fedora": "firewalld", "opensuse": "firewalld"}, job=job))
-        self.fw.switch.connect("notify::active", self._on_fw)
-        self.fw.add_prefix(IconBadge("security-high-symbolic", category=_security_icon_category(fw_dep_check())))
-        self._wire_status_pill(self.fw, fw_dep_check)
-        self._fw_state_lbl = Gtk.Label(xalign=0, wrap=True)
-        self._fw_state_lbl.add_css_class("sysinfo-value-sub")
-        self.fw.add_row(self._fw_state_lbl)
-        self._refresh_fw_state_label()
-        style_kernel_feature_row_buttons(self.fw)
-        g2.add(self.fw)
-
-        # SSH — openssh is in all repos
-        ssh_dep_check = lambda: B._service_exists("ssh") or B._service_exists("sshd")
-        self.ssh = SwitchRow("ssh", B.ssh_active(), risk="low",
-                             dep_pkg="openssh",
-                             dep_check=ssh_dep_check,
-                             dep_install=lambda job=None: B._install_pkg({"debian": "openssh-server", "arch": "openssh", "fedora": "openssh-server", "opensuse": "openssh"}, job=job))
-        self.ssh.switch.connect("notify::active", self._on_ssh)
-        self.ssh.add_prefix(IconBadge("network-server-symbolic", category=_security_icon_category(ssh_dep_check())))
-        self._wire_status_pill(self.ssh, ssh_dep_check)
-        style_kernel_feature_row_buttons(self.ssh)
-        g2.add(self.ssh)
 
         # Samba
         samba_dep_check = B.samba_installed
@@ -660,30 +627,6 @@ class NetworkPage(Adw.PreferencesPage):
         result = B.ipv6_set_disabled(not want_enabled)
         sw.set_active(not result.value)
         report_toggle_result(self.ipv6, "network", "network.ipv6", result.ok, result.technical_detail)
-    _FW_STATE_KEYS = {
-        "ufw_active": "fw_state_ufw_active",
-        "ufw_inactive": "fw_state_ufw_inactive",
-        "ufw_installed_not_configured": "fw_state_ufw_not_configured",
-        "firewalld_active": "fw_state_firewalld_active",
-        "firewalld_inactive": "fw_state_firewalld_inactive",
-        "nftables_rules": "fw_state_nftables_rules",
-        "none_detected": "fw_state_none_detected",
-        "undetermined": "fw_state_undetermined",
-    }
-
-    def _refresh_fw_state_label(self):
-        state = B.firewall_state()
-        self._fw_state_lbl.set_text(T(self._FW_STATE_KEYS.get(state, "fw_state_undetermined")))
-
-    def _on_fw(self, sw, _):
-        result = B.firewall_set(sw.get_active())
-        sw.set_active(result.value)
-        report_toggle_result(self.fw, "network", "network.firewall", result.ok, result.technical_detail)
-        self._refresh_fw_state_label()
-    def _on_ssh(self, sw, _):
-        result = B.ssh_set(sw.get_active())
-        sw.set_active(result.value)
-        report_toggle_result(self.ssh, "network", "network.ssh", result.ok, result.technical_detail)
     def _on_samba(self, sw, _):
         result = B.samba_set(sw.get_active())
         sw.set_active(result.value)

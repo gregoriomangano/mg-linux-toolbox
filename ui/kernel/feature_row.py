@@ -25,6 +25,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 from core.i18n import T, on_change
 from core.kernel_features.base import SupportStatus
+from ui.design_system.status_pill import StatusPill
 
 RISK_CSS = {"low": "badge-low", "medium": "badge-medium", "high": "badge-high"}
 
@@ -42,15 +43,24 @@ class KernelFeatureRow(Adw.ExpanderRow):
         self.set_enable_expansion(True)
 
         # ── Collapsed-state suffix: compact current status ──────────
-        # v4: shown as a StatusPill (neutral by default) instead of
-        # plain grey text — set_status_variant() lets a subclass that
-        # actually knows the semantics (e.g. "this boolean is on")
-        # recolor it, without changing what text is displayed or any
-        # apply/restore logic.
-        self._status_suffix = Gtk.Label(xalign=1)
-        self._status_suffix.add_css_class("ds-pill")
-        self._status_suffix.add_css_class("ds-pill-neutral")
-        self.add_suffix(self._status_suffix)
+        # v6: the REAL shared StatusPill widget (the exact same class
+        # "Rete e dispositivi"/"Sicurezza" use for Attivo/Disattivato/Non installato),
+        # not a bespoke Gtk.Label reimplementing its CSS classes — a
+        # plain Label here was missing valign=CENTER, so Adw.ExpanderRow
+        # stretched it to the row's full height and the ds-pill rounded
+        # corners turned it into exactly the tall "oval" this was meant
+        # to avoid. For values that aren't a short fixed state word
+        # (governor name, read-ahead size...) a second, plain compact
+        # text label sits alongside it and set_status_pill_style(False)
+        # swaps which of the two is visible — see that method below.
+        self._status_pill = StatusPill("", variant="neutral")
+        self.add_suffix(self._status_pill)
+        self._status_text = Gtk.Label(xalign=1, valign=Gtk.Align.CENTER)
+        self._status_text.add_css_class("ds-kf-status-text")
+        self._status_text.set_visible(False)
+        self.add_suffix(self._status_text)
+        self._status_variant = "neutral"
+        self._status_is_pill = True
 
         # ── Expanded body ────────────────────────────────────────────
         body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
@@ -150,22 +160,31 @@ class KernelFeatureRow(Adw.ExpanderRow):
     # ── Dynamic state, called by the page after every read/apply ─────
     def set_status_line(self, friendly: str, technical: str = ""):
         text = friendly if not technical else f"{friendly}  ({T('kf_technical_value')}: {technical})"
-        self._status_suffix.set_text(friendly)
+        self._status_pill.set_text(friendly)
+        self._status_text.set_text(friendly)
         self._lbl_current.set_text(f"{T('kf_current_state')}: {text}")
-
-    _STATUS_VARIANT_CSS = {
-        "success": "ds-pill-success", "neutral": "ds-pill-neutral",
-        "warning": "ds-pill-warning", "absent": "ds-pill-absent", "danger": "ds-pill-danger",
-    }
 
     def set_status_variant(self, variant: str):
         """Recolors the collapsed-state StatusPill only — never touches
         the text set_status_line() already put there, never touches
         any callback. Subclasses call this once they know whether the
         current value is a "good/on" state or not."""
-        for css in self._STATUS_VARIANT_CSS.values():
-            self._status_suffix.remove_css_class(css)
-        self._status_suffix.add_css_class(self._STATUS_VARIANT_CSS.get(variant, "ds-pill-neutral"))
+        self._status_variant = variant
+        self._status_pill.set_variant(variant)
+
+    def set_status_pill_style(self, is_pill: bool):
+        """Switches the collapsed-state suffix between the real shared
+        StatusPill (short, genuinely binary state words —
+        "Attivo"/"Disattivato") and plain compact text. A rounded pill
+        was never meant to hold anything longer than a couple of
+        words — stretched around a governor name, an I/O scheduler, or
+        a read-ahead size it turns into exactly the big incoherent oval
+        the design language wants gone, so any row whose value isn't a
+        short fixed state word should call this once with False
+        (typically right after super().__init__())."""
+        self._status_is_pill = is_pill
+        self._status_pill.set_visible(is_pill)
+        self._status_text.set_visible(not is_pill)
 
     def set_initial_value(self, friendly: str):
         self._lbl_initial.set_text(f"{T('kf_initial_value')}: {friendly}" if friendly else "")

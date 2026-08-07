@@ -28,10 +28,10 @@ _SKIP_REASON = "no DISPLAY/WAYLAND_DISPLAY — constructing a real GTK widget wi
 class PureLogicTests(unittest.TestCase):
     """No GTK construction at all — safe to run anywhere."""
 
-    def test_hidden_pages_set_matches_the_five_static_pages(self):
+    def test_hidden_pages_set_matches_the_six_static_pages(self):
         import ui.window as window
         self.assertEqual(window.HIDDEN_FROM_SWITCHER,
-                          {"author", "guide", "credits", "donate", "disk_activity"})
+                          {"author", "guide", "credits", "donate", "disk_activity", "help_support"})
 
     def test_center_nav_order_is_guide_author_donate(self):
         import ui.window as window
@@ -160,12 +160,16 @@ class MainWindowTests(unittest.TestCase):
             self.window.switch_to_page(internal)
             self.assertEqual(self.window._stack.get_visible_child_name(), internal)
 
-    def test_three_center_nav_buttons_navigate_to_the_right_pages(self):
+    def test_center_nav_buttons_navigate_to_the_right_pages(self):
+        # 2026-08-07: "Aiuto e supporto" added as a fourth switch_to_page
+        # button alongside Guida/Chi sono/Supporta (Contatti stays a
+        # separate, direct open_external_url button and never appends
+        # here).
         targets_clicked = []
         with mock.patch.object(self.window, "switch_to_page", side_effect=lambda t: targets_clicked.append(t)):
             for btn, _label, _key in self.window._nav_buttons:
                 btn.emit("clicked")
-        self.assertEqual(targets_clicked, ["guide", "author", "donate"])
+        self.assertEqual(targets_clicked, ["guide", "author", "donate", "help_support"])
 
     def test_brand_button_opens_project_page_via_secure_launcher_not_generic_homepage(self):
         # v3: the single in-app identity block moved from a duplicate
