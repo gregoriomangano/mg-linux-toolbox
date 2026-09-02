@@ -23,7 +23,7 @@ _QR_PATH = os.path.join(
 
 PAYPAL_URL = "https://www.paypal.com/donate/?hosted_button_id=7LCEUTKBTB6HW"
 PROJECT_PAGE_URL = "https://www.manganogregorio.it/m-g-linux-toolbox/"
-CONTACT_URL = "https://www.manganogregorio.it/contatti-gregorio-mangano-mondovi/"
+CONTACT_URL = "https://www.manganogregorio.it/#contatti"
 
 IBAN = "IT16 S035 7601 6010 1000 9121 601"
 ACCOUNT_HOLDER = "Mangano Gregorio"

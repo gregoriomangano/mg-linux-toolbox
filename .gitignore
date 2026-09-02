@@ -1,4 +1,6 @@
 __pycache__/
+.env
+.env.*
 *.py[cod]
 .pytest_cache/
 .coverage

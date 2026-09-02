@@ -18,7 +18,7 @@ YOUTUBE_URL = "https://www.youtube.com/@GregorioMangano"
 WEBSITE_URL = "https://manganogregorio.it"
 ISSUES_URL = ""
 PROJECT_PAGE_URL = "https://www.manganogregorio.it/m-g-linux-toolbox/"
-CONTACT_URL = "https://www.manganogregorio.it/contatti-gregorio-mangano-mondovi/"
+CONTACT_URL = "https://www.manganogregorio.it/#contatti"
 # No "info@..." mailbox is verified anywhere in the project yet — left
 # empty deliberately (same convention as ISSUES_URL above) rather than
 # guessing a local-part on top of the one verified domain. The one

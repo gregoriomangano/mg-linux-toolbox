@@ -143,7 +143,7 @@ Per le segnalazioni riservate consulta [SECURITY.md](SECURITY.md). Per i limiti 
 
 ## Supporto e donazione
 
-- Contatti: <https://www.manganogregorio.it/contatti-gregorio-mangano-mondovi/>
+- Contatti: <https://www.manganogregorio.it/#contatti>
 - Donazione PayPal: <https://www.paypal.com/donate/?hosted_button_id=7LCEUTKBTB6HW>
 
 Verifica sempre il destinatario prima di confermare un pagamento.
@@ -153,7 +153,7 @@ Verifica sempre il destinatario prima di confermare un pagamento.
 - Sito: <https://www.manganogregorio.it/>
 - Pagina del progetto: <https://www.manganogregorio.it/m-g-linux-toolbox/>
 - Canale YouTube: <https://www.youtube.com/@GregorioMangano>
-- Contatti: <https://www.manganogregorio.it/contatti-gregorio-mangano-mondovi/>
+- Contatti: <https://www.manganogregorio.it/#contatti>
 - Codice pubblico: <https://github.com/gregoriomangano/mg-linux-toolbox>
 - Release: <https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v0.9.0-beta.7>
 
