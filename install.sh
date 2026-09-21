@@ -87,7 +87,7 @@ printf '%s  %s\n' "$checksum" "$asset" | sha256sum --check --status || {
 
 if [[ "$asset_kind" == deb ]]; then
   sudo apt-get install -y "$asset"
-  dpkg-query -W -f='${Status}' mg-linux-toolbox-v2 2>/dev/null | grep -q 'install ok installed' || {
+  dpkg-query -W -f='${Status}' m-g-linux-toolbox-v2 2>/dev/null | grep -q 'install ok installed' || {
     printf '%s\n' 'DEB installation could not be verified.' >&2
     exit 1
   }
