@@ -2,7 +2,7 @@
 
 [English](README.md) | Italiano
 
-M.G Linux Toolbox e pensato per semplificare Linux anche a chi non vuole usare
+M.G Linux Toolbox è pensato per semplificare Linux anche a chi non vuole usare
 il terminale.
 
 ## Installazione facile
@@ -15,7 +15,7 @@ curl -fsSL https://raw.githubusercontent.com/gregoriomangano/mg-linux-toolbox/ma
 
 L'installer riconosce la tua distribuzione Linux, scarica il pacchetto giusto,
 verifica il checksum e crea una voce nel menu delle applicazioni. Quando
-necessario puo chiedere la password amministratore.
+necessario può chiedere la password amministratore.
 
 ## Preferisci scaricarlo manualmente?
 
@@ -29,7 +29,7 @@ Scarica il pacchetto dalla [latest stable release](https://github.com/gregorioma
 - Mostrare informazioni sul computer, dischi, rete e strumenti AI.
 - Aiutare a gestire le impostazioni delle prestazioni.
 - Installare e gestire software e repository.
-- Aiutare a pulire file temporanei e dati non piu utili.
+- Aiutare a pulire file temporanei e dati non più utili.
 - Offrire opzioni utili per gaming e DNS.
 - Aiutare a installare e gestire Gradia, Upscayl, Curtail, Ferdium e KDE Connect.
 - Usare Flatpak, Snap e pacchetti nativi.
@@ -46,15 +46,15 @@ driver, distribuzione Linux e sorgenti software configurate.
 ## Aggiornamento
 
 Per aggiornare basta eseguire di nuovo lo stesso comando di installazione.
-Scarichera e installera il pacchetto piu recente disponibile per la tua
+Scaricherà e installerà il pacchetto più recente disponibile per la tua
 distribuzione.
 
 ## Open source e licenza
 
-M.G Linux Toolbox e open source ed e distribuito con licenza
+M.G Linux Toolbox è open source ed è distribuito con licenza
 [GPL-3.0-or-later](LICENSE). Consulta
 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) per i materiali di terze
-parti inclusi e [TRADEMARKS.md](TRADEMARKS.md) per nome e identita ufficiale
+parti inclusi e [TRADEMARKS.md](TRADEMARKS.md) per nome e identità ufficiale
 del progetto.
 
 <details>
