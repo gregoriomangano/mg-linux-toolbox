@@ -1,56 +1,59 @@
 # M.G Linux Toolbox V2
 
-M.G Linux Toolbox rende piu semplici funzioni e impostazioni Linux che normalmente richiederebbero il terminale.
+English | [Italiano](README_IT.md)
 
-## Screenshot
+Cross-distro Linux desktop utility for system information, performance, software management, gaming, cleanup and app installation.
 
-| Panoramica | Prestazioni |
+## Screenshots
+
+| Overview | Performance |
 |---|---|
-| [![Panoramica](docs/images/screenshots/panoramica.png)](docs/images/screenshots/panoramica.png) | [![Prestazioni](docs/images/screenshots/prestazioni.png)](docs/images/screenshots/prestazioni.png) |
+| [![Overview](docs/images/screenshots/panoramica.png)](docs/images/screenshots/panoramica.png) | [![Performance](docs/images/screenshots/prestazioni.png)](docs/images/screenshots/prestazioni.png) |
 
-### Chi sono
+## Features
 
-[![Chi sono](docs/images/screenshots/chi-sono.png)](docs/images/screenshots/chi-sono.png)
+- System information for the computer, storage, network and AI usage.
+- Performance profiles and optional controls, shown only when the system supports them.
+- Software sources, autostart management and cleanup tools.
+- Gaming preparation, DNS management, WinBoat and GeForce NOW where supported.
+- Gradia, Upscayl, Curtail, Ferdium and KDE Connect installation options.
+- Flatpak, Snap and native packages where the selected feature and distribution support them.
 
-## Cosa permette di fare
+## Supported Distributions
 
-- mostrare in modo chiaro computer, dischi, rete e utilizzo AI;
-- gestire profili e controlli della pagina Prestazioni;
-- gestire sorgenti software, autostart e pulizia;
-- installare componenti Gaming, DNS, WinBoat e GeForce NOW quando supportati;
-- installare Upscayl, Gradia, Ferdium e Curtail;
-- ripristinare modifiche e gestire le impostazioni.
+| Distribution | Distribution format |
+|---|---|
+| Ubuntu / Debian | Official `.deb` package |
+| Fedora | Official AppImage |
+| Arch Linux | Official AppImage |
+| openSUSE | Official AppImage |
 
-Le funzioni vengono mostrate in base a cio che il sistema supporta realmente.
+amd64 releases are provided. Individual features depend on the configured kernel, hardware, drivers and repositories.
 
-## Installazione
+## Installation
 
-### Ubuntu e Debian
+Download the appropriate package from the [latest stable release](https://github.com/gregoriomangano/mg-linux-toolbox/releases/latest). Ubuntu and Debian use the `.deb`; Fedora, Arch Linux and openSUSE use the AppImage.
 
-Scarica il pacchetto `.deb` dalla [Release v1.0.0](https://github.com/gregoriomangano/mg-linux-toolbox/releases/tag/v1.0.0) e installalo con il gestore software della distribuzione.
-
-### Installazione automatica
+For automatic installation:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/gregoriomangano/mg-linux-toolbox/main/install.sh | bash
 ```
 
-Ubuntu e Debian usano il `.deb` ufficiale. Fedora, Arch e openSUSE usano l'AppImage ufficiale; l'installer installa anche i componenti necessari e crea la voce nel menu.
+The installer selects the suitable package, verifies its checksum and creates the required desktop integration.
 
-## Compatibilita
+## Updating
 
-Release amd64 per distribuzioni Linux moderne basate su Debian/Ubuntu, Fedora, Arch e openSUSE. La disponibilita delle singole funzioni dipende da kernel, hardware, driver e repository configurati.
+Run the same installer command again. It downloads the latest stable release, verifies the checksum and updates the installed package or AppImage together with its privileged components.
 
-## Aggiornamento
+## License And Source Availability
 
-Per installazioni automatiche riesegui lo stesso comando. L'installer scarica l'ultima release stabile, verifica il checksum prima di installare e aggiorna anche i componenti privilegiati.
+M.G Linux Toolbox V2 is proprietary software distributed under the [M.G Linux Toolbox Proprietary License](LICENSE). This public repository contains distribution material and documentation only; it does not contain the V2 source code. Historical GPL releases remain subject to the terms that applied to those releases.
 
-## Autore
+## Author And Website
 
-M.G Linux Toolbox V2 e sviluppato da **Gregorio Mangano**.
+Developed by **Gregorio Mangano**. Visit the [M.G Linux Toolbox website](https://www.manganogregorio.it/mg-linux-toolbox.html).
 
-## Licenza
+## Security
 
-M.G Linux Toolbox V2 e distribuito secondo la [M.G Linux Toolbox Proprietary License](LICENSE). Il sorgente V2 non e pubblico. Le versioni storiche pubblicate sotto GPL restano soggette ai termini GPL applicabili alla loro release.
-
-Per problemi di sicurezza consulta [SECURITY.md](SECURITY.md).
+For security issues, see [SECURITY.md](SECURITY.md).
