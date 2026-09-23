@@ -1,0 +1,13 @@
+{
+  "bundle": {
+    "resources": [
+      "resources/codexbar-linux-x86_64",
+      "target/release/mg-linux-toolbox-performance-helper",
+      "target/release/mg-linux-toolbox-repository-helper",
+      "target/release/mg-linux-toolbox-programs-helper",
+      "target/release/mg-linux-toolbox-dns-helper",
+      "target/release/mg-linux-toolbox-winboat-helper",
+      "target/release/mg-linux-toolbox-apps-helper"
+    ]
+  }
+}

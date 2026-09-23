@@ -2,58 +2,48 @@
 
 English | [Italiano](README_IT.md)
 
-Cross-distro Linux desktop utility for system information, performance, software management, gaming, cleanup and app installation.
+M.G Linux Toolbox is an open-source cross-distro Linux desktop utility for
+system information, performance, software management, gaming, cleanup and
+application installation.
 
-## Screenshots
+## Supported distributions
 
-| Overview | Performance |
-|---|---|
-| [![Overview](docs/images/screenshots/panoramica.png)](docs/images/screenshots/panoramica.png) | [![Performance](docs/images/screenshots/prestazioni.png)](docs/images/screenshots/prestazioni.png) |
+- Ubuntu and Debian: `.deb` package.
+- Fedora, Arch Linux and openSUSE: AppImage.
 
-## Features
+Official releases support amd64. Feature availability depends on the kernel,
+hardware, drivers and configured repositories.
 
-- System information for the computer, storage, network and AI usage.
-- Performance profiles and optional controls, shown only when the system supports them.
-- Software sources, autostart management and cleanup tools.
-- Gaming preparation, DNS management, WinBoat and GeForce NOW where supported.
-- Gradia, Upscayl, Curtail, Ferdium and KDE Connect installation options.
-- Flatpak, Snap and native packages where the selected feature and distribution support them.
-
-## Supported Distributions
-
-| Distribution | Distribution format |
-|---|---|
-| Ubuntu / Debian | Official `.deb` package |
-| Fedora | Official AppImage |
-| Arch Linux | Official AppImage |
-| openSUSE | Official AppImage |
-
-amd64 releases are provided. Individual features depend on the configured kernel, hardware, drivers and repositories.
-
-## Installation
-
-Download the appropriate package from the [latest stable release](https://github.com/gregoriomangano/mg-linux-toolbox/releases/latest). Ubuntu and Debian use the `.deb`; Fedora, Arch Linux and openSUSE use the AppImage.
-
-For automatic installation:
+## Development
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/gregoriomangano/mg-linux-toolbox/main/install.sh | bash
+npm install
+npm run tauri dev
 ```
 
-The installer selects the suitable package, verifies its checksum and creates the required desktop integration.
+## Tests
 
-## Updating
+```bash
+npm test
+```
 
-Run the same installer command again. It downloads the latest stable release, verifies the checksum and updates the installed package or AppImage together with its privileged components.
+## Build
 
-## License And Source Availability
+```bash
+npm run tauri build
+```
 
-M.G Linux Toolbox V2 is proprietary software distributed under the [M.G Linux Toolbox Proprietary License](LICENSE). This public repository contains distribution material and documentation only; it does not contain the V2 source code. Historical GPL releases remain subject to the terms that applied to those releases.
+The release scripts compile the privileged helper binaries from
+`src-tauri/src/bin/` before packaging; no generated helper is committed.
 
-## Author And Website
+## License
 
-Developed by **Gregorio Mangano**. Visit the [M.G Linux Toolbox website](https://www.manganogregorio.it/mg-linux-toolbox.html).
+The original M.G Linux Toolbox code is licensed under
+[GPL-3.0-or-later](LICENSE). See [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)
+for bundled third-party materials and [TRADEMARKS.md](TRADEMARKS.md) for the
+project name and official identity.
 
-## Security
+## Author
 
-For security issues, see [SECURITY.md](SECURITY.md).
+Developed by **Gregorio Mangano**. Project website:
+<https://www.manganogregorio.it/mg-linux-toolbox.html>.

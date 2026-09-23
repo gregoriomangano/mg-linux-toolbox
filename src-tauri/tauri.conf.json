@@ -1,0 +1,60 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "M.G Linux Toolbox V2",
+  "version": "1.1.0",
+  "identifier": "com.mg.linuxtoolbox",
+  "build": {
+    "frontendDist": "../src"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "M.G Linux Toolbox V2",
+        "width": 1400,
+        "height": 950,
+        "minWidth": 640,
+        "minHeight": 520,
+        "center": true,
+        "visible": false,
+        "minimizable": true,
+        "maximizable": true,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": "'self' customprotocol: asset:",
+        "base-uri": "'none'",
+        "object-src": "'none'",
+        "frame-src": "https://docs.google.com",
+        "connect-src": "ipc: http://ipc.localhost",
+        "font-src": "'self' data:",
+        "img-src": "'self' asset: http://asset.localhost data:",
+        "style-src": "'self' 'unsafe-inline'",
+        "script-src": "'self'"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE2MUEyM0NDQjAwNkQ1NkQKUldSdDFRYXd6Q01hRmlxV3RtWkVTSE5yQmVBZ3lIZ3JnOHBEcWltYkgrNCtqWS9aVFVwVHVWVFcK",
+      "endpoints": [
+        "https://github.com/gregoriomangano/mg-linux-toolbox/releases/latest/download/latest.json"
+      ]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "resources": [
+      "../packaging/polkit/*.policy",
+      "../packaging/systemd/*.service"
+    ],
+    "createUpdaterArtifacts": true,
+    "targets": [
+      "appimage",
+      "deb"
+    ],
+    "icon": ["icons/mg-linux-toolbox.png"]
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "bundle": {
+    "resources": ["resources/codexbar-linux-x86_64"],
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/lib/mg-linux-toolbox/mg-linux-toolbox-performance-helper": "target/release/mg-linux-toolbox-performance-helper",
+          "/usr/share/polkit-1/actions/com.mg.linuxtoolbox.performance.policy": "../packaging/polkit/com.mg.linuxtoolbox.performance.policy",
+          "/usr/lib/systemd/system/mg-linux-toolbox-performance.service": "../packaging/systemd/mg-linux-toolbox-performance.service",
+          "/usr/lib/mg-linux-toolbox/mg-linux-toolbox-repository-helper": "target/release/mg-linux-toolbox-repository-helper",
+          "/usr/share/polkit-1/actions/com.mg.linuxtoolbox.repository.policy": "../packaging/polkit/com.mg.linuxtoolbox.repository.policy",
+          "/usr/lib/mg-linux-toolbox/mg-linux-toolbox-programs-helper": "target/release/mg-linux-toolbox-programs-helper",
+          "/usr/share/polkit-1/actions/com.mg.linuxtoolbox.programs.policy": "../packaging/polkit/com.mg.linuxtoolbox.programs.policy",
+          "/usr/share/polkit-1/actions/com.mg.linuxtoolbox.dns.policy": "../packaging/polkit/com.mg.linuxtoolbox.dns.policy",
+          "/usr/lib/mg-linux-toolbox/mg-linux-toolbox-dns-helper": "target/release/mg-linux-toolbox-dns-helper",
+          "/usr/share/polkit-1/actions/com.mg.linuxtoolbox.winboat.policy": "../packaging/polkit/com.mg.linuxtoolbox.winboat.policy",
+          "/usr/lib/mg-linux-toolbox/mg-linux-toolbox-winboat-helper": "target/release/mg-linux-toolbox-winboat-helper",
+          "/usr/share/polkit-1/actions/com.mg.linuxtoolbox.apps.policy": "../packaging/polkit/com.mg.linuxtoolbox.apps.policy",
+          "/usr/lib/mg-linux-toolbox/mg-linux-toolbox-apps-helper": "target/release/mg-linux-toolbox-apps-helper"
+        }
+      }
+    }
+  }
+}

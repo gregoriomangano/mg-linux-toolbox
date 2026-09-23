@@ -1,0 +1,15 @@
+[Unit]
+Description=M.G Linux Toolbox persistent CPU performance profile
+After=systemd-modules-load.service
+Before=graphical.target
+ConditionPathExists=/var/lib/mg-linux-toolbox/performance/profile.json
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/mg-linux-toolbox/mg-linux-toolbox-performance-helper apply-persisted
+TimeoutStartSec=30s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

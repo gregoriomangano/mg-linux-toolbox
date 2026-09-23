@@ -1,0 +1,72 @@
+[package]
+name = "mg-linux-toolbox-v2"
+version = "1.1.0"
+description = "Cross-distro Linux desktop utility"
+authors = ["Gregorio Mangano"]
+license = "GPL-3.0-or-later"
+homepage = "https://www.manganogregorio.it/mg-linux-toolbox.html"
+repository = "https://github.com/gregoriomangano/mg-linux-toolbox"
+edition = "2021"
+default-run = "mg-linux-toolbox-v2"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "mg_linux_toolbox_v2_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "mg-linux-toolbox-performance-helper"
+path = "src/bin/mg-linux-toolbox-performance-helper.rs"
+
+[[bin]]
+name = "mg-linux-toolbox-repository-helper"
+path = "src/bin/mg-linux-toolbox-repository-helper.rs"
+
+[[bin]]
+name = "mg-linux-toolbox-programs-helper"
+path = "src/bin/mg-linux-toolbox-programs-helper.rs"
+
+[[bin]]
+name = "mg-linux-toolbox-dns-helper"
+path = "src/bin/mg-linux-toolbox-dns-helper.rs"
+
+[[bin]]
+name = "mg-linux-toolbox-winboat-helper"
+path = "src/bin/mg-linux-toolbox-winboat-helper.rs"
+
+[[bin]]
+name = "mg-linux-toolbox-apps-helper"
+path = "src/bin/mg-linux-toolbox-apps-helper.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+libc = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+feed-rs = "2"
+encoding_rs = "0.8"
+futures-util = "0.3"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "blocking"] }
+sha2 = "0.10"
+tauri-plugin-autostart = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-updater = "2"
+url = "2"
+zbus = { version = "5", default-features = false, features = ["async-io", "blocking-api"] }
+
+
+# Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

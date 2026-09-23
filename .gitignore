@@ -1,0 +1,64 @@
+# Runtime and build artifacts
+target/
+src-tauri/target/
+src-tauri/gen/
+dist/
+dist-ssr/
+node_modules/
+dev-screenshots/
+reference/
+*.log
+.env
+.env.*
+!.env.example
+.aider.chat.history.md
+src-tauri/resources/codexbar-linux-x86_64/
+*.key
+*.pem
+*.p12
+*.token
+*.AppImage
+*.deb
+*.rpm
+
+# Logs, caches and temporary files
+logs/
+*.log
+*.tmp
+*.temp
+*.bak
+*.orig
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+*.local
+.cache/
+
+# Local agent/session material and visual verification artifacts
+.aider.chat.history.md
+.codex/
+dev-screenshots/
+
+# Secrets (keep a deliberately named example file if one is added later)
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+*.token
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

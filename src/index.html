@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="it" data-theme="system">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>M.G Linux Toolbox</title>
+  <link rel="stylesheet" href="styles/refinement.css">
+  <script type="module" src="/main.js"></script>
+</head>
+<body>
+  <div class="notebook">
+    <header class="topbar">
+      <div class="top-brand"><img class="brand-logo" src="assets/mg-linux-toolbox.svg" alt="M.G Linux Toolbox"><strong>M.G Linux Toolbox</strong></div>
+      <div class="breadcrumb"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#home"></use></svg><span data-i18n="breadcrumb.home">Home · Panoramica</span></div>
+      <div class="top-actions">
+        <button id="language-toggle" class="language-toggle" type="button" aria-haspopup="menu" aria-expanded="false" data-i18n-aria="language.label"><span id="language-code">IT</span></button>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Cambia tema"><svg class="pen-icon theme-sun" aria-hidden="true"><use href="assets/pen-icons.svg#sun"></use></svg><svg class="pen-icon theme-moon" aria-hidden="true"><use href="assets/pen-icons.svg#moon"></use></svg></button>
+      </div>
+      <div id="language-menu" class="paper-menu language-menu" role="menu" hidden>
+        <button type="button" role="menuitemradio" data-language="it" data-i18n="language.it">Italiano</button>
+        <button type="button" role="menuitemradio" data-language="en" data-i18n="language.en">English</button>
+      </div>
+    </header>
+    <div class="workspace">
+      <aside class="sidebar" aria-label="Navigazione principale">
+        <nav>
+          <button class="nav-item active" id="overview-nav" aria-current="page"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#home"></use></svg><span data-i18n="nav.overview">Panoramica</span></button>
+          <button class="nav-item" id="performance-nav"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#performance"></use></svg><span data-i18n="nav.performance">Prestazioni</span></button>
+          <button class="nav-item" id="software-nav"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#software"></use></svg><span data-i18n="nav.software">Gestione software</span></button>
+          <button class="nav-item" id="programs-nav"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#down"></use></svg><span data-i18n="nav.programs">Programmi</span></button>
+          <!-- Memoria/Rete/Sicurezza: backend and markup kept, just hidden from navigation for this phase. -->
+          <button class="nav-item" aria-disabled="true" hidden><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#memory"></use></svg><span data-i18n="nav.memory">Memoria</span></button>
+          <button class="nav-item" aria-disabled="true" hidden><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#network"></use></svg><span data-i18n="nav.network">Rete</span></button>
+          <button class="nav-item" aria-disabled="true" hidden><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#security"></use></svg><span data-i18n="nav.security">Sicurezza</span></button>
+        </nav>
+        <div class="sidebar-bottom">
+          <button class="nav-item" id="assistance-nav"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#help"></use></svg><span class="assistance-label" data-i18n="nav.assistance">Assistenza</span></button>
+          <button class="nav-item" id="settings-button"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#settings"></use></svg><span data-i18n="nav.settings">Impostazioni</span></button>
+          <button class="nav-item" id="about-nav"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#about"></use></svg><span data-i18n="nav.about">Chi sono</span></button>
+          <div class="linux-sign"><svg class="tux" role="img" aria-label="Pinguino Linux"><use href="assets/pen-icons.svg#tux"></use></svg><p><span data-i18n="home.simple">Semplice</span><br><span data-i18n="home.real">Reale</span><br><span data-i18n="home.useful">Utile</span></p><i class="tricolore"></i></div>
+        </div>
+      </aside>
+      <main class="overview" id="main-content">
+        <section class="hero paper-panel">
+          <div class="hero-copy"><p class="welcome" data-i18n="hero.welcome">Benvenuto in</p><h1>M.G Linux Toolbox</h1><p class="tagline" data-i18n="hero.tagline">Il tuo Linux, più semplice.</p><p class="hero-subtitle" data-i18n="hero.subtitle">Il tuo sistema, a colpo d’occhio.</p></div>
+          <div class="hero-meta"><span id="hero-date"></span><time id="hero-time"></time></div>
+        </section>
+
+        <section class="metric-grid" aria-label="Metriche principali">
+          <article class="metric-card cpu-card">
+            <div class="metric-title"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#cpu"></use></svg><h2 data-i18n="home.processor">Processore</h2></div>
+            <strong class="metric-value" id="cpu-usage"></strong><div class="progress"><span id="cpu-progress"></span></div>
+            <div class="metric-detail"><span id="cpu-frequency"></span><span id="cpu-cores"></span></div>
+            <p class="hardware-model" id="cpu-model"></p>
+          </article>
+          <article class="metric-card memory-card">
+            <div class="metric-title"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#memory"></use></svg><h2 data-i18n="home.memory">Memoria</h2></div>
+            <strong class="metric-value" id="memory-usage"></strong><div class="progress"><span id="memory-progress"></span></div><p class="metric-detail" id="memory-detail"></p>
+          </article>
+          <button class="metric-card disk-card" id="disk-card" type="button">
+            <div class="metric-title"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#disk"></use></svg><h2 data-i18n="home.disk">Disco Linux</h2></div>
+            <strong class="metric-value" id="disk-usage"></strong><div class="progress"><span id="disk-progress"></span></div><p class="metric-detail" id="disk-detail"></p><span class="card-note" data-i18n="home.diskDetails">Dischi e unità ↗</span>
+          </button>
+          <article class="metric-card gpu-card" id="gpu-card" hidden>
+            <div class="metric-title"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#gpu"></use></svg><h2>GPU</h2></div>
+            <strong class="metric-value metric-text hardware-model-value" id="gpu-name"></strong><p class="metric-detail" id="gpu-driver"></p>
+          </article>
+        </section>
+
+        <section class="overview-grid">
+          <article class="data-panel status-panel"><div class="panel-title"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#status"></use></svg><h2 data-i18n="home.status">Stato generale</h2></div><dl id="status-list" class="status-list"></dl><p class="stable-note" data-i18n="home.stable">Il tuo Linux, sotto gli occhi.</p></article>
+          <article class="data-panel processes-panel"><div class="panel-title"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#processes"></use></svg><h2 data-i18n="home.processes">Top 5 processi</h2></div><div class="table-head"><span data-i18n="process.name">Nome</span><span>CPU</span><span>RAM</span></div><div id="process-list"></div></article>
+          <article class="data-panel network-panel"><div class="panel-title"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#network"></use></svg><h2 data-i18n="home.network">Rete</h2></div><dl class="network-list"><div><dt data-i18n="network.status">Stato</dt><dd id="network-status"></dd></div><div><dt data-i18n="network.interface">Interfaccia</dt><dd id="network-interface"></dd></div><div id="network-ping-row" hidden><dt><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#ping"></use></svg><span data-i18n="network.ping">Ping</span></dt><dd id="network-ping"></dd></div><div><dt><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#down"></use></svg><span data-i18n="network.download">Download</span></dt><dd id="network-down"></dd></div><div><dt><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#up"></use></svg><span data-i18n="network.upload">Upload</span></dt><dd id="network-up"></dd></div></dl></article>
+        </section>
+
+        <section class="utility-grid">
+          <article class="data-panel utility-panel accordion-panel" id="ai-panel"><button class="panel-title accordion-toggle" type="button" aria-expanded="false" aria-controls="ai-content"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#ai"></use></svg><h2 data-i18n="home.ai">Utilizzo AI</h2><span class="accordion-chevron" aria-hidden="true">⌄</span><div class="ai-refresh-meta"><small id="ai-updated" data-i18n="ai.detecting">Rilevamento…</small><span id="ai-provider-summary"></span><span id="ai-refresh-button" class="ai-refresh-button" role="button" tabindex="0" data-i18n-title="ai.refreshNow" data-i18n-aria="ai.refreshNow">↻</span></div></button><div id="ai-content" class="accordion-content" hidden><div id="ai-list"></div></div></article>
+          <article class="data-panel utility-panel news-panel accordion-panel" id="news-panel"><button class="panel-title accordion-toggle" type="button" aria-expanded="false" aria-controls="news-content"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#news"></use></svg><h2 data-i18n="home.news">Notizie</h2><span class="accordion-chevron" aria-hidden="true">⌄</span><small id="news-updated"></small></button><div id="news-content" class="accordion-content" hidden><p id="news-status" class="feed-note"></p><div id="news-list" class="news-list"></div></div></article>
+        </section>
+      </main>
+      <main class="performance" id="performance-page" hidden>
+        <section class="performance-hero paper-panel">
+          <svg class="performance-hero-icon pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#performance"></use></svg>
+          <div><h1 data-i18n="performance.title">Prestazioni, senza paura di sbagliare</h1><p data-i18n="performance.intro">Questa pagina non inventa impostazioni: legge ciò che il kernel e il tuo hardware espongono davvero e mostra solo le funzioni disponibili su questo computer.<br>Niente overclock e niente valori fuori dai limiti previsti dal sistema.<br>Ogni funzione viene spiegata in parole semplici, così puoi capire cosa fa prima di usarla.</p></div>
+        </section>
+        <p id="performance-loading" class="performance-loading" data-i18n="performance.loading">Lettura delle capability disponibili…</p>
+        <section class="performance-section" aria-label="Profili prestazioni">
+        <section id="performance-grid" class="performance-grid" aria-live="polite">
+          <article class="data-panel performance-profile maximum" data-profile="performance" role="button" tabindex="0"><span class="profile-state"></span><h3 data-i18n="performance.profile.maximum">Massime prestazioni</h3><p data-i18n="performance.profile.maximumText">Dà priorità alla velocità quando il computer lavora molto.</p><small data-i18n="performance.profile.maximumNote">Può aumentare consumi, temperatura e velocità delle ventole.</small><div class="performance-help" data-profile-help="maximum"></div></article>
+          <article class="data-panel performance-profile balanced" data-profile="balanced" role="button" tabindex="0"><span class="recommended" data-i18n="performance.recommended">Consigliato</span><span class="profile-state"></span><h3 data-i18n="performance.profile.balanced">Bilanciato</h3><p data-i18n="performance.profile.balancedText">Aumenta la potenza quando serve e la riduce quando il computer è tranquillo.</p><small data-i18n="performance.profile.balancedNote">È la scelta consigliata per l’uso normale.</small><div class="performance-help" data-profile-help="balanced"></div></article>
+          <article class="data-panel performance-profile saving" data-profile="saving" role="button" tabindex="0"><span class="profile-state"></span><h3 data-i18n="performance.profile.saving">Risparmio energetico</h3><p data-i18n="performance.profile.savingText">Riduce consumi e calore quando non servono tutte le prestazioni.</p><small data-i18n="performance.profile.savingNote">Nei lavori pesanti il computer può essere meno veloce.</small><div class="performance-help" data-profile-help="saving"></div></article>
+        </section>
+        </section>
+        <section class="performance-secondary-grid">
+          <article class="data-panel performance-system" aria-labelledby="performance-system-title"><div class="panel-title"><svg class="pen-icon"><use href="assets/pen-icons.svg#status"></use></svg><h2 id="performance-system-title" data-i18n="performance.systemTitle">Il tuo sistema</h2></div><dl><dt data-i18n="performance.cpuManagement">Gestione CPU</dt><dd id="performance-driver-value"></dd><dt id="performance-governor-label" data-i18n="performance.governorLabel">Governor</dt><dd id="performance-governor-value"></dd><dt id="performance-epp-label" data-i18n="performance.eppLabel" hidden>Preferenza energetica</dt><dd id="performance-epp-value" hidden></dd><dt id="performance-range-label" data-i18n="performance.rangeLabel">Range CPU</dt><dd id="performance-range-value"></dd></dl><p id="performance-manager-warning" class="performance-manager-warning" hidden></p><p id="performance-degraded-note" class="performance-manager-warning" hidden></p><button id="performance-restore" class="performance-restore" type="button" hidden data-i18n="performance.restore">Ripristina stato precedente</button></article>
+          <article class="data-panel performance-health" aria-labelledby="performance-health-title"><div class="panel-title"><svg class="pen-icon"><use href="assets/pen-icons.svg#status"></use></svg><h2 id="performance-health-title" data-i18n="performance.healthTitle">Come sta lavorando il computer</h2></div><div class="health-indicators"><div id="health-cpu" class="health-indicator"><span>CPU</span><strong></strong><small></small></div><div id="health-io" class="health-indicator"><span data-i18n="performance.disk">Disco</span><strong></strong><small></small></div><div id="health-thermal" class="health-indicator"><span data-i18n="performance.temperatureShort">Temperatura</span><strong></strong><small></small></div><div id="health-speed" class="health-indicator" hidden><span data-i18n="performance.speedLabel">Velocità CPU</span><strong id="cpu-speed-value"></strong><small id="cpu-speed-detail"></small></div></div></article>
+        </section>
+        <section id="performance-advanced" class="performance-advanced" aria-labelledby="performance-advanced-title" hidden>
+          <div class="performance-section-title"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#settings"></use></svg><div><h2 id="performance-advanced-title" data-i18n="performance.advancedTitle">Funzioni opzionali</h2><p data-i18n="performance.advancedHint">Non servono a tutti. Apri Aiuto per capire quando possono esserti utili.</p></div></div>
+          <div id="advanced-grid" class="performance-advanced-grid"></div>
+        </section>
+      </main>
+      <main class="performance" id="software-page" hidden>
+        <section class="performance-hero paper-panel">
+          <svg class="performance-hero-icon pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#software"></use></svg>
+          <div><h1 data-i18n="software.title">Gestione software</h1><p data-i18n="software.intro">Gestisci le sorgenti da cui Linux scarica programmi e aggiornamenti.</p></div>
+        </section>
+         <section class="performance-section accordion-panel" aria-labelledby="software-sources-title">
+           <button class="performance-section-title accordion-toggle" type="button" aria-expanded="false" aria-controls="software-sources-content"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#software"></use></svg><div><h2 id="software-sources-title" data-i18n="software.sourcesTitle">Sorgenti software</h2><p data-i18n="software.sourcesHint">Attiva o disattiva le sorgenti già configurate su questo computer.</p></div><span class="repo-backend-badge" data-i18n="software.backendApt">APT</span><span class="accordion-chevron" aria-hidden="true">⌄</span></button>
+           <div id="software-sources-content" class="accordion-content" hidden><p id="software-loading" class="performance-loading" data-i18n="software.loading">Lettura delle sorgenti software…</p>
+           <p id="software-conflict" class="performance-manager-warning" hidden data-i18n="software.conflict">La configurazione è stata modificata da un altro programma. Ricarica l'elenco prima di continuare.</p>
+           <p id="software-empty" class="performance-loading" hidden data-i18n="software.empty">Nessuna sorgente APT rilevata su questo computer.</p>
+           <div id="repo-list" class="repo-list"></div></div>
+         </section>
+        <section class="performance-section" aria-labelledby="software-tools-title">
+          <h2 id="software-tools-title" class="visually-hidden">Strumenti software</h2>
+          <div class="performance-advanced-grid software-tools-grid">
+            <article class="data-panel performance-adv software-tool-card" data-control="autostart">
+              <span class="software-tool-badge" data-i18n="software.autostartBadge">XDG</span>
+              <div class="panel-title"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#settings"></use></svg><h3 data-i18n="software.autostartTitle">Applicazioni all'avvio</h3></div>
+              <p data-i18n="software.autostartCardText">Controlla quali programmi vengono avviati automaticamente quando accedi alla sessione.</p>
+              <p id="autostart-loading" class="adv-note" data-i18n="software.autostartLoading">Lettura delle applicazioni all'avvio…</p>
+              <p id="autostart-empty" class="adv-note" hidden data-i18n="software.autostartEmpty">Nessuna applicazione all'avvio rilevata su questo computer.</p>
+              <p id="autostart-summary" class="software-tool-stats" hidden><strong id="autostart-count-active">0</strong> <span data-i18n="software.autostartActiveCount">attive</span><span class="software-tool-stats-dot">·</span><strong id="autostart-count-disabled">0</strong> <span data-i18n="software.autostartDisabledCount">disattivate</span></p>
+              <small class="adv-note software-tool-hint" data-i18n="software.autostartHintLong">Puoi disattivare un programma dall'avvio senza disinstallarlo.</small>
+              <button id="autostart-toggle-button" type="button" aria-expanded="false" aria-controls="autostart-panel" data-i18n="software.autostartManage">Gestisci applicazioni</button>
+            </article>
+            <article class="data-panel performance-adv software-tool-card" data-control="cleanup">
+              <div class="panel-title"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#restore"></use></svg><h3 data-i18n="software.cleanupTitle">Pulizia</h3></div>
+              <p data-i18n="software.cleanupCardText">Trova file temporanei e cache che possono essere rimossi senza toccare i tuoi documenti.</p>
+              <p class="software-tool-stats"><span data-i18n="software.cleanupReclaimable">Spazio recuperabile</span> <strong id="cleanup-total-preview" data-i18n="software.cleanupNotAnalyzed">Non ancora analizzato</strong></p>
+              <dl class="cleanup-preview">
+                <div><dt data-i18n="software.cleanupTempPreview">Temporanei e cache</dt><dd id="cleanup-preview-temp">—</dd></div>
+                <div><dt data-i18n="software.cleanupBrowserPreview">Dati browser</dt><dd id="cleanup-preview-browser">—</dd></div>
+              </dl>
+              <small class="adv-note software-tool-hint" data-i18n="software.cleanupHintLong">Prima analizziamo il contenuto. Decidi tu cosa eliminare.</small>
+              <button id="cleanup-scan-button" type="button" aria-expanded="false" aria-controls="cleanup-panel" data-i18n="software.cleanupScan">Analizza</button>
+            </article>
+          </div>
+          <section id="autostart-panel" class="performance-section software-tool-panel" aria-labelledby="autostart-panel-title" hidden>
+            <div class="performance-section-title"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#settings"></use></svg><div><h2 id="autostart-panel-title" data-i18n="software.autostartTitle">Applicazioni all'avvio</h2></div></div>
+            <div class="autostart-toolbar">
+              <input id="autostart-search" type="search" data-i18n-placeholder="software.autostartSearchPlaceholder" aria-label="Cerca">
+              <div class="autostart-filters" role="group" aria-label="Filtro">
+                <button type="button" class="active" data-filter="all" data-i18n="software.autostartFilterAll">Tutte</button>
+                <button type="button" data-filter="active" data-i18n="software.autostartFilterActive">Attive</button>
+                <button type="button" data-filter="disabled" data-i18n="software.autostartFilterDisabled">Disattivate</button>
+              </div>
+            </div>
+            <div id="autostart-list" class="autostart-list"></div>
+            <p id="autostart-empty-filtered" class="autostart-empty-filtered" hidden data-i18n="software.autostartNoMatch">Nessun risultato per questo filtro.</p>
+          </section>
+          <section id="cleanup-panel" class="performance-section software-tool-panel" aria-labelledby="cleanup-panel-title" hidden>
+            <div class="performance-section-title"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#restore"></use></svg><div><h2 id="cleanup-panel-title" data-i18n="software.cleanupTitle">Pulizia</h2></div></div>
+            <p id="cleanup-loading" class="performance-loading" hidden data-i18n="software.cleanupScanning">Analisi di cache e file temporanei…</p>
+            <div id="cleanup-results" class="cleanup-results">
+              <p class="cleanup-total"><span data-i18n="software.cleanupReclaimable">Spazio recuperabile</span> <strong id="cleanup-total-value"></strong></p>
+              <div id="cleanup-categories" class="cleanup-categories"></div>
+              <div id="cleanup-cookies" class="cleanup-cookies" hidden>
+                <h3 data-i18n="software.cleanupCookiesTitle">Dati browser</h3>
+                <p data-i18n="software.cleanupCookiesWarning">Eliminare i cookie può disconnetterti dai siti web.</p>
+                <div id="cleanup-cookie-list"></div>
+              </div>
+              <div id="cleanup-actions" class="cleanup-actions"></div>
+              <p id="cleanup-outcome" class="performance-manager-warning" hidden></p>
+            </div>
+          </section>
+        </section>
+      </main>
+      <main class="performance" id="programs-page" hidden>
+        <section class="performance-hero paper-panel programs-hero">
+          <svg class="performance-hero-icon pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#down"></use></svg>
+          <div><h1 data-i18n="programs.title">Programmi</h1><p data-i18n="programs.intro">Prepara il sistema con i programmi che servono davvero.</p><p id="apps-support-summary" class="programs-support-summary"></p></div>
+        </section>
+        <section class="performance-section" aria-labelledby="programs-tools-title">
+          <h2 id="programs-tools-title" class="visually-hidden">Programmi</h2>
+          <div class="performance-advanced-grid programs-grid">
+            <article class="data-panel performance-adv software-tool-card programs-card" data-control="gaming">
+              <div class="panel-title"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#performance"></use></svg><h3 data-i18n="programs.gamingTitle">Gaming</h3></div>
+              <p data-i18n="programs.gamingText">Prepara il sistema per Steam, Lutris, Heroic e i giochi Windows.</p>
+              <p id="gaming-chips" class="programs-chips" hidden></p>
+              <p id="gaming-status" class="software-tool-stats" hidden></p>
+              <small id="gaming-hint" class="adv-note software-tool-hint"></small>
+              <button id="gaming-toggle-button" type="button" aria-expanded="false" aria-controls="gaming-panel" data-i18n="programs.gamingConfigure">Configura Gaming</button>
+            </article>
+            <article class="data-panel performance-adv software-tool-card programs-card" data-control="geforce">
+              <span class="software-tool-badge" data-i18n="programs.geforceBadge">Cloud Gaming</span>
+              <div class="panel-title"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#status"></use></svg><h3 data-i18n="programs.geforceTitle">GeForce NOW</h3></div>
+              <p data-i18n="programs.geforceText">Gioca in cloud con il client ufficiale NVIDIA.</p>
+              <p id="geforce-status" class="software-tool-stats"></p>
+              <small class="adv-note software-tool-hint" data-i18n="programs.geforceHint">Funziona con qualsiasi GPU, senza driver aggiuntivi.</small>
+              <button id="geforce-install-button" type="button" data-i18n="programs.geforceInstall">Installa</button>
+              <p id="geforce-outcome" class="programs-notice programs-inline-notice" hidden></p>
+            </article>
+            <article class="data-panel performance-adv software-tool-card programs-card" data-control="dns">
+              <div class="panel-title"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#network"></use></svg><h3 data-i18n="programs.dnsTitle">DNS</h3></div>
+              <p data-i18n="programs.dnsText">Scegli il servizio DNS usato dalla connessione di rete.</p>
+              <p id="dns-status" class="software-tool-stats" data-i18n="programs.dnsReading">Lettura configurazione…</p>
+              <small id="dns-hint" class="adv-note software-tool-hint"></small>
+              <button id="dns-toggle-button" type="button" aria-expanded="false" aria-controls="dns-panel" data-i18n="programs.dnsManage">Gestisci DNS</button>
+            </article>
+            <article class="data-panel performance-adv software-tool-card programs-card" data-control="winboat">
+              <div class="panel-title"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#software"></use></svg><h3 data-i18n="programs.winboatTitle">WinBoat</h3></div>
+              <p data-i18n="programs.winboatText">Esegui applicazioni Windows su Linux.</p>
+              <p id="winboat-status" class="software-tool-stats" hidden></p>
+              <small id="winboat-hint" class="adv-note software-tool-hint"></small>
+              <button id="winboat-toggle-button" type="button" aria-expanded="false" aria-controls="winboat-panel" data-i18n="programs.winboatConfigure">Configura WinBoat</button>
+            </article>
+            <article class="data-panel performance-adv software-tool-card programs-card app-card" data-app="gradia"></article>
+            <article class="data-panel performance-adv software-tool-card programs-card app-card" data-app="upscayl"></article>
+            <article class="data-panel performance-adv software-tool-card programs-card app-card" data-app="curtail"></article>
+            <article class="data-panel performance-adv software-tool-card programs-card app-card" data-app="ferdium"></article>
+            <article class="data-panel performance-adv software-tool-card programs-card app-card" data-app="kde-connect"></article>
+          </div>
+          <section id="gaming-panel" class="performance-section software-tool-panel" aria-labelledby="gaming-panel-title" hidden>
+            <div class="performance-section-title"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#down"></use></svg><div><h2 id="gaming-panel-title" data-i18n="programs.gamingTitle">Gaming</h2><p id="gaming-panel-subtitle"></p></div></div>
+            <p id="gaming-unsupported" class="performance-manager-warning" hidden></p>
+            <div id="gaming-details">
+              <div class="programs-status">
+                <div class="programs-cell"><span data-i18n="programs.distro">Distribuzione</span><strong id="gaming-distro-value"></strong></div>
+                <div class="programs-cell"><span data-i18n="programs.gpus">GPU</span><strong id="gaming-gpus-value"></strong></div>
+                <div class="programs-cell"><span data-i18n="programs.packageManager">Gestore pacchetti</span><strong id="gaming-pm-value"></strong></div>
+              </div>
+              <div id="gaming-progress" class="programs-progress" hidden><h3 data-i18n="programs.progressTitle">Installazione in corso…</h3><ul id="gaming-progress-list"></ul></div>
+              <div class="programs-columns">
+                <div id="gaming-to-install" class="programs-block" hidden><h3 data-i18n="programs.toInstall">Da installare</h3><ul id="gaming-to-install-list" class="programs-chips-list"></ul></div>
+                <div id="gaming-present" class="programs-block" hidden><h3 data-i18n="programs.present">Già presenti</h3><ul id="gaming-present-list" class="programs-chips-list"></ul></div>
+              </div>
+              <div id="gaming-changes-block" class="programs-block" hidden><h3 data-i18n="programs.changes">Modifiche necessarie</h3><ul id="gaming-changes-list" class="programs-change-list"></ul></div>
+              <div id="gaming-warnings-block" class="programs-notice" hidden><ul id="gaming-warnings-list"></ul></div>
+              <details id="gaming-technical" class="programs-technical"><summary data-i18n="programs.technical">Dettagli tecnici</summary><dl id="gaming-technical-list"></dl></details>
+              <div id="gaming-outcome" class="programs-outcome" hidden>
+                <h3 id="gaming-outcome-title"></h3>
+                <p id="gaming-outcome-message"></p>
+                <div id="gaming-outcome-lists" class="programs-columns"></div>
+                <details id="gaming-error-details" hidden><summary data-i18n="programs.technicalDetails">Dettagli tecnici dell'errore</summary><div id="gaming-error-steps"></div></details>
+              </div>
+              <div id="gaming-actions" class="cleanup-actions"></div>
+            </div>
+          </section>
+          <section id="dns-panel" class="performance-section software-tool-panel dns-panel" aria-labelledby="dns-panel-title" hidden>
+            <div class="performance-section-title"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#down"></use></svg><div><h2 id="dns-panel-title" data-i18n="programs.dnsTitle">DNS</h2><p id="dns-panel-subtitle"></p></div></div>
+            <p id="dns-unavailable" class="performance-manager-warning" hidden></p>
+            <div id="dns-details">
+              <div class="programs-status dns-status-grid">
+                <div class="programs-cell"><span data-i18n="programs.dnsConnection">Connessione</span><strong id="dns-connection-value"></strong></div>
+                <div class="programs-cell"><span data-i18n="programs.dnsInterface">Interfaccia</span><strong id="dns-device-value"></strong></div>
+                <div class="programs-cell"><span data-i18n="programs.dnsCurrent">DNS attuale</span><strong id="dns-current-value"></strong></div>
+              </div>
+              <fieldset id="dns-providers" class="dns-providers">
+                <legend data-i18n="programs.dnsChoose">Scegli un provider</legend>
+                <label><input type="radio" name="dns-provider" value="automatic"><span><strong data-i18n="programs.dnsAutomatic">Automatico / Provider Internet</strong><small data-i18n="programs.dnsAutomaticHint">Usa i DNS ricevuti automaticamente dalla connessione.</small></span></label>
+                <label><input type="radio" name="dns-provider" value="cloudflare"><span><strong>Cloudflare</strong><small>1.1.1.1 · 1.0.0.1</small></span></label>
+                <label><input type="radio" name="dns-provider" value="google"><span><strong>Google</strong><small>8.8.8.8 · 8.8.4.4</small></span></label>
+                <label><input type="radio" name="dns-provider" value="quad9"><span><strong>Quad9</strong><small>9.9.9.9 · 149.112.112.112</small></span></label>
+                <label><input type="radio" name="dns-provider" value="adguard"><span><strong>AdGuard</strong><small>94.140.14.14 · 94.140.15.15</small></span></label>
+              </fieldset>
+              <div class="programs-columns dns-addresses">
+                <div class="programs-block"><h3>IPv4</h3><p id="dns-ipv4-value"></p></div>
+                <div class="programs-block"><h3>IPv6</h3><p id="dns-ipv6-value"></p></div>
+              </div>
+              <p id="dns-outcome" class="programs-notice" hidden></p>
+              <div id="dns-actions" class="cleanup-actions"><button id="dns-apply-button" type="button" data-i18n="programs.dnsApply">Applica</button><button id="dns-cancel-button" type="button" class="secondary-action" data-i18n="action.cancel">Annulla</button></div>
+            </div>
+          </section>
+          <section id="winboat-panel" class="performance-section software-tool-panel" aria-labelledby="winboat-panel-title" hidden>
+            <div class="performance-section-title"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#down"></use></svg><div><h2 id="winboat-panel-title" data-i18n="programs.winboatTitle">WinBoat</h2><p id="winboat-panel-subtitle"></p></div></div>
+            <p id="winboat-unsupported" class="performance-manager-warning" hidden></p>
+            <div id="winboat-details">
+              <ul id="winboat-checklist" class="winboat-checklist"></ul>
+              <div id="winboat-progress" class="programs-progress" hidden><h3 data-i18n="programs.winboatProgressTitle">Preparazione WinBoat</h3><ul id="winboat-progress-list"></ul>
+                <div class="progress winboat-progress-bar"><span id="winboat-progress-fill"></span></div>
+              </div>
+              <p id="winboat-outcome" class="programs-notice" hidden></p>
+              <div id="winboat-reboot" class="programs-notice winboat-reboot" hidden>
+                <p data-i18n="programs.winboatRebootMessage">WinBoat è installato. Riavvia il computer per rendere attive le nuove autorizzazioni.</p>
+                <div class="cleanup-actions"><button id="winboat-reboot-now-button" type="button" data-i18n="programs.winboatRebootNow">Riavvia ora</button><button id="winboat-reboot-later-button" type="button" class="secondary-action" data-i18n="programs.winboatRebootLater">Più tardi</button></div>
+              </div>
+              <div id="winboat-actions" class="cleanup-actions">
+                <button id="winboat-install-button" type="button" data-i18n="programs.winboatInstall">Installa WinBoat</button>
+                <button id="winboat-open-button" type="button" hidden data-i18n="programs.winboatOpen">Apri WinBoat</button>
+                <button id="winboat-close-button" type="button" class="secondary-action" data-i18n="action.close">Chiudi</button>
+              </div>
+            </div>
+          </section>
+        </section>
+      </main>
+      <main class="performance" id="assistance-page" hidden>
+        <section class="performance-hero paper-panel assistance-hero">
+          <div class="performance-hero-icon"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#help"></use></svg></div>
+          <div><h1 data-i18n="assistance.title">Assistenza 1 a 1</h1><p data-i18n="assistance.intro">Hai bisogno di aiuto con Linux, Windows o il tuo computer?</p><p data-i18n="assistance.intro2">Invia una richiesta direttamente a Gregorio.</p></div>
+        </section>
+        <p id="assistance-loading" class="assistance-loading" data-i18n="assistance.loading">Caricamento del modulo…</p>
+        <iframe id="assistance-form" class="assistance-frame" data-src="https://docs.google.com/forms/d/e/1FAIpQLSfknkVci9taZrfQi4e6nqQhKGRXZ-Hv0VnAdIKoNtKEzN1A1Q/viewform?embedded=true" data-i18n-title="assistance.frameTitle" title="Modulo di assistenza 1 a 1" loading="eager" referrerpolicy="no-referrer" width="100%" height="1500" frameborder="0" marginheight="0" marginwidth="0"></iframe>
+      </main>
+      <main class="performance" id="about-page" hidden>
+        <section class="performance-hero paper-panel about-hero">
+          <img class="about-avatar" src="assets/mg-linux-toolbox.svg" alt="M.G Linux Toolbox">
+          <div><h1>Gregorio Mangano</h1><p data-i18n="about.subtitle">Informatica, Linux, progetti e vita reale.</p></div>
+        </section>
+        <section class="performance-section about-bio" aria-label="Biografia">
+          <div class="about-bio-grid">
+            <article class="data-panel about-bio-block"><p data-i18n="about.bio1"></p><p data-i18n="about.bio2"></p><p data-i18n="about.bio3"></p></article>
+            <article class="data-panel about-bio-block"><p data-i18n="about.bio4"></p><p data-i18n="about.bio5"></p></article>
+            <article class="data-panel about-bio-block"><p data-i18n="about.bio6"></p><p data-i18n="about.bio7"></p></article>
+          </div>
+        </section>
+        <section class="performance-section" aria-labelledby="about-where-title">
+          <div class="performance-section-title"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#network"></use></svg><div><h2 id="about-where-title" data-i18n="about.whereTitle">Dove trovarmi</h2></div></div>
+          <div id="about-links" class="about-links"></div>
+        </section>
+        <section class="performance-section" aria-labelledby="about-support-title">
+          <div class="performance-section-title"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#ai"></use></svg><div><h2 id="about-support-title" data-i18n="about.supportTitle">Sostieni il progetto</h2></div></div>
+          <div class="data-panel about-support">
+            <p data-i18n="about.support1"></p>
+            <p data-i18n="about.support2"></p>
+            <p data-i18n="about.support3"></p>
+            <div id="about-support-actions" class="about-support-actions"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div id="context-menu" class="paper-menu context-menu" role="menu" hidden></div>
+
+  <dialog id="support-nudge-dialog" class="small-dialog support-nudge" aria-labelledby="support-nudge-title">
+    <div class="dialog-head nudge-head">
+      <img class="nudge-avatar" src="assets/mg-linux-toolbox.svg" alt="M.G Linux Toolbox">
+      <h2 id="support-nudge-title" data-i18n="nudge.title">Ciao, sono Gregorio 👋</h2>
+      <button type="button" class="close-button" id="support-nudge-x" data-i18n-aria="action.close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 5 14 14M19 5 5 19"/></svg></button>
+    </div>
+    <div class="nudge-body">
+      <p data-i18n="nudge.text1"></p>
+      <p data-i18n="nudge.text2"></p>
+      <p data-i18n="nudge.text3"></p>
+      <p data-i18n="nudge.text4"></p>
+      <p data-i18n="nudge.text5"></p>
+    </div>
+    <label class="nudge-remind" id="support-nudge-remind-row"><input type="checkbox" id="support-nudge-remind" checked><span id="support-nudge-remind-label"></span></label>
+    <div class="nudge-actions">
+      <a id="support-nudge-channel" class="nudge-button primary-action" target="_blank" rel="noreferrer" data-i18n="nudge.goToChannel">Vai al canale</a>
+      <button type="button" id="support-nudge-later" class="nudge-button" data-i18n="action.close">Chiudi</button>
+    </div>
+    <button type="button" id="support-nudge-never" class="nudge-never" data-i18n="nudge.never">Non mostrarmelo più</button>
+  </dialog>
+
+  <dialog id="apps-confirm-dialog" class="small-dialog" aria-labelledby="apps-confirm-title">
+    <div class="dialog-head"><h2 id="apps-confirm-title" data-i18n="apps.confirmTitle">Un momento</h2><button type="button" class="close-button" data-close="apps-confirm-dialog" data-i18n-aria="action.close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 5 14 14M19 5 5 19"/></svg></button></div>
+    <p id="apps-confirm-text"></p>
+    <div class="dialog-foot"><button type="button" id="apps-confirm-cancel" data-close="apps-confirm-dialog" data-i18n="action.cancel">Annulla</button><button type="button" id="apps-confirm-confirm" class="primary-action" data-i18n="apps.confirmProceed">Continua</button></div>
+  </dialog>
+
+  <dialog id="advanced-help-dialog" class="help-dialog" aria-labelledby="advanced-help-title">
+    <div class="dialog-head">
+      <div class="panel-title help-dialog-heading"><svg class="pen-icon" aria-hidden="true"><use id="advanced-help-icon-use" href="assets/pen-icons.svg#settings"></use></svg><h2 id="advanced-help-title"></h2></div>
+      <button type="button" class="close-button" data-close="advanced-help-dialog" data-i18n-aria="action.close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 5 14 14M19 5 5 19"/></svg></button>
+    </div>
+    <div id="advanced-help-body" class="help-dialog-body"></div>
+    <div class="dialog-foot"><button type="button" id="advanced-help-action" hidden></button><button type="button" data-close="advanced-help-dialog" data-i18n="action.close">Chiudi</button></div>
+  </dialog>
+
+  <dialog id="disks-dialog" aria-labelledby="disks-title">
+    <div class="dialog-head"><div class="panel-title"><svg class="pen-icon" aria-hidden="true"><use href="assets/pen-icons.svg#disk"></use></svg><h2 id="disks-title" data-i18n="disk.title">Dischi e unità</h2></div><button id="close-dialog" class="close-button" data-i18n-aria="action.close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 5 14 14M19 5 5 19"/></svg></button></div>
+    <div class="disk-table-head"><span data-i18n="disk.device">Dispositivo</span><span data-i18n="disk.filesystem">Filesystem</span><span data-i18n="disk.usage">Utilizzo</span></div><div id="disk-list"></div>
+    <div class="dialog-foot"><button id="dialog-close-button" type="button" data-i18n="action.close">Chiudi</button></div>
+  </dialog>
+
+  <dialog id="feed-editor-dialog" class="small-dialog" aria-labelledby="feed-editor-title">
+    <form id="feed-form">
+      <div class="dialog-head"><h2 id="feed-editor-title" data-i18n="feed.addTitle">Aggiungi feed</h2><button type="button" class="close-button" data-close="feed-editor-dialog" data-i18n-aria="action.close"><svg viewBox="0 0 24 24"><path d="m5 5 14 14M19 5 5 19"/></svg></button></div>
+      <input id="feed-id" type="hidden">
+      <label><span data-i18n="feed.name">Nome</span><input id="feed-name" maxlength="80" required data-i18n-placeholder="feed.namePlaceholder"></label>
+      <label><span data-i18n="feed.url">URL RSS</span><input id="feed-url" type="url" required data-i18n-placeholder="feed.urlPlaceholder"></label>
+      <p id="feed-form-error" class="form-error" role="alert"></p>
+      <div class="dialog-foot"><button type="button" data-close="feed-editor-dialog" data-i18n="action.cancel">Annulla</button><button type="submit" class="primary-action" data-i18n="action.save">Salva</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="feed-manager-dialog" aria-labelledby="feed-manager-title">
+    <div class="dialog-head"><h2 id="feed-manager-title" data-i18n="feed.manageTitle">Gestisci feed</h2><button type="button" class="close-button" data-close="feed-manager-dialog" data-i18n-aria="action.close"><svg viewBox="0 0 24 24"><path d="m5 5 14 14M19 5 5 19"/></svg></button></div>
+    <div id="feed-manager-list" class="feed-manager-list"></div>
+    <div class="dialog-foot"><button id="manager-add-feed" type="button" data-i18n="feed.add">Aggiungi feed</button><button type="button" data-close="feed-manager-dialog" data-i18n="action.close">Chiudi</button></div>
+  </dialog>
+
+  <dialog id="updates-dialog" class="small-dialog" aria-labelledby="updates-title">
+    <div class="dialog-head"><div><small data-i18n="updates.settingsHint">Impostazioni · Aggiornamenti</small><h2 id="updates-title" data-i18n="updates.title">Aggiornamenti</h2></div><button type="button" class="close-button" data-close="updates-dialog" data-i18n-aria="action.close"><svg viewBox="0 0 24 24"><path d="m5 5 14 14M19 5 5 19"/></svg></button></div>
+    <dl class="update-details"><dt data-i18n="updates.installed">Versione installata</dt><dd id="update-version"></dd><dt data-i18n="updates.channel">Canale</dt><dd id="update-channel"></dd></dl>
+    <p id="update-message" class="update-message"></p>
+    <div class="progress update-progress" id="update-progress" hidden><span></span></div>
+    <div class="settings-section">
+      <h3 data-i18n="settings.appBehaviour">Comportamento dell'applicazione</h3>
+      <label class="settings-toggle"><input type="checkbox" id="startup-launch-at-login"><span><strong data-i18n="settings.startAtLogin">Avvia M.G all'accesso</strong><small data-i18n="settings.startAtLoginHint">Avvia automaticamente M.G quando accedi al computer.</small></span></label>
+      <label class="settings-toggle"><input type="checkbox" id="startup-start-hidden"><span><strong data-i18n="settings.startHidden">Avvia nascosto nell'area di sistema</strong><small data-i18n="settings.startHiddenHint">Quando M.G parte automaticamente, resta nell'area di sistema senza aprire la finestra.</small></span></label>
+    </div>
+    <div class="settings-section">
+      <h3 data-i18n="settings.welcome">Benvenuto</h3>
+      <button type="button" id="welcome-show-button" class="settings-action" data-i18n="settings.showWelcome">Mostra schermata di benvenuto</button>
+    </div>
+    <div class="settings-section">
+      <h3 data-i18n="settings.appearance">Aspetto</h3>
+      <div class="settings-text-scale">
+        <span data-i18n="settings.textSize">Dimensione testo</span>
+        <div id="text-scale-options" class="text-scale-options" role="group" aria-label="Dimensione testo"></div>
+        <button type="button" id="text-scale-reset" data-i18n="settings.textSizeReset">Ripristina</button>
+      </div>
+    </div>
+    <div class="dialog-foot"><button id="check-update-button" type="button" data-i18n="action.check">Controlla aggiornamenti</button><button id="install-update-button" class="primary-action" type="button" data-i18n="action.install" hidden>Scarica e installa</button><button type="button" data-close="updates-dialog" data-i18n="action.close">Chiudi</button></div>
+  </dialog>
+</body>
+</html>
