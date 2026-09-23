@@ -183,6 +183,21 @@ impl FeedStore {
     }
 }
 
+fn cache_matches_feeds(cache: &NewsCacheFile, feeds: &[FeedConfig]) -> bool {
+    feeds.iter().all(|feed| {
+        cache
+            .result
+            .articles
+            .iter()
+            .any(|article| article.source == feed.name)
+            || cache
+                .result
+                .errors
+                .iter()
+                .any(|error| error.feed_id == feed.id)
+    })
+}
+
 pub fn validate_feed_url(value: &str) -> Result<Url, String> {
     let url = Url::parse(value.trim()).map_err(|_| "invalid URL".to_string())?;
     if matches!(url.scheme(), "http" | "https") && url.host().is_some() {
@@ -437,6 +452,9 @@ pub async fn save_feed(
             if feeds.len() >= MAX_FEEDS {
                 return Err("maximum_feeds_reached".into());
             }
+            if feeds.iter().any(|feed| feed.url == url) {
+                return Err("feed already exists".into());
+            }
             feeds.push(FeedConfig {
                 id: new_id(),
                 name,
@@ -467,9 +485,12 @@ pub async fn refresh_feeds(
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
+    let feeds = state.read()?;
     if !force.unwrap_or(false) {
         if let Some(cache) = state.read_cache()? {
-            if now.saturating_sub(cache.last_success_at) < RSS_REFRESH_SECONDS {
+            if now.saturating_sub(cache.last_success_at) < RSS_REFRESH_SECONDS
+                && cache_matches_feeds(&cache, &feeds)
+            {
                 return Ok(cache.result);
             }
         }
@@ -480,7 +501,6 @@ pub async fn refresh_feeds(
             .map(|cache| cache.result)
             .ok_or_else(|| "feed refresh already running".into());
     };
-    let feeds = state.read()?;
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(8))
         .user_agent(format!("M.G-Linux-Toolbox/{}", env!("CARGO_PKG_VERSION")))
@@ -690,6 +710,43 @@ mod tests {
             store.begin_refresh_guard().is_some(),
             "an early return must not permanently block a later refresh"
         );
+    }
+
+    #[test]
+    fn fresh_cache_is_used_only_for_the_current_feed_configuration() {
+        let cache = NewsCacheFile {
+            version: 1,
+            last_checked_at: 1,
+            last_success_at: 1,
+            result: RefreshResult {
+                articles: vec![Article {
+                    title: "Ubuntu news".into(),
+                    source: "Ubuntu".into(),
+                    url: "https://ubuntu.com/blog/news".into(),
+                    published_at: None,
+                    description: None,
+                }],
+                errors: vec![],
+                refreshed_at: 1,
+            },
+        };
+        assert!(cache_matches_feeds(
+            &cache,
+            &[feed("ubuntu", "Ubuntu", "https://ubuntu.com/blog/feed")]
+        ));
+        assert!(!cache_matches_feeds(
+            &cache,
+            &[feed(
+                "arch",
+                "Arch Linux",
+                "https://archlinux.org/feeds/news/"
+            )]
+        ));
+    }
+
+    #[test]
+    fn refresh_interval_is_one_hour() {
+        assert_eq!(RSS_REFRESH_SECONDS, 3600);
     }
 
     #[test]

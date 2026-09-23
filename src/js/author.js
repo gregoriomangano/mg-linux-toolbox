@@ -4,7 +4,7 @@
 // opener plugin (never a shell, never an arbitrary command line).
 export const AUTHOR = {
   name: "Gregorio Mangano",
-  avatar: "assets/mg-linux-toolbox.svg",
+  avatar: "assets/branding/logochiaro.png",
   youtube: "https://www.youtube.com/@GregorioMangano",
   website: "https://www.manganogregorio.it/",
   github: "https://github.com/gregoriomangano",

@@ -1625,7 +1625,7 @@ function renderFeedsManager() {
       actions.replaceChildren(element("span","confirm-copy",t("feed.deleteConfirm",{name:feed.name})));
       const cancel=element("button","",t("action.cancel")); cancel.type="button"; cancel.addEventListener("click",renderFeedsManager);
       const confirm=element("button","danger-action",t("action.confirm")); confirm.type="button";
-      confirm.addEventListener("click",async()=>{state.feeds=await invoke("delete_feed",{id:feed.id});renderFeedsManager();renderNews();});
+      confirm.addEventListener("click",async()=>{state.feeds=await invoke("delete_feed",{id:feed.id});renderFeedsManager();await refreshFeeds(true);});
       actions.append(cancel,confirm);
     });
     actions.append(edit,remove); row.append(info,actions); list.append(row);
@@ -1670,7 +1670,7 @@ async function refreshFeeds(force=true) {
   if(state.rssBusy)return;
   clearTimeout(rssTimer);state.rssBusy=true;renderNews();
   try{state.news=await invoke("refresh_feeds",{force});}
-  catch{state.news=null;setText("news-status",t("feed.loadFailed"));}
+  catch{setText("news-status",t("feed.loadFailed"));}
   finally{state.rssBusy=false;renderNews();rssTimer=setTimeout(()=>refreshFeeds(false),RSS_REFRESH_SECONDS*1000);}
 }
 function openFeedEditor(feed=null) {
@@ -1752,6 +1752,7 @@ function setupTheme() {
   const apply=()=>{
     const theme=preference==="system"?(system.matches?"dark":"light"):preference;
     document.documentElement.dataset.theme=theme;
+    for(const logo of document.querySelectorAll("[data-brand-logo]"))logo.src=theme==="dark"?"assets/branding/logoscuro.png":"assets/branding/logochiaro.png";
     const label=theme==="dark"?t("theme.toLight"):t("theme.toDark");
     $("theme-toggle").setAttribute("aria-label",label);$("theme-toggle").title=label;
   };
@@ -1922,6 +1923,7 @@ document.addEventListener("visibilitychange",()=>{
   refreshSystem();
   if(state.page==="performance")refreshPerformanceLive();
   if(state.page==="overview"){if(aiSnapshotIsStale(state.ai))refreshAi();else scheduleAiRefresh();}
+  if(state.feeds.length&&(!state.news?.refreshed_at||Date.now()/1000-state.news.refreshed_at>=RSS_REFRESH_SECONDS))refreshFeeds(false);
 });
 const themeApply=setupTheme();
 setupTextScale();

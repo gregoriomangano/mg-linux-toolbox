@@ -13,7 +13,7 @@ const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 test("the welcome dialog still exists with project branding, texts, YouTube button and dismiss controls", () => {
   const html = read("../src/index.html");
   assert.match(html, /id="support-nudge-dialog"/);
-  assert.match(html, /class="nudge-avatar" src="assets\/mg-linux-toolbox\.svg" alt="M\.G Linux Toolbox"/);
+  assert.match(html, /class="nudge-avatar" data-brand-logo src="assets\/branding\/logochiaro\.png" alt="M\.G Linux Toolbox"/);
   assert.match(html, /data-i18n="nudge\.title"/);
   for (const key of ["nudge.text1", "nudge.text2", "nudge.text3", "nudge.text4", "nudge.text5"]) {
     assert.match(html, new RegExp(`data-i18n="${key.replace(".", "\\.")}"`), `${key} must be rendered`);
@@ -26,11 +26,11 @@ test("the welcome dialog still exists with project branding, texts, YouTube butt
 
 test("the project mark used by the popup is a local asset, present on disk", () => {
   const author = read("../src/js/author.js");
-  assert.match(author, /avatar:\s*"assets\/mg-linux-toolbox\.svg"/);
-  assert.ok(existsSync(new URL("../src/assets/mg-linux-toolbox.svg", import.meta.url)), "project mark must exist as a real file");
+  assert.match(author, /avatar:\s*"assets\/branding\/logochiaro\.png"/);
+  assert.ok(existsSync(new URL("../src/assets/branding/logochiaro.png", import.meta.url)), "project mark must exist as a real file");
   // A real file, not a symlink escaping the frontend root: that is exactly
   // what broke the logo in the dev build once.
-  assert.ok(!lstatSync(new URL("../src/assets/mg-linux-toolbox.svg", import.meta.url)).isSymbolicLink(), "project mark must not be a symlink");
+  assert.ok(!lstatSync(new URL("../src/assets/branding/logochiaro.png", import.meta.url)).isSymbolicLink(), "project mark must not be a symlink");
 });
 
 test("the YouTube link comes from the centralized author data and is a real channel URL", async () => {
